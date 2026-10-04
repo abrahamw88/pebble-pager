@@ -11,10 +11,11 @@ Spec and breadboard build are written. Firmware is **not written yet**: both ske
 ## Layout
 
 ```
-README.md                          full spec, parts, pins, power, ntfy, risks, build steps
+README.md                          spec: behavior, parts, pins, power, ntfy, risks
+docs/build-steps.md                breadboard wiring and test steps
 docs/concept.html                  visual concept sheet (open in a browser): look, colorways, every ring state
-firmware/prototype/prototype.ino   breadboard test firmware (test sketches 1-4 from the README)
-firmware/pebble/pebble.ino         the full pager firmware
+firmware/prototype/prototype.ino   breadboard test firmware; pick test 1-4 with TEST (see its header)
+firmware/pebble-pager/pebble-pager.ino  the full pager firmware
 ```
 
 An Arduino sketch must sit in a folder with the same name as its `.ino` file. Keep it that way.
@@ -46,7 +47,7 @@ arduino-cli upload  --fqbn esp32:esp32:XIAO_ESP32C3 -p <PORT> firmware/prototype
 arduino-cli monitor -p <PORT> -c baudrate=115200
 ```
 
-Use `firmware/pebble` for the full build. USB CDC On Boot is enabled by default for this board, so Serial works over USB. If upload fails, hold the XIAO's BOOT button while plugging it in, then retry.
+Use `firmware/pebble-pager` for the full build. USB CDC On Boot is enabled by default for this board, so Serial works over USB. If upload fails, hold the XIAO's BOOT button while plugging it in, then retry.
 
 ## Rules for AI tools
 
