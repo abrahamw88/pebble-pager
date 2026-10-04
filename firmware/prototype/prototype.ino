@@ -1,6 +1,6 @@
 // Pebble prototype: breadboard test firmware.
 // Runs the spec's test sketches one at a time. Sketch 1 is active; swap in 2-4 from
-// docs/build-spec.md (Build instructions) as the breadboard grows.
+// README.md (Build instructions section) as the breadboard grows.
 //   1. Hello over Serial        (active below)
 //   2. Buttons, ring and motor  (needs Adafruit NeoPixel)
 //   3. One ntfy message         (needs secrets.h with Wi-Fi and topic)

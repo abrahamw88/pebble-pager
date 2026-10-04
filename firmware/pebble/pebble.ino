@@ -1,4 +1,4 @@
-// Pebble: full pager firmware. Skeleton only; behavior is specified in docs/build-spec.md.
+// Pebble: full pager firmware. Skeleton only; behavior is specified in README.md.
 //
 // To build, in order:
 //   1. Buttons: tap vs hold, recording, 2 s send pause

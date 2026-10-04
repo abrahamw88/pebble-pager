@@ -1,27 +1,25 @@
 # Pebble Pager
 
-Two matching palm-size pager devices on a Seeed XIAO ESP32-C3. They swap "pulse messages" (a pattern of long and short button presses that plays back as light and buzz) over Wi-Fi through [ntfy](https://ntfy.sh). Every message is also posted to a parent's iPhone, which can post back.
+Two matching palm-size pagers on a Seeed XIAO ESP32-C3. They swap "pulse messages" (patterns of long and short button presses, played back as light and buzz) over Wi-Fi through [ntfy](https://ntfy.sh), and every message also reaches a parent's iPhone.
 
-This file is the entry point for any AI coding tool. Full detail is in `docs/`.
+**`README.md` is the spec.** Read the relevant section before changing pins, behavior, ring states, power or ntfy topics, and update it in the same change when the design moves. Do not copy its content here.
 
 ## Status
 
-Hardware spec and breadboard build are written. Firmware is **not written yet**: both sketches are skeletons.
+Spec and breadboard build are written. Firmware is **not written yet**: both sketches are skeletons.
 
 ## Layout
 
 ```
-AGENTS.md                      this file
-CLAUDE.md                      Claude-only notes (imports this file)
-docs/build-spec.md             source of truth: spec, behavior, parts, pins, power, ntfy, risks, build steps
-docs/concept.html              visual concept sheet (open in a browser): look, colorways, every ring state
-firmware/prototype/prototype.ino   breadboard test firmware (test sketches 1-4 from the spec)
+README.md                          full spec, parts, pins, power, ntfy, risks, build steps
+docs/concept.html                  visual concept sheet (open in a browser): look, colorways, every ring state
+firmware/prototype/prototype.ino   breadboard test firmware (test sketches 1-4 from the README)
 firmware/pebble/pebble.ino         the full pager firmware
 ```
 
 An Arduino sketch must sit in a folder with the same name as its `.ino` file. Keep it that way.
 
-## Hardware (details in `docs/build-spec.md`)
+## Pins and hardware rules
 
 | Function | XIAO pin | GPIO |
 |---|---|---|
@@ -33,20 +31,13 @@ An Arduino sketch must sit in a folder with the same name as its `.ino` file. Ke
 | Ring data (through 330 Ω) | D10 | 10 |
 
 - Never use D0, D6, D7, D8, D9 (boot-mode and serial pins).
-- The ring is 12 SK6812 **RGBW** pixels: use `NEO_GRBW + NEO_KHZ800`. Keep brightness around 30 of 255 (3V3 pin budget).
-- Buttons are on GPIO0-5, which can wake the chip from deep sleep.
-- Power the ring through D5 only when it is showing something.
-
-## Behavior summary
-
-- Button 1 tap: play the waiting message, tap again to replay. Hold: record presses, send 2 s after the last one. A single tap never sends.
-- Button 2 tap: battery level. Hold 5 s: Wi-Fi setup. Hold 10 s: turn off.
-- Ring states and timings are in `docs/build-spec.md` (Behavior) and shown in `docs/concept.html`.
-- Starting values to tune, keep them as named constants: 2 s send pause, 12 presses max, 15 s max recording, 30 s check interval, 5 min away scan.
+- The ring is 12 SK6812 **RGBW** pixels: use `NEO_GRBW + NEO_KHZ800`. Keep brightness around 30 of 255.
+- Power the ring through D5 only while it is showing something.
+- Keep tunable values (2 s send pause, 12 presses, 15 s recording, 30 s check, 5 min away scan) as named constants.
 
 ## Build, upload, monitor
 
-`arduino-cli` lives in `~/.local/bin` (on PATH in new terminals). The ESP32 core and the Adafruit NeoPixel library are installed.
+`arduino-cli` is in `~/.local/bin`. The ESP32 core and the Adafruit NeoPixel library are installed.
 
 ```bash
 arduino-cli board list                                    # find the serial port
@@ -55,7 +46,7 @@ arduino-cli upload  --fqbn esp32:esp32:XIAO_ESP32C3 -p <PORT> firmware/prototype
 arduino-cli monitor -p <PORT> -c baudrate=115200
 ```
 
-Use `firmware/pebble` instead of `firmware/prototype` for the full build. USB CDC On Boot is already enabled by default for this board, so Serial works over USB. If upload fails, hold the XIAO's BOOT button while plugging it in, then retry.
+Use `firmware/pebble` for the full build. USB CDC On Boot is enabled by default for this board, so Serial works over USB. If upload fails, hold the XIAO's BOOT button while plugging it in, then retry.
 
 ## Rules for AI tools
 
