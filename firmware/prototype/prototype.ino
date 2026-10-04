@@ -1,6 +1,7 @@
 // Pebble prototype: breadboard test firmware.
 // Pick one test with TEST below, or on the command line with
 //   --build-property compiler.cpp.extra_flags=-DTEST=2
+//   0. Bare-board check, no wiring and no secrets.h: chip info, Wi-Fi scan, internal temperature.
 //   1. Hello over Serial: proves upload and Serial work.
 //   2. Buttons, light ring and motor: every part wired so far works.
 //   3. One ntfy message to the phone: Wi-Fi and ntfy work. Needs secrets.h (git-ignored) with
@@ -9,7 +10,7 @@
 // Wiring steps and expected results are in docs/build-steps.md.
 
 #ifndef TEST
-#define TEST 1
+#define TEST 0
 #endif
 
 // Pin plan, same as the full build.
@@ -20,7 +21,39 @@ const int MOTOR = D4;
 const int RING_PWR = D5;
 const int RING_DATA = D10;
 
-#if TEST == 1
+#if TEST == 0
+
+#include <WiFi.h>
+
+void setup() {
+  Serial.begin(115200);
+  unsigned long t0 = millis();
+  while (!Serial && millis() - t0 < 3000) delay(10);   // wait for the USB serial monitor
+  Serial.println("\n== Pebble bare-board check ==");
+  Serial.printf("Chip: %s rev %d, %d core(s), %d MHz\n", ESP.getChipModel(), ESP.getChipRevision(),
+                ESP.getChipCores(), ESP.getCpuFreqMHz());
+  Serial.printf("Flash: %u KB, free heap: %u KB\n", ESP.getFlashChipSize() / 1024, ESP.getFreeHeap() / 1024);
+  Serial.printf("Internal temperature: %.1f C\n", temperatureRead());
+
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  Serial.printf("MAC: %s\n", WiFi.macAddress().c_str());   // valid only after the radio starts
+  Serial.println("Scanning Wi-Fi (2.4 GHz only)...");
+  int n = WiFi.scanNetworks();
+  if (n <= 0) {
+    Serial.println("No networks found: check the antenna is clicked on.");
+  } else {
+    Serial.printf("%d networks found:\n", n);
+    for (int i = 0; i < n; i++)
+      Serial.printf("  %-28s ch %2d  %4d dBm  %s\n", WiFi.SSID(i).c_str(), WiFi.channel(i), WiFi.RSSI(i),
+                    WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? "open" : "secured");
+  }
+  Serial.println("== done ==");
+}
+
+void loop() {}
+
+#elif TEST == 1
 
 void setup() {
   Serial.begin(115200);
