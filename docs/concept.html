@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1440">
+<title>Pebble concept</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Outfit:wght@500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F2EF}
+button.state{font:inherit;color:inherit;background:none;border:2px solid transparent;border-radius:14px;padding:8px;cursor:pointer}
+button.state[aria-pressed="true"]{border-color:#1F2124}
+button.state:focus-visible,select:focus-visible{outline:3px solid #1F2124;outline-offset:2px}
+</style>
+</head>
+<body>
+<!-- Concept sheet for Pebble. Standalone: open in a browser, no build step.
+     Pick a colorway and a ring state from the controls, or click a state in "What the ring says". -->
+<div id="app"></div>
+<script type="text/template" id="tpl">
+<div style="width: 1440px; min-height: 1660px; box-sizing: border-box; padding: 56px 64px; background: #F3F2EF; color: #1F2124; font-family: 'DM Sans', system-ui, sans-serif; display: flex; flex-direction: column; gap: 32px">
+
+<div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 40px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: #5F6267; font-weight: 500">Concept render</div>
+<h1 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 64px; font-weight: 600; line-height: 1">Pebble</h1>
+<p style="margin: 0; font-size: 20px; color: #43464B; max-width: 640px; line-height: 1.4">A palm-size pager for two: one big button to send, one small button to check, and a ring of soft light.</p>
+</div>
+<div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; max-width: 560px">
+<div style="padding: 10px 16px; border-radius: 999px; background: #E6E4DF; font-size: 15px; font-weight: 500">About 75 × 46 × 17 mm</div>
+<div style="padding: 10px 16px; border-radius: 999px; background: #E6E4DF; font-size: 15px; font-weight: 500">USB-C charging</div>
+<div style="padding: 10px 16px; border-radius: 999px; background: #E6E4DF; font-size: 15px; font-weight: 500">Wi-Fi</div>
+<div style="padding: 10px 16px; border-radius: 999px; background: #E6E4DF; font-size: 15px; font-weight: 500">Week-long battery target</div>
+<div style="padding: 10px 16px; border-radius: 999px; background: #E6E4DF; font-size: 15px; font-weight: 500">12-pixel light ring</div>
+</div>
+</div>
+<div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: center">
+<label style="display: flex; gap: 10px; align-items: center; font-size: 15px; font-weight: 500">Colorway <select id="colorway" style="font: inherit; padding: 8px 12px; border-radius: 10px; border: 1px solid #A9ABAF; background: #FFFFFF; min-height: 44px">{{{colorwayOptions}}}</select></label>
+<label style="display: flex; gap: 10px; align-items: center; font-size: 15px; font-weight: 500">Ring state <select id="ring" style="font: inherit; padding: 8px 12px; border-radius: 10px; border: 1px solid #A9ABAF; background: #FFFFFF; min-height: 44px">{{{ringOptions}}}</select></label>
+</div>
+
+<div style="display: grid; grid-template-columns: 600px minmax(0, 1fr); gap: 40px; flex-grow: 1">
+
+<div style="background: #EAE8E5; border-radius: 32px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 32px">
+<svg width="536" height="473" viewBox="0 0 680 600" role="img" aria-label="Three-quarter view of the Pebble pager">
+<defs>
+<linearGradient id="heroBody" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" style="stop-color: {{c.hi}}"></stop>
+<stop offset="0.6" style="stop-color: {{c.body}}"></stop>
+<stop offset="1" style="stop-color: {{c.shade}}"></stop>
+</linearGradient>
+<linearGradient id="heroBtn" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" style="stop-color: {{c.hi}}"></stop>
+<stop offset="1" style="stop-color: {{c.button}}"></stop>
+</linearGradient>
+<filter id="heroGlow" x="-1" y="-1" width="3" height="3">
+<feGaussianBlur stdDeviation="12"></feGaussianBlur>
+</filter>
+<filter id="heroShadow" x="-0.5" y="-0.5" width="2" height="2">
+<feGaussianBlur stdDeviation="14"></feGaussianBlur>
+</filter>
+<filter id="pixGlow" x="-2" y="-2" width="5" height="5">
+<feGaussianBlur stdDeviation="5"></feGaussianBlur>
+</filter>
+</defs>
+
+<g transform="translate(300,200) matrix(0.92,0.38,-0.55,0.72,0,0)">
+<path d="M120 0 C 186 0 240 44 240 110 L 240 317 C 240 357 207 390 167 390 L 73 390 C 33 390 0 357 0 317 L 0 110 C 0 44 54 0 120 0 Z" fill="#000000" opacity="0.16" filter="url(#heroShadow)"></path>
+</g>
+
+<g transform="translate(296,170) matrix(0.92,0.38,-0.55,0.72,0,0)"><path d="M120 0 C 186 0 240 44 240 110 L 240 317 C 240 357 207 390 167 390 L 73 390 C 33 390 0 357 0 317 L 0 110 C 0 44 54 0 120 0 Z" fill="{{c.deep}}"></path></g>
+<g transform="translate(296,162) matrix(0.92,0.38,-0.55,0.72,0,0)"><path d="M120 0 C 186 0 240 44 240 110 L 240 317 C 240 357 207 390 167 390 L 73 390 C 33 390 0 357 0 317 L 0 110 C 0 44 54 0 120 0 Z" fill="{{c.shade}}"></path></g>
+<g transform="translate(296,154) matrix(0.92,0.38,-0.55,0.72,0,0)"><path d="M120 0 C 186 0 240 44 240 110 L 240 317 C 240 357 207 390 167 390 L 73 390 C 33 390 0 357 0 317 L 0 110 C 0 44 54 0 120 0 Z" fill="{{c.shade}}"></path></g>
+<g transform="translate(296,146) matrix(0.92,0.38,-0.55,0.72,0,0)"><path d="M120 0 C 186 0 240 44 240 110 L 240 317 C 240 357 207 390 167 390 L 73 390 C 33 390 0 357 0 317 L 0 110 C 0 44 54 0 120 0 Z" fill="{{c.shade}}"></path></g>
+<g transform="translate(296,138) matrix(0.92,0.38,-0.55,0.72,0,0)"><path d="M120 0 C 186 0 240 44 240 110 L 240 317 C 240 357 207 390 167 390 L 73 390 C 33 390 0 357 0 317 L 0 110 C 0 44 54 0 120 0 Z" fill="{{c.shade}}"></path></g>
+<g transform="translate(296,130) matrix(0.92,0.38,-0.55,0.72,0,0)"><path d="M120 0 C 186 0 240 44 240 110 L 240 317 C 240 357 207 390 167 390 L 73 390 C 33 390 0 357 0 317 L 0 110 C 0 44 54 0 120 0 Z" fill="{{c.shade}}"></path></g>
+<g transform="translate(296,122) matrix(0.92,0.38,-0.55,0.72,0,0)"><path d="M120 0 C 186 0 240 44 240 110 L 240 317 C 240 357 207 390 167 390 L 73 390 C 33 390 0 357 0 317 L 0 110 C 0 44 54 0 120 0 Z" fill="{{c.shade}}"></path></g>
+<g transform="translate(296,114) matrix(0.92,0.38,-0.55,0.72,0,0)"><path d="M120 0 C 186 0 240 44 240 110 L 240 317 C 240 357 207 390 167 390 L 73 390 C 33 390 0 357 0 317 L 0 110 C 0 44 54 0 120 0 Z" fill="{{c.shade}}"></path></g>
+
+<rect x="177" y="461" width="30" height="10" rx="5" fill="#3A3B3F" transform="rotate(22 192 466)"></rect>
+
+<path d="M386 170 C 368 70, 474 58, 406 172" fill="none" stroke="#C4A27F" style="stroke-width: 8; stroke-linecap: round"></path>
+
+<g transform="translate(296,110) matrix(0.92,0.38,-0.55,0.72,0,0)">
+<path d="M120 0 C 186 0 240 44 240 110 L 240 317 C 240 357 207 390 167 390 L 73 390 C 33 390 0 357 0 317 L 0 110 C 0 44 54 0 120 0 Z" fill="url(#heroBody)"></path>
+<path d="M120 0 C 186 0 240 44 240 110 L 240 317 C 240 357 207 390 167 390 L 73 390 C 33 390 0 357 0 317 L 0 110 C 0 44 54 0 120 0 Z" transform="translate(6,6) scale(0.95,0.969)" fill="none" stroke="#FFFFFF" opacity="0.5" style="stroke-width: 2"></path>
+<rect x="102" y="14" width="36" height="11" rx="5.5" fill="{{c.deep}}"></rect>
+<circle cx="120" cy="205" r="66" fill="{{c.deep}}" opacity="0.45"></circle>
+<circle cx="172" cy="318" r="21" fill="{{c.deep}}" opacity="0.7"></circle>
+</g>
+
+<g transform="translate(296,108) matrix(0.92,0.38,-0.55,0.72,0,0)"><circle cx="120" cy="205" r="58" fill="{{c.deep}}"></circle></g>
+<g transform="translate(296,105) matrix(0.92,0.38,-0.55,0.72,0,0)"><circle cx="120" cy="205" r="58" fill="{{c.shade}}"></circle></g>
+<g transform="translate(296,102) matrix(0.92,0.38,-0.55,0.72,0,0)"><circle cx="120" cy="205" r="58" fill="{{c.shade}}"></circle></g>
+<g transform="translate(296,99) matrix(0.92,0.38,-0.55,0.72,0,0)">
+<circle cx="120" cy="205" r="58" fill="url(#heroBtn)"></circle>
+<path transform="translate(0,5)" d="M120 222 C 94 205, 97 185, 111 186 C 116 187, 120 194, 120 194 C 120 194, 124 187, 129 186 C 143 185, 146 205, 120 222 Z" fill="none" stroke="{{c.icon}}" style="stroke-width: 3.5; stroke-linejoin: round"></path>
+</g>
+
+<g transform="translate(296,110) matrix(0.92,0.38,-0.55,0.72,0,0)">
+<circle cx="172" cy="318" r="14" fill="{{c.button}}"></circle>
+<circle cx="172" cy="318" r="3.5" fill="{{c.icon}}"></circle>
+</g>
+
+<g transform="translate(296,110) matrix(0.92,0.38,-0.55,0.72,0,0)">
+<circle cx="120" cy="205" r="78" fill="none" stroke="#FFFFFF" opacity="0.6" style="stroke-width: 10"></circle>
+<circle cx="120.0" cy="127.0" r="11" fill="{{px.p0.color}}" opacity="{{px.p0.glow}}" filter="url(#pixGlow)"></circle>
+<circle cx="159.0" cy="137.5" r="11" fill="{{px.p1.color}}" opacity="{{px.p1.glow}}" filter="url(#pixGlow)"></circle>
+<circle cx="187.5" cy="166.0" r="11" fill="{{px.p2.color}}" opacity="{{px.p2.glow}}" filter="url(#pixGlow)"></circle>
+<circle cx="198.0" cy="205.0" r="11" fill="{{px.p3.color}}" opacity="{{px.p3.glow}}" filter="url(#pixGlow)"></circle>
+<circle cx="187.5" cy="244.0" r="11" fill="{{px.p4.color}}" opacity="{{px.p4.glow}}" filter="url(#pixGlow)"></circle>
+<circle cx="159.0" cy="272.5" r="11" fill="{{px.p5.color}}" opacity="{{px.p5.glow}}" filter="url(#pixGlow)"></circle>
+<circle cx="120.0" cy="283.0" r="11" fill="{{px.p6.color}}" opacity="{{px.p6.glow}}" filter="url(#pixGlow)"></circle>
+<circle cx="81.0" cy="272.5" r="11" fill="{{px.p7.color}}" opacity="{{px.p7.glow}}" filter="url(#pixGlow)"></circle>
+<circle cx="52.5" cy="244.0" r="11" fill="{{px.p8.color}}" opacity="{{px.p8.glow}}" filter="url(#pixGlow)"></circle>
+<circle cx="42.0" cy="205.0" r="11" fill="{{px.p9.color}}" opacity="{{px.p9.glow}}" filter="url(#pixGlow)"></circle>
+<circle cx="52.5" cy="166.0" r="11" fill="{{px.p10.color}}" opacity="{{px.p10.glow}}" filter="url(#pixGlow)"></circle>
+<circle cx="81.0" cy="137.5" r="11" fill="{{px.p11.color}}" opacity="{{px.p11.glow}}" filter="url(#pixGlow)"></circle>
+<circle cx="120.0" cy="127.0" r="4" fill="{{px.p0.color}}" opacity="{{px.p0.core}}"></circle>
+<circle cx="159.0" cy="137.5" r="4" fill="{{px.p1.color}}" opacity="{{px.p1.core}}"></circle>
+<circle cx="187.5" cy="166.0" r="4" fill="{{px.p2.color}}" opacity="{{px.p2.core}}"></circle>
+<circle cx="198.0" cy="205.0" r="4" fill="{{px.p3.color}}" opacity="{{px.p3.core}}"></circle>
+<circle cx="187.5" cy="244.0" r="4" fill="{{px.p4.color}}" opacity="{{px.p4.core}}"></circle>
+<circle cx="159.0" cy="272.5" r="4" fill="{{px.p5.color}}" opacity="{{px.p5.core}}"></circle>
+<circle cx="120.0" cy="283.0" r="4" fill="{{px.p6.color}}" opacity="{{px.p6.core}}"></circle>
+<circle cx="81.0" cy="272.5" r="4" fill="{{px.p7.color}}" opacity="{{px.p7.core}}"></circle>
+<circle cx="52.5" cy="244.0" r="4" fill="{{px.p8.color}}" opacity="{{px.p8.core}}"></circle>
+<circle cx="42.0" cy="205.0" r="4" fill="{{px.p9.color}}" opacity="{{px.p9.core}}"></circle>
+<circle cx="52.5" cy="166.0" r="4" fill="{{px.p10.color}}" opacity="{{px.p10.core}}"></circle>
+<circle cx="81.0" cy="137.5" r="4" fill="{{px.p11.color}}" opacity="{{px.p11.core}}"></circle>
+</g>
+
+<g stroke="#1F2124" opacity="0.4" style="stroke-width: 1.5">
+<line x1="440" y1="110" x2="632" y2="110"></line>
+<line x1="378" y1="270" x2="632" y2="270"></line>
+<line x1="350" y1="325" x2="632" y2="325"></line>
+<line x1="294" y1="408" x2="632" y2="408"></line>
+<line x1="212" y1="470" x2="632" y2="470"></line>
+</g>
+<circle cx="650" cy="110" r="16" fill="#1F2124"></circle>
+<text x="650" y="116" fill="#FFFFFF" style="font-size: 16px; font-weight: 600; text-anchor: middle; font-family: 'DM Sans', sans-serif">4</text>
+<circle cx="650" cy="270" r="16" fill="#1F2124"></circle>
+<text x="650" y="276" fill="#FFFFFF" style="font-size: 16px; font-weight: 600; text-anchor: middle; font-family: 'DM Sans', sans-serif">2</text>
+<circle cx="650" cy="325" r="16" fill="#1F2124"></circle>
+<text x="650" y="331" fill="#FFFFFF" style="font-size: 16px; font-weight: 600; text-anchor: middle; font-family: 'DM Sans', sans-serif">1</text>
+<circle cx="650" cy="408" r="16" fill="#1F2124"></circle>
+<text x="650" y="414" fill="#FFFFFF" style="font-size: 16px; font-weight: 600; text-anchor: middle; font-family: 'DM Sans', sans-serif">3</text>
+<circle cx="650" cy="470" r="16" fill="#1F2124"></circle>
+<text x="650" y="476" fill="#FFFFFF" style="font-size: 16px; font-weight: 600; text-anchor: middle; font-family: 'DM Sans', sans-serif">5</text>
+</svg>
+<div style="font-size: 15px; color: #5F6267">Shown in {{colorwayName}}, with the ring {{ringLabel}}.</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 24px; min-width: 0">
+
+<div style="background: #FFFFFF; border-radius: 24px; padding: 28px 32px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 32px">
+<div style="display: flex; gap: 14px">
+<div style="flex-shrink: 0; width: 28px; height: 28px; border-radius: 999px; background: #1F2124; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center">1</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="font-weight: 600; font-size: 17px">Send button</div>
+<div style="font-size: 15px; color: #4A4D52; line-height: 1.45">Large and domed, with a small embossed heart. Tap to play a waiting message. Hold, then press a pattern, to send it.</div>
+</div>
+</div>
+<div style="display: flex; gap: 14px">
+<div style="flex-shrink: 0; width: 28px; height: 28px; border-radius: 999px; background: #1F2124; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center">2</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="font-weight: 600; font-size: 17px">Light ring</div>
+<div style="font-size: 15px; color: #4A4D52; line-height: 1.45">Twelve NeoPixels, each with a natural-white LED, behind a frosted ring. Plays each message in its sender's color and shows sending, battery and setup status. Dark when idle.</div>
+</div>
+</div>
+<div style="display: flex; gap: 14px">
+<div style="flex-shrink: 0; width: 28px; height: 28px; border-radius: 999px; background: #1F2124; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center">3</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="font-weight: 600; font-size: 17px">Check button</div>
+<div style="font-size: 15px; color: #4A4D52; line-height: 1.45">Small and recessed, off to one side. Tap for battery level, hold 5 seconds for Wi-Fi setup, hold 10 to turn off.</div>
+</div>
+</div>
+<div style="display: flex; gap: 14px">
+<div style="flex-shrink: 0; width: 28px; height: 28px; border-radius: 999px; background: #1F2124; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center">4</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="font-weight: 600; font-size: 17px">Lanyard loop</div>
+<div style="font-size: 15px; color: #4A4D52; line-height: 1.45">Clips to a backpack zipper or key ring, so it rides along without being held.</div>
+</div>
+</div>
+<div style="display: flex; gap: 14px">
+<div style="flex-shrink: 0; width: 28px; height: 28px; border-radius: 999px; background: #1F2124; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center">5</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="font-weight: 600; font-size: 17px">USB-C port</div>
+<div style="font-size: 15px; color: #4A4D52; line-height: 1.45">The bottom edge is flat so the XIAO board can sit against it, with its own USB-C port as the charging port.</div>
+</div>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+<div style="background: #FFFFFF; border-radius: 24px; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 12px">
+<svg width="120" height="180" viewBox="0 0 200 300" role="img" aria-label="Back view">
+<path d="M120 0 C 186 0 240 44 240 110 L 240 317 C 240 357 207 390 167 390 L 73 390 C 33 390 0 357 0 317 L 0 110 C 0 44 54 0 120 0 Z" transform="translate(20,20) scale(0.6667)" fill="{{c.body}}"></path>
+<rect x="88" y="30" width="24" height="7" rx="3.5" fill="{{c.deep}}"></rect>
+<rect x="52" y="118" width="96" height="40" rx="12" fill="{{c.shade}}" opacity="0.6"></rect>
+<text x="100" y="144" fill="{{c.icon}}" style="font-size: 16px; font-weight: 600; text-anchor: middle; font-family: 'DM Sans', sans-serif">[Name]</text>
+<circle cx="100" cy="222" r="4" fill="#2B2C2E"></circle>
+</svg>
+<div style="text-align: center; display: flex; flex-direction: column; gap: 2px">
+<div style="font-weight: 600; font-size: 15px">Back</div>
+<div style="font-size: 14px; color: #5F6267; line-height: 1.4">Name plate and a pinhole for reset</div>
+</div>
+</div>
+<div style="background: #FFFFFF; border-radius: 24px; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 12px">
+<svg width="72" height="180" viewBox="0 0 120 300" role="img" aria-label="Side view">
+<rect x="22" y="152" width="10" height="64" rx="5" fill="{{c.button}}"></rect>
+<rect x="30" y="20" width="60" height="260" rx="28" fill="{{c.body}}"></rect>
+<rect x="30" y="204" width="5" height="40" rx="2" fill="{{c.deep}}"></rect>
+<rect x="30" y="76" width="4" height="22" rx="2" fill="{{c.deep}}" opacity="0.6"></rect>
+</svg>
+<div style="text-align: center; display: flex; flex-direction: column; gap: 2px">
+<div style="font-weight: 600; font-size: 15px">Side</div>
+<div style="font-size: 14px; color: #5F6267; line-height: 1.4">Send button stands proud; check button sits flush</div>
+</div>
+</div>
+<div style="background: #FFFFFF; border-radius: 24px; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 12px">
+<div style="height: 180px; display: flex; align-items: center">
+<svg width="160" height="80" viewBox="0 0 200 100" role="img" aria-label="Bottom view with USB-C port">
+<rect x="20" y="20" width="160" height="60" rx="28" fill="{{c.body}}"></rect>
+<rect x="82" y="44" width="36" height="12" rx="6" fill="#2B2C2E"></rect>
+<rect x="90" y="48" width="20" height="4" rx="2" fill="#6B6E73"></rect>
+</svg>
+</div>
+<div style="text-align: center; display: flex; flex-direction: column; gap: 2px">
+<div style="font-weight: 600; font-size: 15px">Bottom</div>
+<div style="font-size: 14px; color: #5F6267; line-height: 1.4">USB-C for charging and updates</div>
+</div>
+</div>
+</div>
+
+{{{legend}}}
+
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 520px; gap: 40px">
+<div style="background: #FFFFFF; border-radius: 24px; padding: 24px 28px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<div style="font-weight: 600; font-size: 17px">Colorways</div>
+<div style="font-size: 14px; color: #5F6267">Soft matte pastels, tone-on-tone, quiet enough for a classroom</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+{{{swatches}}}
+</div>
+</div>
+<div style="background: #FFFFFF; border-radius: 24px; padding: 24px 28px; display: flex; flex-direction: column; gap: 16px">
+<div style="font-weight: 600; font-size: 17px">Size next to a credit card</div>
+<div style="display: flex; align-items: flex-end; gap: 28px; flex-grow: 1">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 8px">
+<div style="width: 257px; height: 162px; border-radius: 12px; border: 2px dashed #A9ABAF; box-sizing: border-box"></div>
+<div style="font-size: 14px; color: #5F6267">Credit card, 86 × 54 mm</div>
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 8px">
+<div style="width: 137px; height: 224px; border-radius: 46% 46% 31% 31% / 28% 28% 19% 19%; background: {{c.body}}"></div>
+<div style="font-size: 14px; color: #5F6267">Pebble, about 75 × 46 mm</div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+</script>
+<script>
+const palettes = {
+  Lavender: { hi: '#EAE3F5', body: '#D5C9EB', shade: '#BBACD8', button: '#E1D7F2', deep: '#9A88BF', icon: '#8572AC' },
+  Blush: { hi: '#F9E6EB', body: '#F1CFD9', shade: '#DFB2BF', button: '#F6DCE4', deep: '#C38C9B', icon: '#AF7787' },
+  Mint: { hi: '#E5F1E4', body: '#CBE2CA', shade: '#ADCBAC', button: '#DAEAD9', deep: '#8BAC8A', icon: '#769775' },
+  Sky: { hi: '#E3EDF8', body: '#C9DCF0', shade: '#A9C2DF', button: '#D7E5F4', deep: '#8BA4C7', icon: '#7590B5' }
+};
+// Every ring state from the build spec's behavior table.
+// `lit` is how many of the 12 pixels are shown lit in the still render; `label` finishes "with the ring ...".
+const ringStates = [
+  { id: 'recording', name: 'Recording', color: '#F29BB5', lit: 7, desc: "The device's own color while button 1 is held", label: "filling in the device's own color while button 1 is held" },
+  { id: 'playing', name: 'Message', color: '#7FB2F0', lit: 12, desc: "Pulses in the sender's color, with matching buzzes", label: "pulsing a message in the sender's color" },
+  { id: 'waiting', name: 'Message waiting', color: '#7FB2F0', lit: 1, desc: "One pixel blinking slowly in the sender's color", label: "blinking one pixel in the sender's color" },
+  { id: 'joining', name: 'Joining Wi-Fi', color: '#6FC6D6', lit: 4, desc: 'Cyan chase while joining and sending', label: 'chasing in cyan while it joins Wi-Fi and sends' },
+  { id: 'sent', name: 'Sent', color: '#6CC795', lit: 7, desc: 'Green sweep when the message is sent', label: 'sweeping green after a send' },
+  { id: 'delivered', name: 'Delivered', color: '#6CC795', lit: 12, desc: 'A second green sweep with a short buzz', label: 'sweeping green a second time with a short buzz' },
+  { id: 'failed', name: "Couldn't send", color: '#E8736B', lit: 12, desc: '3 red blinks and a long buzz; message queued to retry', label: 'blinking red three times' },
+  { id: 'battery', name: 'Battery level', color: '#6CC795', lit: 9, desc: '1 to 12 pixels lit after a button 2 tap', label: 'showing the battery level' },
+  { id: 'low', name: 'Low battery', color: '#EDAE55', lit: 12, desc: 'Amber blink every 60 s under 20%', label: 'blinking amber for low battery' },
+  { id: 'setup', name: 'Wi-Fi setup', color: '#A98BE0', lit: 12, desc: 'Purple, filling then solid', label: 'purple for Wi-Fi setup' },
+  { id: 'off', name: 'Turning off', color: '#E8736B', lit: 5, desc: 'Red, emptying, when button 2 is held to 10 s', label: 'emptying red as the device turns off' },
+  { id: 'idle', name: 'Idle', color: '#000000', lit: 0, desc: 'Dark; the ring is powered off between animations', label: 'dark' }
+];
+const state = { colorway: 'Lavender', ring: 'recording' };
+const tpl = document.getElementById('tpl').textContent;
+
+function hex2rgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+function get(o, path) { return path.split('.').reduce((a, k) => (a == null ? a : a[k]), o); }
+
+function build() {
+  const c = palettes[state.colorway];
+  const ring = ringStates.find(r => r.id === state.ring);
+  const px = {};
+  for (let i = 0; i < 12; i++) {
+    const lit = i < ring.lit;
+    px['p' + i] = { color: lit ? ring.color : c.shade, glow: lit ? 0.9 : 0, core: lit ? 1 : 0.7 };
+  }
+  const swatches = Object.keys(palettes).map(name => {
+    const p = palettes[name];
+    const sel = name === state.colorway ? '2px solid #1F2124' : '2px solid transparent';
+    return `<div style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px; border-radius: 18px; border: ${sel}">
+<svg width="84" height="133" viewBox="0 0 120 190" role="img" aria-label="${name} colorway swatch">
+<path d="M53 18 C 50 -4, 70 -4, 67 18" fill="none" stroke="#C4A27F" style="stroke-width: 4; stroke-linecap: round"></path>
+<path d="M120 0 C 186 0 240 44 240 110 L 240 317 C 240 357 207 390 167 390 L 73 390 C 33 390 0 357 0 317 L 0 110 C 0 44 54 0 120 0 Z" transform="translate(10,10) scale(0.4167,0.4231)" fill="${p.body}"></path>
+<circle cx="60" cy="92" r="27" fill="${p.deep}" opacity="0.55"></circle>
+<circle cx="60" cy="91" r="23" fill="${p.button}"></circle>
+<circle cx="82" cy="144" r="9" fill="${p.deep}" opacity="0.7"></circle>
+<circle cx="82" cy="144" r="6" fill="${p.button}"></circle>
+</svg>
+<div style="font-size: 14px; font-weight: 500">${name}</div>
+</div>`;
+  }).join('\n');
+  const legend = `<div style="background: #FFFFFF; border-radius: 24px; padding: 24px 28px; display: flex; flex-direction: column; gap: 18px">
+<div style="font-weight: 600; font-size: 17px">What the ring says</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+${ringStates.map(r => { const [R, G, B] = hex2rgb(r.color === '#000000' ? '#9A9CA1' : r.color); return `<button class="state" data-ring="${r.id}" aria-pressed="${r.id === state.ring}" style="display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center">
+<span style="width: 22px; height: 22px; border-radius: 999px; background: ${r.color === '#000000' ? '#2B2C2E' : r.color}; box-shadow: ${r.color === '#000000' ? 'none' : `0 0 18px 6px rgba(${R}, ${G}, ${B}, 0.5)`}; margin: 8px 0"></span>
+<span style="font-size: 14px; font-weight: 600">${r.name}</span>
+<span style="font-size: 13px; color: #5F6267">${r.desc}</span>
+</button>`; }).join('\n')}
+</div>
+<div style="font-size: 14px; color: #4A4D52; line-height: 1.45">The ring powers off fully between animations to save battery. Each device has its own color, and messages play in the sender's color. Pink and blue here are example device colors.</div>
+</div>`;
+  return {
+    c, px, swatches, legend,
+    ringLabel: ring.label, colorwayName: state.colorway,
+    colorwayOptions: Object.keys(palettes).map(n => `<option${n === state.colorway ? ' selected' : ''}>${n}</option>`).join(''),
+    ringOptions: ringStates.map(r => `<option value="${r.id}"${r.id === state.ring ? ' selected' : ''}>${r.name}</option>`).join('')
+  };
+}
+
+function render() {
+  const vals = build();
+  document.getElementById('app').innerHTML = tpl.replace(/\{\{\{?([\w.]+)\}?\}\}/g, (_, p) => get(vals, p));
+  document.getElementById('colorway').onchange = e => { state.colorway = e.target.value; render(); document.getElementById('colorway').focus(); };
+  document.getElementById('ring').onchange = e => { state.ring = e.target.value; render(); document.getElementById('ring').focus(); };
+  document.querySelectorAll('button.state').forEach(b => b.onclick = () => { state.ring = b.dataset.ring; render(); document.querySelector(`button.state[data-ring="${state.ring}"]`).focus(); });
+}
+render();
+</script>
+</body>
+</html>

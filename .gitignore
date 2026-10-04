@@ -1,0 +1,10 @@
+.DS_Store
+build/
+*.bin
+*.elf
+
+# Wi-Fi credentials, ntfy topics and tokens
+secrets.h
+
+# Claude Code local settings
+.claude/settings.local.json
