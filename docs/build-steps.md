@@ -111,7 +111,7 @@ ntfy needs no account to start. On the free tier the topic name works as the pas
 2. Pick a base name: `pebble-` plus at least seven random letters and digits, like `pebble-7qk2x9m`. Your three topics are that name plus `-a`, `-b` and `-phone`.
 3. On the iPhone, install ntfy from the App Store and allow notifications when it asks. Tap +, enter your `-phone` topic, and keep the default server, ntfy.sh.
 4. Test 1, from the computer: in a terminal, open ntfy.sh/app in a browser, subscribe to your -phone topic and publish a message from there. The phone should show it within a few seconds.
-5. Test 2, from the breadboard: create `firmware/prototype/secrets.h` (git-ignored) defining `WIFI_NAME`, `WIFI_PASS` and `TOPIC_URL` (your -phone topic URL), and set `TEST` to 3. The network must be 2.4 GHz.
+5. Test 2, from the breadboard: run `TEST` 5 once to save your Wi-Fi from the phone (2.4 GHz only), create `firmware/prototype/secrets.h` (git-ignored) defining `TOPIC_URL` (your -phone topic URL), and set `TEST` to 3.
 6. Upload it and open the Serial Monitor at 115200 baud. It sends once each time the board starts; press RESET to send again.
 
 **Check:** the Serial Monitor shows "Wi-Fi connected" and "ntfy replied 200", and the phone shows a notification titled "Pebble test" that reads "Hello from the breadboard".
