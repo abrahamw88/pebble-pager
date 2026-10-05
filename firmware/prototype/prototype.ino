@@ -420,9 +420,16 @@ void loop() {}
 #define FW_VERSION 1
 #endif
 #ifdef OTA_LOCAL_IP   // -DOTA_LOCAL_IP=192.168.x.y : test against a local web server on port 8000
+#ifndef STR_
 #define STR_(x) #x
 #define STR(x) STR_(x)
+#endif
 #define OTA_BASE "http://" STR(OTA_LOCAL_IP) ":8000/"
+#endif
+#ifdef OTA_HOST   // -DOTA_HOST=name : point at another https host (certificate tests)
+#define STR_(x) #x
+#define STR(x) STR_(x)
+#define OTA_BASE "https://" STR(OTA_HOST) "/"
 #endif
 #ifndef OTA_BASE   // where manifest.txt and the .bin live; secrets.h can override for local testing
 #define OTA_BASE "https://github.com/abrahamw88/pebble-pager/releases/latest/download/"
@@ -436,6 +443,20 @@ const unsigned long JOIN_TIMEOUT_MS = 8000;
 // Keep the new image on probation until it proves itself (Wi-Fi up and manifest readable).
 extern "C" bool verifyRollbackLater() { return true; }
 
+// Real certificate checking against the built-in root certificates. That needs the clock, so sync it first.
+void secureSetup(WiFiClientSecure& c) { c.useBuiltinCACertBundle(); }
+
+bool syncTime() {
+  configTime(0, 0, "pool.ntp.org", "time.cloudflare.com");
+  unsigned long t0 = millis();
+  while (time(nullptr) < 1700000000 && millis() - t0 < 8000) delay(100);
+  bool ok = time(nullptr) >= 1700000000;
+  Serial.printf("Time sync %s (%lu ms)\n", ok ? "ok" : "FAILED", millis() - t0);
+  return ok;
+}
+
+int lastHttpCode = 0;   // last HTTP status seen; 0 or negative means the server was never reached
+
 bool isHttps(const String& url) { return url.startsWith("https"); }
 
 // GET `url`, following redirects (GitHub release downloads redirect to another host).
@@ -447,6 +468,7 @@ bool openUrl(HTTPClient& http, WiFiClient& plain, WiFiClientSecure& secure, cons
   bool begun = isHttps(url) ? http.begin(secure, url) : http.begin(plain, url);
   if (!begun) return false;
   int code = http.GET();
+  lastHttpCode = code;
   Serial.printf("GET %s -> %d\n", url.c_str(), code);
   return code == 200;
 }
@@ -477,7 +499,7 @@ bool joinSaved(int index) {
 
 bool postNtfy(const char* title, const String& message) {
   WiFiClientSecure client;
-  client.setInsecure();   // test only: skips the certificate check
+  secureSetup(client);
   HTTPClient http;
   http.setConnectTimeout(5000);
   http.setTimeout(10000);
@@ -516,18 +538,28 @@ String field(const String& text, const char* key) {   // value of key=value on i
   return v;
 }
 
-bool installUpdate(size_t size, const String& wantSha) {
+// Why an install did not happen. Bad images are never retried; network trouble is.
+const int OTA_OK = 0, OTA_NET_ERR = 1, OTA_BAD_IMAGE = 2;   // plain ints: Arduino generates prototypes before types
+const char* otaReason = "";
+
+int installUpdate(size_t size, const String& wantSha) {
   WiFiClient plain;
   WiFiClientSecure secure;
-  secure.setInsecure();   // test only: skips the certificate check
+  secureSetup(secure);
   HTTPClient http;
-  if (!openUrl(http, plain, secure, String(OTA_BASE) + BIN_FILE)) { http.end(); return false; }
+  if (!openUrl(http, plain, secure, String(OTA_BASE) + BIN_FILE)) { http.end(); otaReason = "download failed"; return OTA_NET_ERR; }
   if (http.getSize() != (int)size) {
     Serial.printf("Size mismatch: server says %d, manifest says %u\n", http.getSize(), (unsigned)size);
     http.end();
-    return false;
+    otaReason = "file size does not match the manifest";
+    return OTA_BAD_IMAGE;
   }
-  if (!Update.begin(size)) { Serial.printf("Update.begin failed: %s\n", Update.errorString()); http.end(); return false; }
+  if (!Update.begin(size)) {
+    Serial.printf("Update.begin failed: %s\n", Update.errorString());
+    http.end();
+    otaReason = "image does not fit";
+    return OTA_BAD_IMAGE;
+  }
 
   mbedtls_sha256_context sha;
   mbedtls_sha256_init(&sha);
@@ -543,7 +575,13 @@ bool installUpdate(size_t size, const String& wantSha) {
     int n = stream->readBytes(buf, min((size_t)avail, sizeof(buf)));
     if (n <= 0) continue;
     lastData = millis();
-    if (Update.write(buf, n) != (size_t)n) { Serial.printf("Write failed: %s\n", Update.errorString()); Update.abort(); http.end(); return false; }
+    if (Update.write(buf, n) != (size_t)n) {
+      Serial.printf("Write failed: %s\n", Update.errorString());
+      Update.abort();
+      http.end();
+      otaReason = "flash write failed";
+      return OTA_NET_ERR;
+    }
     mbedtls_sha256_update(&sha, buf, n);
     done += n;
     int pct = done * 100 / size;
@@ -553,16 +591,26 @@ bool installUpdate(size_t size, const String& wantSha) {
   uint8_t digest[32];
   mbedtls_sha256_finish(&sha, digest);
   mbedtls_sha256_free(&sha);
-  if (done != size) { Serial.println("Download incomplete."); Update.abort(); return false; }
+  if (done != size) {
+    Serial.println("Download incomplete.");
+    Update.abort();
+    otaReason = "download incomplete";
+    return OTA_NET_ERR;
+  }
   char hex[65];
   for (int i = 0; i < 32; i++) sprintf(hex + 2 * i, "%02x", digest[i]);
   if (!wantSha.equalsIgnoreCase(hex)) {
     Serial.printf("SHA-256 mismatch. Got %s\n", hex);
     Update.abort();   // nothing is installed
-    return false;
+    otaReason = "SHA-256 does not match the manifest";
+    return OTA_BAD_IMAGE;
   }
-  if (!Update.end(true)) { Serial.printf("Update.end failed: %s\n", Update.errorString()); return false; }
-  return true;
+  if (!Update.end(true)) {
+    Serial.printf("Update.end failed: %s\n", Update.errorString());
+    otaReason = "image check failed";
+    return OTA_BAD_IMAGE;
+  }
+  return OTA_OK;
 }
 
 // Returns true if an update was installed (the caller then reboots).
@@ -570,9 +618,13 @@ bool checkForUpdate(bool* reached) {
   *reached = false;
   WiFiClient plain;
   WiFiClientSecure secure;
-  secure.setInsecure();   // test only: skips the certificate check
+  secureSetup(secure);
   HTTPClient http;
-  if (!openUrl(http, plain, secure, String(OTA_BASE) + MANIFEST_FILE)) { http.end(); return false; }
+  if (!openUrl(http, plain, secure, String(OTA_BASE) + MANIFEST_FILE)) {
+    http.end();
+    *reached = lastHttpCode > 0;   // any answer (even 404) proves Wi-Fi and TLS work; only silence means try another network
+    return false;
+  }
   *reached = true;
   String manifest = http.getString();
   http.end();
@@ -588,9 +640,16 @@ bool checkForUpdate(bool* reached) {
   if (remote <= FW_VERSION) { Serial.println("Up to date."); return false; }
   if (size == 0 || sha.length() != 64) { Serial.println("Manifest is incomplete; not updating."); return false; }
   Serial.printf("Installing version %d (%u bytes)...\n", remote, (unsigned)size);
-  if (!installUpdate(size, sha)) return false;
+  int r = installUpdate(size, sha);
+  if (r == OTA_NET_ERR) { Serial.printf("Update to %d did not finish (%s); will retry.\n", remote, otaReason); return false; }
   Preferences prefs;
   prefs.begin("pebble", false);
+  if (r == OTA_BAD_IMAGE) {
+    prefs.putInt("otaBad", remote);   // never retried
+    prefs.end();
+    postNtfy("Pebble update rejected", "Update to version " + String(remote) + " rejected: " + otaReason + ". Still on version " + String(FW_VERSION) + ".");
+    return false;
+  }
   prefs.putInt("otaFrom", FW_VERSION);
   prefs.putInt("otaTo", remote);
   prefs.end();
@@ -626,6 +685,7 @@ void setup() {
   for (int i = 0; i < savedCount() && !reached; i++) {
     if (!joinSaved(i)) continue;
     Serial.printf("Connected, IP %s\n", WiFi.localIP().toString().c_str());
+    if (isHttps(OTA_BASE) && !syncTime()) { Serial.println("No time, so certificates cannot be checked; not updating."); continue; }
     if (checkForUpdate(&reached)) {
       Serial.println("Update installed. Rebooting into it...");
       delay(500);
