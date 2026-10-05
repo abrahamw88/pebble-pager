@@ -14,7 +14,7 @@
 //   7. Remote firmware update: joins a saved network (from test 5), reads manifest.txt from the release
 //      location, and if its version is newer than FW_VERSION downloads the .bin, checks size and SHA-256,
 //      installs it and reboots, then posts to the phone topic (secrets.h) that it updated. A new image that crashes before validating rolls back to the old one.
-//      Tap the onboard BOOT button to check again. Build helpers: -DFW_VERSION=N (default 1), -DFW_CRASH
+//      Tap the onboard BOOT button, post \"update\" to the device topic (<base>-a), or wait for the daily check. Build helpers: -DFW_VERSION=N (default 1), -DFW_CRASH
 //      (image that crashes at startup, to test rollback). -DOTA_LOCAL_IP=a.b.c.d tests against a local
 //      web server (port 8000) instead of GitHub. See README.md (Remote updates).
 //   5. Wi-Fi setup from a phone, no wiring and no secrets.h: hold the onboard BOOT button 5 s and
@@ -439,6 +439,10 @@ const char* MANIFEST_FILE = "manifest.txt";   // lines: version=N, size=BYTES, s
 const char* BIN_FILE = "pebble-prototype.bin";
 const int BOOT_BTN = 9;
 const unsigned long JOIN_TIMEOUT_MS = 8000;
+#ifndef DAILY_CHECK_MS   // fallback check when no command arrives; override for testing
+#define DAILY_CHECK_MS (24UL * 60 * 60 * 1000)
+#endif
+const unsigned long COMMAND_POLL_MS = 30000;   // how often the device topic is read for commands
 
 // Keep the new image on probation until it proves itself (Wi-Fi up and manifest readable).
 extern "C" bool verifyRollbackLater() { return true; }
@@ -525,6 +529,15 @@ void reportUpdateResult() {
     prefs.remove("otaFrom");
   }   // if the post fails, it is tried again on the next boot
   prefs.end();
+}
+
+String jsonText(const String& line, const char* key) {   // value of "key":"value" in one JSON line
+  String k = String("\"") + key + "\":\"";
+  int i = line.indexOf(k);
+  if (i < 0) return "";
+  i += k.length();
+  int j = line.indexOf('"', i);
+  return j < 0 ? "" : line.substring(i, j);
 }
 
 String field(const String& text, const char* key) {   // value of key=value on its own line
@@ -614,7 +627,11 @@ int installUpdate(size_t size, const String& wantSha) {
 }
 
 // Returns true if an update was installed (the caller then reboots).
+const char* checkNote = "";   // set by checkForUpdate: "current", "skipped" or "" when something else happened
+int checkedVersion = 0;       // the release version the last check saw
+
 bool checkForUpdate(bool* reached) {
+  checkNote = "";
   *reached = false;
   WiFiClient plain;
   WiFiClientSecure secure;
@@ -629,6 +646,7 @@ bool checkForUpdate(bool* reached) {
   String manifest = http.getString();
   http.end();
   int remote = field(manifest, "version").toInt();
+  checkedVersion = remote;
   size_t size = field(manifest, "size").toInt();
   String sha = field(manifest, "sha256");
   Serial.printf("Running version %d, release has version %d\n", FW_VERSION, remote);
@@ -636,8 +654,8 @@ bool checkForUpdate(bool* reached) {
   badPrefs.begin("pebble", true);
   int bad = badPrefs.getInt("otaBad", 0);
   badPrefs.end();
-  if (remote == bad) { Serial.printf("Version %d failed to start earlier; skipping it.\n", bad); return false; }
-  if (remote <= FW_VERSION) { Serial.println("Up to date."); return false; }
+  if (remote == bad) { Serial.printf("Version %d failed to start earlier; skipping it.\n", bad); checkNote = "skipped"; return false; }
+  if (remote <= FW_VERSION) { Serial.println("Up to date."); checkNote = "current"; return false; }
   if (size == 0 || sha.length() != 64) { Serial.println("Manifest is incomplete; not updating."); return false; }
   Serial.printf("Installing version %d (%u bytes)...\n", remote, (unsigned)size);
   int r = installUpdate(size, sha);
@@ -654,6 +672,52 @@ bool checkForUpdate(bool* reached) {
   prefs.putInt("otaTo", remote);
   prefs.end();
   return true;
+}
+
+// The command topic is this device's own inbox: the phone topic name with -phone swapped for -a.
+String commandUrl() {
+  String u = TOPIC_URL;
+  if (u.endsWith("-phone")) u = u.substring(0, u.length() - 6);
+  return u + "-a";
+}
+
+// Read new messages from the command topic. Returns true if one of them said "update".
+// The first run only catches up (so old commands are never replayed); the last id seen is kept across reboots.
+bool pollCommands() {
+  Preferences prefs;
+  prefs.begin("pebble", false);
+  String last = prefs.getString("cmdId", "");
+  WiFiClientSecure client;
+  secureSetup(client);
+  HTTPClient http;
+  http.setConnectTimeout(5000);
+  http.setTimeout(10000);
+  http.useHTTP10(true);
+  String url = commandUrl() + "/json?poll=1&since=" + (last.length() ? last : String("all"));
+  bool wantUpdate = false;
+  if (http.begin(client, url) && http.GET() == 200) {
+    String body = http.getString();
+    int pos = 0;
+    while (pos < (int)body.length()) {
+      int nl = body.indexOf('\n', pos);
+      if (nl < 0) nl = body.length();
+      String line = body.substring(pos, nl);
+      pos = nl + 1;
+      if (line.indexOf("\"event\":\"message\"") < 0) continue;
+      String id = jsonText(line, "id"), msg = jsonText(line, "message");
+      if (id.length()) { prefs.putString("cmdId", id); }
+      if (last.length() == 0) continue;   // catching up on first run
+      msg.trim();
+      msg.toLowerCase();
+      Serial.printf("Command: \"%s\"\n", msg.c_str());
+      if (msg == "update") wantUpdate = true;   // anything else is ignored
+    }
+  }
+  http.end();
+  if (last.length() == 0 && prefs.getString("cmdId", "").length() == 0)
+    prefs.putString("cmdId", String((unsigned long)time(nullptr)));   // empty topic: remember "now", so the first real command is not swallowed
+  prefs.end();
+  return wantUpdate;
 }
 
 void setup() {
@@ -700,19 +764,43 @@ void setup() {
   reportUpdateResult();
 }
 
+// Check for an update; tell the phone when the check was asked for, and reboot if one was installed.
+void runCheck(bool asked) {
+  bool reached;
+  if (asked) postNtfy("Pebble update", "Update command received. Checking for a newer version...");
+  if (checkForUpdate(&reached)) {
+    Serial.println("Update installed. Rebooting into it...");
+    delay(500);
+    ESP.restart();
+  }
+  if (!asked) return;
+  if (!reached) postNtfy("Pebble update", "Could not reach the update server. Still on version " + String(FW_VERSION) + ".");
+  else if (!strcmp(checkNote, "current")) postNtfy("Pebble update", "Already on the latest version (" + String(FW_VERSION) + ").");
+  else if (!strcmp(checkNote, "skipped")) postNtfy("Pebble update", "Version " + String(checkedVersion) + " was rejected or failed earlier, so it is skipped. Still on version " + String(FW_VERSION) + ".");
+}   // installed, rejected and failed outcomes are reported by the update code itself
+
 void loop() {
   static bool wasDown = false;
+  static unsigned long lastPoll = 0, lastCheck = 0;
   bool down = digitalRead(BOOT_BTN) == LOW;
-  if (wasDown && !down && WiFi.status() == WL_CONNECTED) {
-    Serial.println("Checking for an update...");
-    bool reached;
-    if (checkForUpdate(&reached)) {
-      Serial.println("Update installed. Rebooting into it...");
-      delay(500);
-      ESP.restart();
-    }
-  }
+  bool tapped = wasDown && !down;
   wasDown = down;
+
+  if (WiFi.status() == WL_CONNECTED) {
+    if (tapped) { Serial.println("Checking for an update (BOOT tap)..."); runCheck(false); }
+    if (millis() - lastPoll >= COMMAND_POLL_MS) {
+      lastPoll = millis();
+      if (pollCommands()) runCheck(true);
+    }
+    if (millis() - lastCheck >= DAILY_CHECK_MS) {
+      lastCheck = millis();
+      Serial.println("Daily update check...");
+      runCheck(false);
+    }
+  } else if (millis() - lastPoll >= COMMAND_POLL_MS) {   // lost Wi-Fi: rejoin a saved network
+    lastPoll = millis();
+    for (int i = 0; i < savedCount() && WiFi.status() != WL_CONNECTED; i++) joinSaved(i);
+  }
   delay(20);
 }
 

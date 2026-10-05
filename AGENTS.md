@@ -42,12 +42,12 @@ An Arduino sketch must sit in a folder with the same name as its `.ino` file. Ke
 
 ```bash
 arduino-cli board list                                    # find the serial port
-arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32C3 firmware/prototype
-arduino-cli upload  --fqbn esp32:esp32:XIAO_ESP32C3 -p <PORT> firmware/prototype
+arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32C3:PartitionScheme=min_spiffs firmware/prototype
+arduino-cli upload  --fqbn esp32:esp32:XIAO_ESP32C3:PartitionScheme=min_spiffs -p <PORT> firmware/prototype
 arduino-cli monitor -p <PORT> -c baudrate=115200
 ```
 
-Use `firmware/pebble-pager` for the full build. USB CDC On Boot is enabled by default for this board, so Serial works over USB. If upload fails, hold the XIAO's BOOT button while plugging it in, then retry.
+Use `firmware/pebble-pager` for the full build. The `PartitionScheme=min_spiffs` option gives each of the two update slots 1.9 MB (the default is 1.25 MB) and must be on every compile and upload; changing the layout needs a USB flash, not an update. USB CDC On Boot is enabled by default for this board, so Serial works over USB. If upload fails, hold the XIAO's BOOT button while plugging it in, then retry.
 
 ## Rules for AI tools
 
