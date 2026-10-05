@@ -7,6 +7,10 @@
 //   3. One ntfy message to the phone: joins the network saved by test 5 (run test 5 first), then
 //      posts. Needs secrets.h (git-ignored) with TOPIC_URL, e.g. "https://ntfy.sh/pebble-xxxxxxx-phone".
 //   4. Battery voltage on D1: divider works; Serial prints volts, pixel 0 blinks green.
+//   6. Wake-and-check cycle (power plan B), no wiring: deep sleep, wake every 30 s, join the network
+//      saved by test 5, poll the topic in secrets.h for new messages, print timings, sleep again.
+//      Run on USB: the port disappears while asleep and returns on each wake. Hold the onboard BOOT
+//      button during a wake to stay awake (for flashing). Timings exclude the ~0.25 s ROM boot.
 //   5. Wi-Fi setup from a phone, no wiring and no secrets.h: hold the onboard BOOT button 5 s and
 //      release, join "Pebble-Setup" on the phone, pick a network on the page that opens. Networks are
 //      saved on the device (not in the repo). Hold 10 s and release to clear them. After a join it
@@ -197,6 +201,186 @@ void loop() {
   ring.show();
   delay(1900);
 }
+
+#elif TEST == 6
+
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
+#include <Preferences.h>
+#include "secrets.h"
+
+const int BOOT_BTN = 9;                              // onboard BOOT button, LOW when pressed
+const unsigned long CHECK_INTERVAL_MS = 30000;       // wake-to-wake period
+const unsigned long JOIN_TIMEOUT_MS = 10000;         // full join
+const unsigned long FAST_JOIN_TIMEOUT_MS = 4000;     // join with remembered channel, address and IP
+const int COLD_REFRESH_CYCLES = 120;                 // full join about hourly so the DHCP lease stays valid
+const int CPU_MHZ = 80;                              // Wi-Fi needs at least 80
+const unsigned long BOOT_OVERHEAD_MS = 250;          // ROM and bootloader time before setup() runs (estimate)
+const float RADIO_ON_MA = 90.0;                      // from the power budget in README.md
+const float SLEEP_MA = 0.053;                        // 43 uA deep sleep + about 10 uA battery divider
+const float USABLE_MAH = 1600.0;                     // 80% of 2,000 mAh
+
+// RTC memory survives deep sleep but not a power cycle or a flash.
+RTC_DATA_ATTR int cycle = 0;
+RTC_DATA_ATTR char lastId[24] = "";                  // newest ntfy message id seen
+RTC_DATA_ATTR bool haveAp = false;                   // router channel and address remembered
+RTC_DATA_ATTR uint8_t apBssid[6];
+RTC_DATA_ATTR int apChannel = 0;
+RTC_DATA_ATTR bool haveIp = false;                   // IP settings remembered, so DHCP can be skipped
+RTC_DATA_ATTR uint32_t ipAddr, ipGw, ipMask, ipDns;
+RTC_DATA_ATTR int totalMsgs = 0;
+RTC_DATA_ATTR char lastText[48] = "";
+RTC_DATA_ATTR int fastFails = 0;
+const int HIST = 16;                                 // recent cycles kept, printed on every wake
+RTC_DATA_ATTR uint16_t hJoin[HIST], hPoll[HIST], hAwake[HIST];
+RTC_DATA_ATTR char hHow[HIST];                       // c cold, f fast, i fast+ip, x fast failed
+RTC_DATA_ATTR unsigned long sumAwakeMs = 0;
+RTC_DATA_ATTR unsigned long minAwakeMs = 0xFFFFFFFF;
+RTC_DATA_ATTR unsigned long maxAwakeMs = 0;
+
+String extract(const String& line, const char* key) {   // value of "key":"value" in one JSON line
+  String k = String("\"") + key + "\":\"";
+  int i = line.indexOf(k);
+  if (i < 0) return "";
+  i += k.length();
+  int j = line.indexOf('"', i);
+  return j < 0 ? "" : line.substring(i, j);
+}
+
+bool waitForJoin(unsigned long timeoutMs) {
+  unsigned long t0 = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - t0 < timeoutMs) delay(20);
+  return WiFi.status() == WL_CONNECTED;
+}
+
+void setup() {
+  setCpuFrequencyMhz(CPU_MHZ);
+  Serial.begin(115200);
+  pinMode(BOOT_BTN, INPUT_PULLUP);
+  bool stayAwake = digitalRead(BOOT_BTN) == LOW;
+  cycle++;
+
+  Preferences prefs;
+  prefs.begin("pebble", true);   // networks saved by test 5
+  String ssid = prefs.getString("s0", ""), pass = prefs.getString("p0", "");
+  prefs.end();
+  if (ssid.length() == 0) {
+    while (!Serial) delay(10);
+    Serial.println("No saved network: run test 5 first.");
+    return;
+  }
+
+  // 1. Join, reusing the remembered channel, address and IP when there are some.
+  if (cycle % COLD_REFRESH_CYCLES == 0) { haveAp = false; haveIp = false; }
+  WiFi.mode(WIFI_STA);
+  const char* how = haveAp ? (haveIp ? "fast+ip" : "fast") : "cold";
+  unsigned long t0 = millis();
+  if (haveIp) WiFi.config(IPAddress(ipAddr), IPAddress(ipGw), IPAddress(ipMask), IPAddress(ipDns));
+  if (haveAp) WiFi.begin(ssid.c_str(), pass.c_str(), apChannel, apBssid);
+  else WiFi.begin(ssid.c_str(), pass.c_str());
+  bool ok = waitForJoin(haveAp ? FAST_JOIN_TIMEOUT_MS : JOIN_TIMEOUT_MS);
+  if (!ok && haveAp) {   // router or lease changed: forget it all and do a full join
+    how = "fast-failed";
+    fastFails++;
+    haveAp = false;
+    haveIp = false;
+    WiFi.disconnect(true);
+    delay(200);
+    WiFi.mode(WIFI_STA);
+    WiFi.config(IPAddress(), IPAddress(), IPAddress());   // back to DHCP
+    WiFi.begin(ssid.c_str(), pass.c_str());
+    ok = waitForJoin(JOIN_TIMEOUT_MS);
+  }
+  unsigned long joinMs = millis() - t0;
+  if (ok && !haveAp) {
+    memcpy(apBssid, WiFi.BSSID(), 6);
+    apChannel = WiFi.channel();
+    haveAp = true;
+    ipAddr = (uint32_t)WiFi.localIP();
+    ipGw = (uint32_t)WiFi.gatewayIP();
+    ipMask = (uint32_t)WiFi.subnetMask();
+    ipDns = (uint32_t)WiFi.dnsIP();
+    haveIp = true;
+  }
+
+  // 2. Poll the topic for anything newer than the last message seen.
+  unsigned long t1 = millis();
+  int code = 0, fresh = 0, backlog = 0;
+  String texts;
+  if (ok) {
+    WiFiClientSecure client;
+    client.setInsecure();   // test only: skips the certificate check
+    HTTPClient http;
+    String url = String(TOPIC_URL) + "/json?poll=1&since=" + (lastId[0] ? lastId : "all");
+    http.begin(client, url);
+    http.setTimeout(8000);
+    http.useHTTP10(true);   // server closes the connection after the body: no waiting on chunked reads
+    code = http.GET();
+    if (code == 200) {
+      String body = http.getString();
+      int pos = 0;
+      while (pos < (int)body.length()) {
+        int nl = body.indexOf('\n', pos);
+        if (nl < 0) nl = body.length();
+        String line = body.substring(pos, nl);
+        pos = nl + 1;
+        if (line.indexOf("\"event\":\"message\"") < 0) continue;
+        String id = extract(line, "id");
+        if (id.length() > 0 && id.length() < sizeof(lastId)) id.toCharArray(lastId, sizeof(lastId));
+        if (cycle == 1) backlog++;   // first run only catches up; nothing is "new" yet
+        else {
+          fresh++;
+          totalMsgs++;
+          String m = extract(line, "message");
+          m.toCharArray(lastText, sizeof(lastText));
+          texts += "\n  message: " + m;
+        }
+      }
+    }
+    http.end();
+  }
+  unsigned long pollMs = millis() - t1;
+
+  // 3. Totals. Radio-on time is everything up to here.
+  unsigned long awakeMs = millis() + BOOT_OVERHEAD_MS;
+  sumAwakeMs += awakeMs;
+  if (awakeMs < minAwakeMs) minAwakeMs = awakeMs;
+  if (awakeMs > maxAwakeMs) maxAwakeMs = awakeMs;
+  int h = cycle % HIST;
+  hJoin[h] = joinMs > 65535 ? 65535 : joinMs;
+  hPoll[h] = pollMs > 65535 ? 65535 : pollMs;
+  hAwake[h] = awakeMs > 65535 ? 65535 : awakeMs;
+  hHow[h] = how[0] == 'c' ? 'c' : (how[4] == 'f' ? 'x' : (haveIp && how[4] == '+' ? 'i' : 'f'));
+  float avgAwake = (float)sumAwakeMs / cycle;
+  float avgMa = (RADIO_ON_MA * avgAwake + SLEEP_MA * (CHECK_INTERVAL_MS - avgAwake)) / CHECK_INTERVAL_MS;
+
+  // Printing waits for the USB serial port to come back and is not counted above.
+  unsigned long w = millis();
+  while (!Serial && millis() - w < 2500) delay(10);
+  Serial.printf("\n[cycle %d] join %s %s %lu ms | poll HTTP %d %lu ms | awake %lu ms | new %d%s\n", cycle, how,
+                ok ? "ok" : "FAILED", joinMs, code, pollMs, awakeMs, fresh,
+                cycle == 1 ? " (caught up on backlog)" : "");
+  if (texts.length()) Serial.println(texts);
+  Serial.printf("  messages received so far: %d (last: \"%s\"), fast-join failures: %d\n", totalMsgs, lastText, fastFails);
+  Serial.println("  recent cycles (cycle: join / poll / awake ms, mode):");
+  for (int c = max(1, cycle - HIST + 1); c <= cycle; c++)
+    Serial.printf("    %d: %u / %u / %u %c\n", c, hJoin[c % HIST], hPoll[c % HIST], hAwake[c % HIST], hHow[c % HIST]);
+  Serial.printf("  awake min/avg/max %lu / %.0f / %lu ms -> est. avg %.2f mA, battery about %.1f days\n", minAwakeMs,
+                avgAwake, maxAwakeMs, avgMa, USABLE_MAH / avgMa / 24.0);
+
+  if (stayAwake) {
+    Serial.println("BOOT held: staying awake. Reset to resume the cycle.");
+    return;
+  }
+  unsigned long sleepMs = awakeMs < CHECK_INTERVAL_MS ? CHECK_INTERVAL_MS - awakeMs : 1000;
+  Serial.printf("  sleeping %lu ms\n", sleepMs);
+  Serial.flush();
+  esp_sleep_enable_timer_wakeup(sleepMs * 1000ULL);
+  esp_deep_sleep_start();
+}
+
+void loop() {}
 
 #elif TEST == 5
 
