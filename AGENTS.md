@@ -55,6 +55,7 @@ Use `firmware/pebble-pager` for the full build. USB CDC On Boot is enabled by de
 - Never commit Wi-Fi names, passwords, ntfy topics or tokens. Put them in `secrets.h` (git-ignored) and include it.
 - Measure battery current on battery with USB unplugged; USB keeps the chip awake.
 - Push only to the `test` branch until development is complete. Never push to `main` unless asked.
+- Test board behavior through the real ntfy path, as production does: read what the board posts (poll the topic URL from `secrets.h` with `curl`) and send commands as the phone would. Use serial only to flash and to diagnose when ntfy itself fails; an ntfy failure is a test failure. So firmware must report progress and results to ntfy, with no secrets in the messages.
 - After finishing a major piece of functionality, test it thoroughly before calling it done: normal paths, failure paths (no network, bad data, interrupted steps, power cycles) and repeated runs. Check real ntfy messages by reading the topic with `curl` (poll the topic URL from `secrets.h`), and report what was and wasn't covered.
 - Do not add dependencies or folders beyond the layout above without asking.
 - The device supplements a phone. Do not add emergency, location or calling features.
