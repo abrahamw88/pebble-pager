@@ -43,26 +43,26 @@ void setup() {
   Serial.begin(115200);
   unsigned long t0 = millis();
   while (!Serial && millis() - t0 < 3000) delay(10);   // wait for the USB serial monitor
-  Serial.println("\n== Pebble bare-board check ==");
-  Serial.printf("Chip: %s rev %d, %d core(s), %d MHz\n", ESP.getChipModel(), ESP.getChipRevision(),
+  Serial.println("\n== board check ==");
+  Serial.printf("Chip %s r%d x%d %d MHz\n", ESP.getChipModel(), ESP.getChipRevision(),
                 ESP.getChipCores(), ESP.getCpuFreqMHz());
-  Serial.printf("Flash: %u KB, free heap: %u KB\n", ESP.getFlashChipSize() / 1024, ESP.getFreeHeap() / 1024);
-  Serial.printf("Internal temperature: %.1f C\n", temperatureRead());
+  Serial.printf("Flash %u KB, heap %u KB\n", ESP.getFlashChipSize() / 1024, ESP.getFreeHeap() / 1024);
+  Serial.printf("Temp %.1f C\n", temperatureRead());
 
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
-  Serial.printf("MAC: %s\n", WiFi.macAddress().c_str());   // valid only after the radio starts
-  Serial.println("Scanning Wi-Fi (2.4 GHz only)...");
+  Serial.printf("MAC %s\n", WiFi.macAddress().c_str());   // valid only after the radio starts
+  Serial.println("Scanning...");
   int n = WiFi.scanNetworks();
   if (n <= 0) {
-    Serial.println("No networks found: check the antenna is clicked on.");
+    Serial.println("No networks: check antenna");
   } else {
-    Serial.printf("%d networks found:\n", n);
+    Serial.printf("%d networks\n", n);
     for (int i = 0; i < n; i++)
       Serial.printf("  %-28s ch %2d  %4d dBm  %s\n", WiFi.SSID(i).c_str(), WiFi.channel(i), WiFi.RSSI(i),
                     WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? "open" : "secured");
   }
-  Serial.println("== done ==");
+  Serial.println("done");
 }
 
 void loop() {}
@@ -151,18 +151,18 @@ void setup() {
   String pass = prefs.getString("p0", "");
   prefs.end();
   if (ssid.length() == 0) {
-    Serial.println("No saved network: run test 5 first.");
+    Serial.println("No saved Wi-Fi: run test 5");
     return;
   }
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid.c_str(), pass.c_str());
-  Serial.print("Joining Wi-Fi");
+  Serial.print("Joining");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println(" Wi-Fi connected");
+  Serial.println(" connected");
 
   WiFiClientSecure client;
   client.setInsecure();   // test only: skips the certificate check
@@ -170,8 +170,8 @@ void setup() {
   http.begin(client, TOPIC_URL);
   http.addHeader("Title", "Pebble test");
   http.addHeader("Priority", "high");
-  int code = http.POST("Hello from the breadboard");
-  Serial.printf("ntfy replied %d\n", code);
+  int code = http.POST("Hello from Pebble");
+  Serial.printf("ntfy %d\n", code);
   http.end();
 }
 
@@ -198,7 +198,7 @@ void loop() {
   uint32_t mv = 0;
   for (int i = 0; i < 16; i++) mv += analogReadMilliVolts(BATT);
   float volts = 2 * mv / 16 / 1000.0;
-  Serial.printf("Battery: %.2f V\n", volts);
+  Serial.printf("Batt %.2f V\n", volts);
 
   ring.setPixelColor(0, ring.Color(0, 255, 0, 0));   // green blink: still running
   ring.show();
@@ -288,7 +288,7 @@ void setup() {
   prefs.end();
   if (ssid.length() == 0) {
     while (!Serial) delay(10);
-    Serial.println("No saved network: run test 5 first.");
+    Serial.println("No saved Wi-Fi: run test 5");
     return;
   }
 
@@ -381,23 +381,23 @@ void setup() {
   // Printing waits for the USB serial port to come back and is not counted above.
   unsigned long w = millis();
   while (!Serial && millis() - w < 2500) delay(10);
-  Serial.printf("\n[cycle %d] join %s %s %lu ms | poll HTTP %d %lu ms | awake %lu ms | new %d%s\n", cycle, how,
-                ok ? "ok" : "FAILED", joinMs, code, pollMs, awakeMs, fresh,
-                cycle == 1 ? " (caught up on backlog)" : "");
+  Serial.printf("\n#%d join %s %s %lums poll %d %lums awake %lums new %d%s\n", cycle, how,
+                ok ? "ok" : "fail", joinMs, code, pollMs, awakeMs, fresh,
+                cycle == 1 ? " (catch-up)" : "");
   if (texts.length()) Serial.println(texts);
-  Serial.printf("  messages received so far: %d (last: \"%s\"), fast-join failures: %d, failsafe aborts: %d\n", totalMsgs, lastText, fastFails, aborts);
-  Serial.println("  recent cycles (cycle: join / poll / awake ms, mode):");
+  Serial.printf("  msgs %d (last \"%s\") fastfail %d abort %d\n", totalMsgs, lastText, fastFails, aborts);
+  Serial.println("  history join/poll/awake ms:");
   for (int c = max(1, cycle - HIST + 1); c <= cycle; c++)
-    Serial.printf("    %d: %u / %u / %u %c\n", c, hJoin[c % HIST], hPoll[c % HIST], hAwake[c % HIST], hHow[c % HIST]);
-  Serial.printf("  awake min/avg/max %lu / %.0f / %lu ms -> est. avg %.2f mA, battery about %.1f days\n", minAwakeMs,
+    Serial.printf("    %d: %u/%u/%u %c\n", c, hJoin[c % HIST], hPoll[c % HIST], hAwake[c % HIST], hHow[c % HIST]);
+  Serial.printf("  awake min/avg/max %lu/%.0f/%lu ms, ~%.2f mA, ~%.1f d\n", minAwakeMs,
                 avgAwake, maxAwakeMs, avgMa, USABLE_MAH / avgMa / 24.0);
 
   if (stayAwake) {
-    Serial.println("BOOT held: staying awake. Reset to resume the cycle.");
+    Serial.println("BOOT held: awake");
     return;
   }
   unsigned long sleepMs = awakeMs < CHECK_INTERVAL_MS ? CHECK_INTERVAL_MS - awakeMs : 1000;
-  Serial.printf("  sleeping %lu ms\n", sleepMs);
+  Serial.printf("  sleep %lums\n", sleepMs);
   Serial.flush();
   esp_sleep_enable_timer_wakeup(sleepMs * 1000ULL);
   esp_deep_sleep_start();
@@ -455,7 +455,7 @@ bool syncTime() {
   unsigned long t0 = millis();
   while (time(nullptr) < 1700000000 && millis() - t0 < 8000) delay(100);
   bool ok = time(nullptr) >= 1700000000;
-  Serial.printf("Time sync %s (%lu ms)\n", ok ? "ok" : "FAILED", millis() - t0);
+  Serial.printf("Time %s (%lums)\n", ok ? "ok" : "fail", millis() - t0);
   return ok;
 }
 
@@ -473,7 +473,7 @@ bool openUrl(HTTPClient& http, WiFiClient& plain, WiFiClientSecure& secure, cons
   if (!begun) return false;
   int code = http.GET();
   lastHttpCode = code;
-  Serial.printf("GET %s -> %d\n", url.c_str(), code);
+  Serial.printf("GET %s %d\n", url.substring(url.lastIndexOf('/') + 1).c_str(), code);
   return code == 200;
 }
 
@@ -494,7 +494,7 @@ bool joinSaved(int index) {
   WiFi.disconnect(true);
   delay(100);
   WiFi.mode(WIFI_STA);
-  Serial.printf("Joining \"%s\"...\n", ssid.c_str());
+  Serial.printf("Join \"%s\"\n", ssid.c_str());
   WiFi.begin(ssid.c_str(), pass.c_str());
   unsigned long t0 = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - t0 < JOIN_TIMEOUT_MS) delay(100);
@@ -511,7 +511,7 @@ bool postNtfy(const char* title, const String& message) {
   http.addHeader("Title", title);
   int code = http.POST(message);
   http.end();
-  Serial.printf("ntfy post \"%s\" -> %d\n", message.c_str(), code);
+  Serial.printf("ntfy %d: %s\n", code, message.c_str());
   return code == 200;
 }
 
@@ -522,9 +522,9 @@ void reportUpdateResult() {
   int to = prefs.getInt("otaTo", 0), from = prefs.getInt("otaFrom", 0);
   if (to == 0) { prefs.end(); return; }
   bool ok = FW_VERSION == to;
-  String msg = ok ? "Firmware updated from version " + String(from) + " to " + String(to) + "."
-                  : "Update to version " + String(to) + " failed and rolled back. Still on version " + String(FW_VERSION) + ".";
-  if (postNtfy(ok ? "Pebble updated" : "Pebble update failed", msg)) {
+  String msg = ok ? "Updated from v" + String(from) + " to v" + String(to)
+                  : "Failed update to v" + String(to) + ", still on v" + String(FW_VERSION);
+  if (postNtfy("Pebble", msg)) {
     prefs.remove("otaTo");
     prefs.remove("otaFrom");
   }   // if the post fails, it is tried again on the next boot
@@ -562,15 +562,15 @@ int installUpdate(size_t size, const String& wantSha) {
   HTTPClient http;
   if (!openUrl(http, plain, secure, String(OTA_BASE) + BIN_FILE)) { http.end(); otaReason = "download failed"; return OTA_NET_ERR; }
   if (http.getSize() != (int)size) {
-    Serial.printf("Size mismatch: server says %d, manifest says %u\n", http.getSize(), (unsigned)size);
+    Serial.printf("Size %d != manifest %u\n", http.getSize(), (unsigned)size);
     http.end();
-    otaReason = "file size does not match the manifest";
+    otaReason = "bad size";
     return OTA_BAD_IMAGE;
   }
   if (!Update.begin(size)) {
-    Serial.printf("Update.begin failed: %s\n", Update.errorString());
+    Serial.printf("Begin failed: %s\n", Update.errorString());
     http.end();
-    otaReason = "image does not fit";
+    otaReason = "too big";
     return OTA_BAD_IMAGE;
   }
 
@@ -592,7 +592,7 @@ int installUpdate(size_t size, const String& wantSha) {
       Serial.printf("Write failed: %s\n", Update.errorString());
       Update.abort();
       http.end();
-      otaReason = "flash write failed";
+      otaReason = "write failed";
       return OTA_NET_ERR;
     }
     mbedtls_sha256_update(&sha, buf, n);
@@ -605,22 +605,22 @@ int installUpdate(size_t size, const String& wantSha) {
   mbedtls_sha256_finish(&sha, digest);
   mbedtls_sha256_free(&sha);
   if (done != size) {
-    Serial.println("Download incomplete.");
+    Serial.println("Incomplete");
     Update.abort();
-    otaReason = "download incomplete";
+    otaReason = "incomplete";
     return OTA_NET_ERR;
   }
   char hex[65];
   for (int i = 0; i < 32; i++) sprintf(hex + 2 * i, "%02x", digest[i]);
   if (!wantSha.equalsIgnoreCase(hex)) {
-    Serial.printf("SHA-256 mismatch. Got %s\n", hex);
+    Serial.printf("Bad SHA-256 %s\n", hex);
     Update.abort();   // nothing is installed
-    otaReason = "SHA-256 does not match the manifest";
+    otaReason = "bad hash";
     return OTA_BAD_IMAGE;
   }
   if (!Update.end(true)) {
-    Serial.printf("Update.end failed: %s\n", Update.errorString());
-    otaReason = "image check failed";
+    Serial.printf("End failed: %s\n", Update.errorString());
+    otaReason = "bad image";
     return OTA_BAD_IMAGE;
   }
   return OTA_OK;
@@ -649,23 +649,23 @@ bool checkForUpdate(bool* reached) {
   checkedVersion = remote;
   size_t size = field(manifest, "size").toInt();
   String sha = field(manifest, "sha256");
-  Serial.printf("Running version %d, release has version %d\n", FW_VERSION, remote);
+  Serial.printf("Running v%d, release v%d\n", FW_VERSION, remote);
   Preferences badPrefs;
   badPrefs.begin("pebble", true);
   int bad = badPrefs.getInt("otaBad", 0);
   badPrefs.end();
-  if (remote == bad) { Serial.printf("Version %d failed to start earlier; skipping it.\n", bad); checkNote = "skipped"; return false; }
-  if (remote <= FW_VERSION) { Serial.println("Up to date."); checkNote = "current"; return false; }
-  if (size == 0 || sha.length() != 64) { Serial.println("Manifest is incomplete; not updating."); return false; }
-  Serial.printf("Installing version %d (%u bytes)...\n", remote, (unsigned)size);
+  if (remote == bad) { Serial.printf("v%d failed before: skip\n", bad); checkNote = "skipped"; return false; }
+  if (remote <= FW_VERSION) { Serial.println("Up to date"); checkNote = "current"; return false; }
+  if (size == 0 || sha.length() != 64) { Serial.println("Bad manifest"); return false; }
+  Serial.printf("Installing v%d (%u B)\n", remote, (unsigned)size);
   int r = installUpdate(size, sha);
-  if (r == OTA_NET_ERR) { Serial.printf("Update to %d did not finish (%s); will retry.\n", remote, otaReason); return false; }
+  if (r == OTA_NET_ERR) { Serial.printf("v%d not finished (%s): retry later\n", remote, otaReason); return false; }
   Preferences prefs;
   prefs.begin("pebble", false);
   if (r == OTA_BAD_IMAGE) {
     prefs.putInt("otaBad", remote);   // never retried
     prefs.end();
-    postNtfy("Pebble update rejected", "Update to version " + String(remote) + " rejected: " + otaReason + ". Still on version " + String(FW_VERSION) + ".");
+    postNtfy("Pebble", "Failed update to v" + String(remote) + ": " + otaReason + ", still on v" + String(FW_VERSION));
     return false;
   }
   prefs.putInt("otaFrom", FW_VERSION);
@@ -725,7 +725,7 @@ void setup() {
   unsigned long t0 = millis();
   while (!Serial && millis() - t0 < 3000) delay(10);
 #ifdef FW_CRASH
-  Serial.println("FW_CRASH build: crashing before validating, to test rollback.");
+  Serial.println("FW_CRASH: aborting");
   delay(500);
   abort();
 #endif
@@ -741,42 +741,42 @@ void setup() {
   esp_ota_img_states_t state;
   const char* st = "unknown";
   if (esp_ota_get_state_partition(running, &state) == ESP_OK)
-    st = state == ESP_OTA_IMG_PENDING_VERIFY ? "pending verify (on probation)" : (state == ESP_OTA_IMG_VALID ? "valid" : "other");
-  Serial.printf("\n== Pebble OTA test: version %d, running slot %s, image %s ==\n", FW_VERSION, running->label, st);
+    st = state == ESP_OTA_IMG_PENDING_VERIFY ? "pending" : (state == ESP_OTA_IMG_VALID ? "valid" : "other");
+  Serial.printf("\n== OTA v%d, slot %s, %s ==\n", FW_VERSION, running->label, st);
 
   // Try each saved network in turn until one can reach the release location.
   bool reached = false;
   for (int i = 0; i < savedCount() && !reached; i++) {
     if (!joinSaved(i)) continue;
-    Serial.printf("Connected, IP %s\n", WiFi.localIP().toString().c_str());
-    if (isHttps(OTA_BASE) && !syncTime()) { Serial.println("No time, so certificates cannot be checked; not updating."); continue; }
+    Serial.printf("IP %s\n", WiFi.localIP().toString().c_str());
+    if (isHttps(OTA_BASE) && !syncTime()) { Serial.println("No time: skip update"); continue; }
     if (checkForUpdate(&reached)) {
       Serial.println("Update installed. Rebooting into it...");
       delay(500);
       ESP.restart();
     }
-    if (!reached) Serial.println("Release location not reachable on this network; trying the next one.");
+    if (!reached) Serial.println("Server unreachable, next network");
   }
-  if (!reached) { Serial.println("No saved network could reach the release location: run test 5, or check OTA_BASE."); return; }
+  if (!reached) { Serial.println("No network reached server"); return; }
   // Wi-Fi up and the release location readable: the running image has proven itself.
   esp_ota_mark_app_valid_cancel_rollback();
-  Serial.println("Marked this image valid. Tap BOOT to check again.");
+  Serial.println("Image valid");
   reportUpdateResult();
 }
 
 // Check for an update; tell the phone when the check was asked for, and reboot if one was installed.
 void runCheck(bool asked) {
   bool reached;
-  if (asked) postNtfy("Pebble update", "Update command received. Checking for a newer version...");
+  if (asked) postNtfy("Pebble", "Checking for update");
   if (checkForUpdate(&reached)) {
     Serial.println("Update installed. Rebooting into it...");
     delay(500);
     ESP.restart();
   }
   if (!asked) return;
-  if (!reached) postNtfy("Pebble update", "Could not reach the update server. Still on version " + String(FW_VERSION) + ".");
-  else if (!strcmp(checkNote, "current")) postNtfy("Pebble update", "Already on the latest version (" + String(FW_VERSION) + ").");
-  else if (!strcmp(checkNote, "skipped")) postNtfy("Pebble update", "Version " + String(checkedVersion) + " was rejected or failed earlier, so it is skipped. Still on version " + String(FW_VERSION) + ".");
+  if (!reached) postNtfy("Pebble", "Can't reach server, still on v" + String(FW_VERSION));
+  else if (!strcmp(checkNote, "current")) postNtfy("Pebble", "Up to date (v" + String(FW_VERSION) + ")");
+  else if (!strcmp(checkNote, "skipped")) postNtfy("Pebble", "Skipped v" + String(checkedVersion) + " (failed before), still on v" + String(FW_VERSION));
 }   // installed, rejected and failed outcomes are reported by the update code itself
 
 void loop() {
@@ -787,14 +787,14 @@ void loop() {
   wasDown = down;
 
   if (WiFi.status() == WL_CONNECTED) {
-    if (tapped) { Serial.println("Checking for an update (BOOT tap)..."); runCheck(false); }
+    if (tapped) { Serial.println("Check (BOOT tap)"); runCheck(false); }
     if (millis() - lastPoll >= COMMAND_POLL_MS) {
       lastPoll = millis();
       if (pollCommands()) runCheck(true);
     }
     if (millis() - lastCheck >= DAILY_CHECK_MS) {
       lastCheck = millis();
-      Serial.println("Daily update check...");
+      Serial.println("Check (daily)");
       runCheck(false);
     }
   } else if (millis() - lastPoll >= COMMAND_POLL_MS) {   // lost Wi-Fi: rejoin a saved network
@@ -891,9 +891,9 @@ bool joinSaved() {
     for (int j = 0; j < found; j++)
       if (WiFi.SSID(j) == s && WiFi.RSSI(j) > bestRssi) { best = i; bestRssi = WiFi.RSSI(j); }
   }
-  if (best < 0) { Serial.println("No saved network in range."); return false; }
+  if (best < 0) { Serial.println("No saved Wi-Fi in range"); return false; }
   String s = prefs.getString(("s" + String(best)).c_str(), "");
-  Serial.printf("Joining saved network \"%s\" (%d dBm)...\n", s.c_str(), bestRssi);
+  Serial.printf("Join \"%s\" (%d dBm)\n", s.c_str(), bestRssi);
   WiFi.begin(s.c_str(), prefs.getString(("p" + String(best)).c_str(), "").c_str());
   return waitForJoin();
 }
@@ -904,7 +904,7 @@ void healthCheck() {
   HTTPClient http;
   http.begin(client, "https://ntfy.sh/v1/health");
   int code = http.GET();
-  Serial.printf("ntfy.sh health: HTTP %d %s\n", code, code > 0 ? http.getString().c_str() : "");
+  Serial.printf("ntfy health %d %s\n", code, code > 0 ? http.getString().c_str() : "");
   http.end();
 }
 
@@ -952,12 +952,12 @@ void handleSave() {
              : "<h2>Could not join " + esc(ssid) + "</h2><p>Saved anyway. Check the password and try again.</p>";
   page += "</body>";
   server.send(200, "text/html", page);
-  Serial.printf("Portal: %s \"%s\"\n", ok ? "joined" : "failed to join", ssid.c_str());
+  Serial.printf("Portal %s \"%s\"\n", ok ? "joined" : "failed", ssid.c_str());
   joinedViaPortal = ok;
 }
 
 void startPortal() {
-  Serial.println("Setup mode: join Wi-Fi \"pebblepager\" on the phone (password in the sketch).");
+  Serial.printf("Setup: join \"%s\"\n", SETUP_SSID);
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(SETUP_SSID, SETUP_PASS);
   dns.start(53, "*", WiFi.softAPIP());   // captive portal: every name points here
@@ -980,23 +980,23 @@ void stopPortal() {
   WiFi.softAPdisconnect(true);
   WiFi.mode(WIFI_STA);
   portalOn = false;
-  Serial.println("Setup mode ended.");
+  Serial.println("Setup ended");
 }
 
 void setup() {
   Serial.begin(115200);
   unsigned long t0 = millis();
   while (!Serial && millis() - t0 < 3000) delay(10);
-  Serial.println("\n== Pebble Wi-Fi setup test ==");
+  Serial.println("\n== Wi-Fi setup ==");
   pinMode(BOOT_BTN, INPUT_PULLUP);
   prefs.begin("pebble", false);
   WiFi.mode(WIFI_STA);
-  Serial.printf("%d saved network(s).\n", savedCount());
+  Serial.printf("%d saved\n", savedCount());
   if (joinSaved()) {
-    Serial.printf("Connected, IP %s\n", WiFi.localIP().toString().c_str());
+    Serial.printf("IP %s\n", WiFi.localIP().toString().c_str());
     healthCheck();
   }
-  Serial.println("Hold BOOT 5 s and release for setup, 10 s to clear saved networks.");
+  Serial.println("BOOT 5s: setup, 10s: clear");
 }
 
 void loop() {
@@ -1005,14 +1005,14 @@ void loop() {
   if (digitalRead(BOOT_BTN) == LOW) {
     if (!pressedAt) pressedAt = millis();
     unsigned long held = millis() - pressedAt;
-    if (held >= SETUP_HOLD_MS && !told5) { told5 = true; Serial.println("5 s: release for setup."); }
-    if (held >= CLEAR_HOLD_MS && !told10) { told10 = true; Serial.println("10 s: release to clear saved networks."); }
+    if (held >= SETUP_HOLD_MS && !told5) { told5 = true; Serial.println("5s: release=setup"); }
+    if (held >= CLEAR_HOLD_MS && !told10) { told10 = true; Serial.println("10s: release=clear"); }
   } else if (pressedAt) {
     unsigned long held = millis() - pressedAt;
     pressedAt = 0; told5 = told10 = false;
     if (held >= CLEAR_HOLD_MS) {
       prefs.clear();
-      Serial.println("Saved networks cleared.");
+      Serial.println("Cleared");
     } else if (held >= SETUP_HOLD_MS && !portalOn) {
       startPortal();
     }
@@ -1023,7 +1023,7 @@ void loop() {
     if (joinedViaPortal) {
       delay(3000);   // let the phone show its confirmation page
       server.handleClient();
-      Serial.printf("Connected, IP %s\n", WiFi.localIP().toString().c_str());
+      Serial.printf("IP %s\n", WiFi.localIP().toString().c_str());
       healthCheck();
       stopPortal();
     } else if (millis() - portalStart > SETUP_TIMEOUT_MS) {

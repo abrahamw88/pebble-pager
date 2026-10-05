@@ -114,7 +114,7 @@ ntfy needs no account to start. On the free tier the topic name works as the pas
 5. Test 2, from the breadboard: run `TEST` 5 once to save your Wi-Fi from the phone (2.4 GHz only), create `firmware/prototype/secrets.h` (git-ignored) defining `TOPIC_URL` (your -phone topic URL), and set `TEST` to 3.
 6. Upload it and open the Serial Monitor at 115200 baud. It sends once each time the board starts; press RESET to send again.
 
-**Check:** the Serial Monitor shows "Wi-Fi connected" and "ntfy replied 200", and the phone shows a notification titled "Pebble test" that reads "Hello from the breadboard".
+**Check:** the Serial Monitor shows "connected" and "ntfy 200", and the phone shows a notification titled "Pebble test" that reads "Hello from Pebble".
 
 - **Dots forever:** wrong password, or the network is 5 GHz only. An iPhone hotspot works as a test network with Maximize Compatibility turned on.
 - **A negative reply code:** Wi-Fi joined but the request failed. Check that the topic URL starts with `https://ntfy.sh/`.
