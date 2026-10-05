@@ -209,13 +209,15 @@ void loop() {
 #include <HTTPClient.h>
 #include <Preferences.h>
 #include "secrets.h"
+#include "esp_timer.h"
 
 const int BOOT_BTN = 9;                              // onboard BOOT button, LOW when pressed
 const unsigned long CHECK_INTERVAL_MS = 30000;       // wake-to-wake period
 const unsigned long JOIN_TIMEOUT_MS = 10000;         // full join
 const unsigned long FAST_JOIN_TIMEOUT_MS = 4000;     // join with remembered channel, address and IP
 const int COLD_REFRESH_CYCLES = 120;                 // full join about hourly so the DHCP lease stays valid
-const int CPU_MHZ = 80;                              // Wi-Fi needs at least 80
+const int CPU_MHZ = 160;                             // 80 saved current but lengthened each wake more than it saved
+const unsigned long MAX_AWAKE_MS = 15000;            // failsafe: force sleep so one hung request cannot drain the battery
 const unsigned long BOOT_OVERHEAD_MS = 250;          // ROM and bootloader time before setup() runs (estimate)
 const float RADIO_ON_MA = 90.0;                      // from the power budget in README.md
 const float SLEEP_MA = 0.053;                        // 43 uA deep sleep + about 10 uA battery divider
@@ -229,6 +231,7 @@ RTC_DATA_ATTR uint8_t apBssid[6];
 RTC_DATA_ATTR int apChannel = 0;
 RTC_DATA_ATTR bool haveIp = false;                   // IP settings remembered, so DHCP can be skipped
 RTC_DATA_ATTR uint32_t ipAddr, ipGw, ipMask, ipDns;
+RTC_DATA_ATTR int aborts = 0;                        // cycles ended by the failsafe
 RTC_DATA_ATTR int totalMsgs = 0;
 RTC_DATA_ATTR char lastText[48] = "";
 RTC_DATA_ATTR int fastFails = 0;
@@ -248,6 +251,12 @@ String extract(const String& line, const char* key) {   // value of "key":"value
   return j < 0 ? "" : line.substring(i, j);
 }
 
+static void failsafe(void*) {   // runs if a cycle goes past MAX_AWAKE_MS
+  aborts++;
+  esp_sleep_enable_timer_wakeup(CHECK_INTERVAL_MS * 1000ULL);
+  esp_deep_sleep_start();
+}
+
 bool waitForJoin(unsigned long timeoutMs) {
   unsigned long t0 = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - t0 < timeoutMs) delay(20);
@@ -255,6 +264,12 @@ bool waitForJoin(unsigned long timeoutMs) {
 }
 
 void setup() {
+  esp_timer_handle_t guard;
+  esp_timer_create_args_t guardArgs = {};
+  guardArgs.callback = failsafe;
+  guardArgs.name = "failsafe";
+  esp_timer_create(&guardArgs, &guard);
+  esp_timer_start_once(guard, MAX_AWAKE_MS * 1000ULL);
   setCpuFrequencyMhz(CPU_MHZ);
   Serial.begin(115200);
   pinMode(BOOT_BTN, INPUT_PULLUP);
@@ -311,7 +326,9 @@ void setup() {
   if (ok) {
     WiFiClientSecure client;
     client.setInsecure();   // test only: skips the certificate check
+    client.setHandshakeTimeout(5);
     HTTPClient http;
+    http.setConnectTimeout(4000);
     String url = String(TOPIC_URL) + "/json?poll=1&since=" + (lastId[0] ? lastId : "all");
     http.begin(client, url);
     http.setTimeout(8000);
@@ -362,7 +379,7 @@ void setup() {
                 ok ? "ok" : "FAILED", joinMs, code, pollMs, awakeMs, fresh,
                 cycle == 1 ? " (caught up on backlog)" : "");
   if (texts.length()) Serial.println(texts);
-  Serial.printf("  messages received so far: %d (last: \"%s\"), fast-join failures: %d\n", totalMsgs, lastText, fastFails);
+  Serial.printf("  messages received so far: %d (last: \"%s\"), fast-join failures: %d, failsafe aborts: %d\n", totalMsgs, lastText, fastFails, aborts);
   Serial.println("  recent cycles (cycle: join / poll / awake ms, mode):");
   for (int c = max(1, cycle - HIST + 1); c <= cycle; c++)
     Serial.printf("    %d: %u / %u / %u %c\n", c, hJoin[c % HIST], hPoll[c % HIST], hAwake[c % HIST], hHow[c % HIST]);
