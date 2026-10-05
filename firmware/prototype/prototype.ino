@@ -11,6 +11,12 @@
 //      saved by test 5, poll the topic in secrets.h for new messages, print timings, sleep again.
 //      Run on USB: the port disappears while asleep and returns on each wake. Hold the onboard BOOT
 //      button during a wake to stay awake (for flashing). Timings exclude the ~0.25 s ROM boot.
+//   7. Remote firmware update: joins a saved network (from test 5), reads manifest.txt from the release
+//      location, and if its version is newer than FW_VERSION downloads the .bin, checks size and SHA-256,
+//      installs it and reboots, then posts to the phone topic (secrets.h) that it updated. A new image that crashes before validating rolls back to the old one.
+//      Tap the onboard BOOT button to check again. Build helpers: -DFW_VERSION=N (default 1), -DFW_CRASH
+//      (image that crashes at startup, to test rollback). -DOTA_LOCAL_IP=a.b.c.d tests against a local
+//      web server (port 8000) instead of GitHub. See README.md (Remote updates).
 //   5. Wi-Fi setup from a phone, no wiring and no secrets.h: hold the onboard BOOT button 5 s and
 //      release, join "Pebble-Setup" on the phone, pick a network on the page that opens. Networks are
 //      saved on the device (not in the repo), up to 10, with a delete button per network on the page. Hold 10 s and release to clear them. After a join it
@@ -398,6 +404,257 @@ void setup() {
 }
 
 void loop() {}
+
+#elif TEST == 7
+
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
+#include <Preferences.h>
+#include <Update.h>
+#include "esp_ota_ops.h"
+#include "mbedtls/sha256.h"
+#include "secrets.h"
+
+#ifndef FW_VERSION
+#define FW_VERSION 1
+#endif
+#ifdef OTA_LOCAL_IP   // -DOTA_LOCAL_IP=192.168.x.y : test against a local web server on port 8000
+#define STR_(x) #x
+#define STR(x) STR_(x)
+#define OTA_BASE "http://" STR(OTA_LOCAL_IP) ":8000/"
+#endif
+#ifndef OTA_BASE   // where manifest.txt and the .bin live; secrets.h can override for local testing
+#define OTA_BASE "https://github.com/abrahamw88/pebble-pager/releases/latest/download/"
+#endif
+
+const char* MANIFEST_FILE = "manifest.txt";   // lines: version=N, size=BYTES, sha256=HEX
+const char* BIN_FILE = "pebble-prototype.bin";
+const int BOOT_BTN = 9;
+const unsigned long JOIN_TIMEOUT_MS = 8000;
+
+// Keep the new image on probation until it proves itself (Wi-Fi up and manifest readable).
+extern "C" bool verifyRollbackLater() { return true; }
+
+bool isHttps(const String& url) { return url.startsWith("https"); }
+
+// GET `url`, following redirects (GitHub release downloads redirect to another host).
+bool openUrl(HTTPClient& http, WiFiClient& plain, WiFiClientSecure& secure, const String& url) {
+  http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+  http.setConnectTimeout(5000);
+  http.setTimeout(10000);
+  http.useHTTP10(true);
+  bool begun = isHttps(url) ? http.begin(secure, url) : http.begin(plain, url);
+  if (!begun) return false;
+  int code = http.GET();
+  Serial.printf("GET %s -> %d\n", url.c_str(), code);
+  return code == 200;
+}
+
+int savedCount() {
+  Preferences prefs;
+  prefs.begin("pebble", true);   // networks saved by test 5
+  int n = prefs.getInt("n", 0);
+  prefs.end();
+  return n;
+}
+
+bool joinSaved(int index) {
+  Preferences prefs;
+  prefs.begin("pebble", true);
+  String ssid = prefs.getString(("s" + String(index)).c_str(), "");
+  String pass = prefs.getString(("p" + String(index)).c_str(), "");
+  prefs.end();
+  WiFi.disconnect(true);
+  delay(100);
+  WiFi.mode(WIFI_STA);
+  Serial.printf("Joining \"%s\"...\n", ssid.c_str());
+  WiFi.begin(ssid.c_str(), pass.c_str());
+  unsigned long t0 = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - t0 < JOIN_TIMEOUT_MS) delay(100);
+  return WiFi.status() == WL_CONNECTED;
+}
+
+bool postNtfy(const char* title, const String& message) {
+  WiFiClientSecure client;
+  client.setInsecure();   // test only: skips the certificate check
+  HTTPClient http;
+  http.setConnectTimeout(5000);
+  http.setTimeout(10000);
+  if (!http.begin(client, TOPIC_URL)) return false;
+  http.addHeader("Title", title);
+  int code = http.POST(message);
+  http.end();
+  Serial.printf("ntfy post \"%s\" -> %d\n", message.c_str(), code);
+  return code == 200;
+}
+
+// After an update the old image records "from" and "to"; the next boot reports how it went.
+void reportUpdateResult() {
+  Preferences prefs;
+  prefs.begin("pebble", false);
+  int to = prefs.getInt("otaTo", 0), from = prefs.getInt("otaFrom", 0);
+  if (to == 0) { prefs.end(); return; }
+  bool ok = FW_VERSION == to;
+  String msg = ok ? "Firmware updated from version " + String(from) + " to " + String(to) + "."
+                  : "Update to version " + String(to) + " failed and rolled back. Still on version " + String(FW_VERSION) + ".";
+  if (postNtfy(ok ? "Pebble updated" : "Pebble update failed", msg)) {
+    prefs.remove("otaTo");
+    prefs.remove("otaFrom");
+  }   // if the post fails, it is tried again on the next boot
+  prefs.end();
+}
+
+String field(const String& text, const char* key) {   // value of key=value on its own line
+  String k = String(key) + "=";
+  int i = text.indexOf(k);
+  if (i < 0) return "";
+  i += k.length();
+  int j = text.indexOf('\n', i);
+  String v = j < 0 ? text.substring(i) : text.substring(i, j);
+  v.trim();
+  return v;
+}
+
+bool installUpdate(size_t size, const String& wantSha) {
+  WiFiClient plain;
+  WiFiClientSecure secure;
+  secure.setInsecure();   // test only: skips the certificate check
+  HTTPClient http;
+  if (!openUrl(http, plain, secure, String(OTA_BASE) + BIN_FILE)) { http.end(); return false; }
+  if (http.getSize() != (int)size) {
+    Serial.printf("Size mismatch: server says %d, manifest says %u\n", http.getSize(), (unsigned)size);
+    http.end();
+    return false;
+  }
+  if (!Update.begin(size)) { Serial.printf("Update.begin failed: %s\n", Update.errorString()); http.end(); return false; }
+
+  mbedtls_sha256_context sha;
+  mbedtls_sha256_init(&sha);
+  mbedtls_sha256_starts(&sha, 0);
+  WiFiClient* stream = http.getStreamPtr();
+  uint8_t buf[1024];
+  size_t done = 0;
+  int lastPct = -1;
+  unsigned long lastData = millis();
+  while (done < size && millis() - lastData < 20000) {
+    int avail = stream->available();
+    if (avail <= 0) { delay(5); continue; }
+    int n = stream->readBytes(buf, min((size_t)avail, sizeof(buf)));
+    if (n <= 0) continue;
+    lastData = millis();
+    if (Update.write(buf, n) != (size_t)n) { Serial.printf("Write failed: %s\n", Update.errorString()); Update.abort(); http.end(); return false; }
+    mbedtls_sha256_update(&sha, buf, n);
+    done += n;
+    int pct = done * 100 / size;
+    if (pct / 10 != lastPct / 10) { Serial.printf("  %d%%\n", pct); lastPct = pct; }
+  }
+  http.end();
+  uint8_t digest[32];
+  mbedtls_sha256_finish(&sha, digest);
+  mbedtls_sha256_free(&sha);
+  if (done != size) { Serial.println("Download incomplete."); Update.abort(); return false; }
+  char hex[65];
+  for (int i = 0; i < 32; i++) sprintf(hex + 2 * i, "%02x", digest[i]);
+  if (!wantSha.equalsIgnoreCase(hex)) {
+    Serial.printf("SHA-256 mismatch. Got %s\n", hex);
+    Update.abort();   // nothing is installed
+    return false;
+  }
+  if (!Update.end(true)) { Serial.printf("Update.end failed: %s\n", Update.errorString()); return false; }
+  return true;
+}
+
+// Returns true if an update was installed (the caller then reboots).
+bool checkForUpdate(bool* reached) {
+  *reached = false;
+  WiFiClient plain;
+  WiFiClientSecure secure;
+  secure.setInsecure();   // test only: skips the certificate check
+  HTTPClient http;
+  if (!openUrl(http, plain, secure, String(OTA_BASE) + MANIFEST_FILE)) { http.end(); return false; }
+  *reached = true;
+  String manifest = http.getString();
+  http.end();
+  int remote = field(manifest, "version").toInt();
+  size_t size = field(manifest, "size").toInt();
+  String sha = field(manifest, "sha256");
+  Serial.printf("Running version %d, release has version %d\n", FW_VERSION, remote);
+  Preferences badPrefs;
+  badPrefs.begin("pebble", true);
+  int bad = badPrefs.getInt("otaBad", 0);
+  badPrefs.end();
+  if (remote == bad) { Serial.printf("Version %d failed to start earlier; skipping it.\n", bad); return false; }
+  if (remote <= FW_VERSION) { Serial.println("Up to date."); return false; }
+  if (size == 0 || sha.length() != 64) { Serial.println("Manifest is incomplete; not updating."); return false; }
+  Serial.printf("Installing version %d (%u bytes)...\n", remote, (unsigned)size);
+  if (!installUpdate(size, sha)) return false;
+  Preferences prefs;
+  prefs.begin("pebble", false);
+  prefs.putInt("otaFrom", FW_VERSION);
+  prefs.putInt("otaTo", remote);
+  prefs.end();
+  return true;
+}
+
+void setup() {
+  Serial.begin(115200);
+  unsigned long t0 = millis();
+  while (!Serial && millis() - t0 < 3000) delay(10);
+#ifdef FW_CRASH
+  Serial.println("FW_CRASH build: crashing before validating, to test rollback.");
+  delay(500);
+  abort();
+#endif
+  pinMode(BOOT_BTN, INPUT_PULLUP);
+  {   // An update was started but this is not the version it was meant to install: the new one failed and rolled back.
+    Preferences prefs;
+    prefs.begin("pebble", false);
+    int to = prefs.getInt("otaTo", 0);
+    if (to != 0 && FW_VERSION != to) prefs.putInt("otaBad", to);   // remembered so it is not retried in a loop
+    prefs.end();
+  }
+  const esp_partition_t* running = esp_ota_get_running_partition();
+  esp_ota_img_states_t state;
+  const char* st = "unknown";
+  if (esp_ota_get_state_partition(running, &state) == ESP_OK)
+    st = state == ESP_OTA_IMG_PENDING_VERIFY ? "pending verify (on probation)" : (state == ESP_OTA_IMG_VALID ? "valid" : "other");
+  Serial.printf("\n== Pebble OTA test: version %d, running slot %s, image %s ==\n", FW_VERSION, running->label, st);
+
+  // Try each saved network in turn until one can reach the release location.
+  bool reached = false;
+  for (int i = 0; i < savedCount() && !reached; i++) {
+    if (!joinSaved(i)) continue;
+    Serial.printf("Connected, IP %s\n", WiFi.localIP().toString().c_str());
+    if (checkForUpdate(&reached)) {
+      Serial.println("Update installed. Rebooting into it...");
+      delay(500);
+      ESP.restart();
+    }
+    if (!reached) Serial.println("Release location not reachable on this network; trying the next one.");
+  }
+  if (!reached) { Serial.println("No saved network could reach the release location: run test 5, or check OTA_BASE."); return; }
+  // Wi-Fi up and the release location readable: the running image has proven itself.
+  esp_ota_mark_app_valid_cancel_rollback();
+  Serial.println("Marked this image valid. Tap BOOT to check again.");
+  reportUpdateResult();
+}
+
+void loop() {
+  static bool wasDown = false;
+  bool down = digitalRead(BOOT_BTN) == LOW;
+  if (wasDown && !down && WiFi.status() == WL_CONNECTED) {
+    Serial.println("Checking for an update...");
+    bool reached;
+    if (checkForUpdate(&reached)) {
+      Serial.println("Update installed. Rebooting into it...");
+      delay(500);
+      ESP.restart();
+    }
+  }
+  wasDown = down;
+  delay(20);
+}
 
 #elif TEST == 5
 

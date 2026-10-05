@@ -14,7 +14,7 @@ Spec and breadboard build are written. Firmware is **not written yet**: both ske
 README.md                          spec: behavior, parts, pins, power, ntfy, risks
 docs/build-steps.md                breadboard wiring and test steps
 docs/concept.html                  visual concept sheet (open in a browser): look, colorways, every ring state
-firmware/prototype/prototype.ino   breadboard test firmware; pick test 0-6 with TEST (see its header)
+firmware/prototype/prototype.ino   breadboard test firmware; pick test 0-7 with TEST (see its header)
 firmware/pebble-pager/pebble-pager.ino  the full pager firmware
 ```
 
