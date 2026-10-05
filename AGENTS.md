@@ -54,5 +54,6 @@ Use `firmware/pebble-pager` for the full build. USB CDC On Boot is enabled by de
 - Compile before claiming a change works. Flash only when asked, and confirm the serial port first with `arduino-cli board list`.
 - Never commit Wi-Fi names, passwords, ntfy topics or tokens. Put them in `secrets.h` (git-ignored) and include it.
 - Measure battery current on battery with USB unplugged; USB keeps the chip awake.
+- Push only to the `test` branch until development is complete. Never push to `main` unless asked.
 - Do not add dependencies or folders beyond the layout above without asking.
 - The device supplements a phone. Do not add emergency, location or calling features.
