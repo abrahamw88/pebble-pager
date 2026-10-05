@@ -13,7 +13,7 @@
 //      button during a wake to stay awake (for flashing). Timings exclude the ~0.25 s ROM boot.
 //   5. Wi-Fi setup from a phone, no wiring and no secrets.h: hold the onboard BOOT button 5 s and
 //      release, join "Pebble-Setup" on the phone, pick a network on the page that opens. Networks are
-//      saved on the device (not in the repo). Hold 10 s and release to clear them. After a join it
+//      saved on the device (not in the repo), up to 10, with a delete button per network on the page. Hold 10 s and release to clear them. After a join it
 //      checks ntfy.sh over HTTPS.
 // Wiring steps and expected results are in docs/build-steps.md.
 
@@ -409,13 +409,13 @@ void loop() {}
 #include <HTTPClient.h>
 
 const int BOOT_BTN = 9;                    // onboard BOOT button (GPIO9), LOW when pressed
-const char* SETUP_SSID = "pebble-pager";
-const char* SETUP_PASS = "pebble-pager";   // placeholder; the full build should use a per-device value
+const char* SETUP_SSID = "pebblepager";
+const char* SETUP_PASS = "pebblepager";   // placeholder; the full build should use a per-device value
 const unsigned long SETUP_HOLD_MS = 5000;
 const unsigned long CLEAR_HOLD_MS = 10000;
 const unsigned long SETUP_TIMEOUT_MS = 5UL * 60 * 1000;
 const unsigned long JOIN_TIMEOUT_MS = 15000;
-const int MAX_NETWORKS = 5;
+const int MAX_NETWORKS = 10;
 
 Preferences prefs;
 WebServer server(80);
@@ -454,6 +454,19 @@ void saveNetwork(const String& ssid, const String& pass) {
     prefs.putString(("p" + String(i)).c_str(), pp[i]);
   }
   prefs.putInt("n", n);
+}
+
+// Remove saved network `index`, shifting later ones up.
+void deleteNetwork(int index) {
+  int n = savedCount();
+  if (index < 0 || index >= n) return;
+  for (int i = index; i < n - 1; i++) {
+    prefs.putString(("s" + String(i)).c_str(), prefs.getString(("s" + String(i + 1)).c_str(), ""));
+    prefs.putString(("p" + String(i)).c_str(), prefs.getString(("p" + String(i + 1)).c_str(), ""));
+  }
+  prefs.remove(("s" + String(n - 1)).c_str());
+  prefs.remove(("p" + String(n - 1)).c_str());
+  prefs.putInt("n", n - 1);
 }
 
 bool waitForJoin() {
@@ -501,8 +514,25 @@ void handleRoot() {
   page += "</select></label></p><p><label>Password<br><input name=pass type=password "
           "style='font-size:1.1em;width:100%'></label></p>"
           "<p><button style='font-size:1.1em;padding:.6em 1.2em'>Save and join</button></p></form>"
-          "<p>2.4 GHz networks only.</p></body>";
+          "<p>2.4 GHz networks only.</p>";
+  int n = savedCount();
+  if (n > 0) {
+    page += "<h3>Saved networks (" + String(n) + " of " + String(MAX_NETWORKS) + ")</h3>";
+    if (n >= MAX_NETWORKS) page += "<p>The list is full: saving another removes the oldest. Delete one below to choose which.</p>";
+    for (int i = 0; i < n; i++)
+      page += "<form method=post action=/delete style='display:flex;justify-content:space-between;align-items:center;margin:.4em 0'>"
+              "<span>" + esc(prefs.getString(("s" + String(i)).c_str(), "")) + "</span>"
+              "<input type=hidden name=i value=" + String(i) + ">"
+              "<button style='font-size:1em;padding:.4em .9em'>Delete</button></form>";
+  }
+  page += "</body>";
   server.send(200, "text/html", page);
+}
+
+void handleDelete() {
+  deleteNetwork(server.arg("i").toInt());
+  server.sendHeader("Location", "/");
+  server.send(303, "text/plain", "");
 }
 
 void handleSave() {
@@ -522,12 +552,13 @@ void handleSave() {
 }
 
 void startPortal() {
-  Serial.println("Setup mode: join Wi-Fi \"pebble-pager\" on the phone (password in the sketch).");
+  Serial.println("Setup mode: join Wi-Fi \"pebblepager\" on the phone (password in the sketch).");
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(SETUP_SSID, SETUP_PASS);
   dns.start(53, "*", WiFi.softAPIP());   // captive portal: every name points here
   server.on("/", handleRoot);
   server.on("/save", HTTP_POST, handleSave);
+  server.on("/delete", HTTP_POST, handleDelete);
   server.onNotFound([]() {
     server.sendHeader("Location", "http://192.168.4.1/");
     server.send(302, "text/plain", "");
