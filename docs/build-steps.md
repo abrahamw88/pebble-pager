@@ -27,9 +27,9 @@ The goal is a computer that can upload code to the XIAO and read what it prints.
 2. In File → Preferences, add this board manager URL: `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`
 3. In Tools → Board → Boards Manager, search "esp32" and install "esp32 by Espressif Systems".
 4. Plug the XIAO in with the data cable. Choose Tools → Board → esp32 → XIAO_ESP32C3, then the new port under Tools → Port.
-5. Upload `prototype.ino` with `TEST` 1, then open Tools → Serial Monitor at 115200 baud.
+5. Upload `prototype.ino` with `TEST` 0, then open Tools → Serial Monitor at 115200 baud.
 
-**Check:** "Hello from Pebble" appears once a second.
+**Check:** the board prints its chip, MAC address and temperature, then a list of nearby Wi-Fi networks. No wiring is needed.
 
 - **Upload fails:** hold the XIAO's BOOT button while plugging it in, let go, and upload again, as Seeed's guide describes.
 - **Serial Monitor stays blank:** set Tools → USB CDC On Boot → Enabled and upload again.
@@ -111,10 +111,11 @@ ntfy needs no account to start. On the free tier the topic name works as the pas
 2. Pick a base name: `pebble-` plus at least seven random letters and digits, like `pebble-7qk2x9m`. Your three topics are that name plus `-a`, `-b` and `-phone`.
 3. On the iPhone, install ntfy from the App Store and allow notifications when it asks. Tap +, enter your `-phone` topic, and keep the default server, ntfy.sh.
 4. Test 1, from the computer: in a terminal, open ntfy.sh/app in a browser, subscribe to your -phone topic and publish a message from there. The phone should show it within a few seconds.
-5. Test 2, from the breadboard: run `TEST` 5 once to save your Wi-Fi from the phone (2.4 GHz only), create `firmware/prototype/secrets.h` (git-ignored) defining `TOPIC_URL` (your -phone topic URL), and set `TEST` to 3.
-6. Upload it and open the Serial Monitor at 115200 baud. It sends once each time the board starts; press RESET to send again.
+5. Test 2, from the board: create `firmware/prototype/secrets.h` (git-ignored) defining `TOPIC_URL` (your -phone topic URL), then upload `prototype.ino` with `TEST` 7.
+6. With no saved Wi-Fi it waits. Hold the small BOOT button for 5 s and release, join the `pebblepager` network on your phone (password `pebblepager`), open `http://192.168.4.1` if the page doesn't appear, and pick your Wi-Fi (2.4 GHz only). Open the Serial Monitor at 115200 baud.
+7. Post `update` to your `-a` topic from the ntfy web app.
 
-**Check:** the Serial Monitor shows "connected" and "ntfy 200", and the phone shows a notification titled "Pebble test" that reads "Hello from Pebble".
+**Check:** the Serial Monitor shows "Wi-Fi online" and "Image valid", and the phone shows messages from "Eliana" such as "checking for update" and "up to date".
 
 - **Dots forever:** wrong password, or the network is 5 GHz only. An iPhone hotspot works as a test network with Maximize Compatibility turned on.
 - **A negative reply code:** Wi-Fi joined but the request failed. Check that the topic URL starts with `https://ntfy.sh/`.
@@ -139,7 +140,7 @@ From now on, unplug the battery as well as USB before moving any wire, since the
 
 ## Step 9: Build device B and plan the end-to-end test
 
-Repeat steps 2 to 8 on the second XIAO and breadboard, then run `TEST` 2 and 3 on it. Put a strip of tape on each board marked A or B so the topics don't get mixed up.
+Repeat steps 2 to 8 on the second XIAO and breadboard, then run `TEST` 2 and 7 on it. Put a strip of tape on each board marked A or B so the topics don't get mixed up.
 
 That's as far as the breadboards go without pager firmware. Once it's written, flash both boards and work through this list. Each line comes from the Spec and Behavior sections, and the diagram in the Overview shows the paths they cover.
 

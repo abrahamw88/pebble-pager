@@ -1,26 +1,20 @@
-// Pebble prototype: breadboard test firmware.
+// Pebble prototype: bare-board and breadboard test firmware.
 // Pick one test with TEST below, or on the command line with
 //   --build-property compiler.cpp.extra_flags=-DTEST=2
-//   0. Bare-board check, no wiring and no secrets.h: chip info, Wi-Fi scan, internal temperature.
-//   1. Hello over Serial: proves upload and Serial work.
+// Test numbers are kept from earlier versions, so 1, 3 and 5 are intentionally missing.
+//   0. Bare-board check, no wiring and no secrets.h: chip info, MAC, internal temperature, Wi-Fi scan.
 //   2. Buttons, light ring and motor: every part wired so far works.
-//   3. One ntfy message to the phone: joins the network saved by test 5 (run test 5 first), then
-//      posts. Needs secrets.h (git-ignored) with TOPIC_URL, e.g. "https://ntfy.sh/pebble-xxxxxxx-phone".
 //   4. Battery voltage on D1: divider works; Serial prints volts, pixel 0 blinks green.
-//   6. Wake-and-check cycle (power plan B), no wiring: deep sleep, wake every 30 s, join the network
-//      saved by test 5, poll the topic in secrets.h for new messages, print timings, sleep again.
-//      Run on USB: the port disappears while asleep and returns on each wake. Hold the onboard BOOT
-//      button during a wake to stay awake (for flashing). Timings exclude the ~0.25 s ROM boot.
-//   7. Remote firmware update: joins a saved network (from test 5), reads manifest.txt from the release
-//      location, and if its version is newer than FW_VERSION downloads the .bin, checks size and SHA-256,
-//      installs it and reboots, then posts to the phone topic (secrets.h) that it updated. A new image that crashes before validating rolls back to the old one.
-//      Tap the onboard BOOT button, post \"update\" to the device topic (<base>-a), or wait for the daily check. It also runs the Wi-Fi setup page, which opens only when BOOT is held 5 s and released, and keeps the device on the best saved network (see the Wi-Fi connection manager). Build helpers: -DFW_VERSION=N (default 1), -DFW_CRASH
-//      (image that crashes at startup, to test rollback). -DOTA_LOCAL_IP=a.b.c.d tests against a local
-//      web server (port 8000) instead of GitHub. See README.md (Remote updates).
-//   5. Wi-Fi setup from a phone, no wiring and no secrets.h: hold the onboard BOOT button 5 s and
-//      release, join "Pebble-Setup" on the phone, pick a network on the page that opens. Networks are
-//      saved on the device (not in the repo), up to 10, with a delete button per network on the page. Hold 10 s and release to clear them. After a join it
-//      checks ntfy.sh over HTTPS.
+//   6. Wake-and-check cycle (power plan B), no wiring: deep sleep, wake every 30 s, join the first saved
+//      network, poll the topic in secrets.h, print timings, sleep again. On USB the port disappears while
+//      asleep; hold the onboard BOOT button during a wake to stay awake (for flashing).
+//   7. Update build, the one that stays on the board: Wi-Fi setup page (hold BOOT 5 s and release; 10 s
+//      forgets all networks), Wi-Fi connection manager, ntfy commands ("update" to <base>-a), and remote
+//      updates from GitHub releases (size and SHA-256 checked, rollback if the new image crashes).
+//      Build flags: -DFW_VERSION=N (default 1), -DFW_CRASH (image that crashes at startup, to test
+//      rollback), -DWIFI_TEST (adds drop, nointernet, hide and roam commands), -DOTA_LOCAL_IP=a.b.c.d
+//      (use a local web server on port 8000 instead of GitHub). Needs secrets.h with TOPIC_URL, e.g.
+//      "https://ntfy.sh/pebble-xxxxxxx-phone". See README.md (Remote updates).
 // Wiring steps and expected results are in docs/build-steps.md.
 
 #ifndef TEST
@@ -37,12 +31,12 @@ const int RING_DATA = D10;
 
 // Libraries are included up here so the Arduino-generated function prototypes (which now come after the
 // shared helpers below) can see every type they use.
-#if TEST == 0 || TEST == 3 || TEST == 5 || TEST == 6 || TEST == 7
+#if TEST == 0 || TEST == 6 || TEST == 7
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #endif
-#if TEST == 5 || TEST == 7
+#if TEST == 7
 #include <WebServer.h>
 #include <DNSServer.h>
 #endif
@@ -125,8 +119,8 @@ void sayf(const char* fmt, ...) {
 }
 void sayln(const char* msg) { sayf("%s\n", msg); }
 
-#if TEST == 5 || TEST == 7
-// ---- Wi-Fi setup portal, shared by the setup test (5) and the update test (7) ----
+#if TEST == 7
+// ---- Wi-Fi setup portal (update test 7) ----
 const char* SETUP_SSID = "pebblepager";
 const char* SETUP_PASS = "pebblepager";   // placeholder; the full build should use a per-device value
 const unsigned long SETUP_HOLD_MS = 5000;
@@ -571,18 +565,6 @@ void setup() {
 
 void loop() {}
 
-#elif TEST == 1
-
-void setup() {
-  Serial.begin(115200);
-  loadDevice();
-}
-
-void loop() {
-  sayln("Hello from Pebble");
-  delay(1000);
-}
-
 #elif TEST == 2
 
 #include <Adafruit_NeoPixel.h>
@@ -637,52 +619,6 @@ void loop() {
     light(0, 0);
   }
 }
-
-#elif TEST == 3
-
-#include <WiFi.h>
-#include <WiFiClientSecure.h>
-#include <HTTPClient.h>
-#include <Preferences.h>
-#include "secrets.h"
-
-void setup() {
-  Serial.begin(115200);
-  loadDevice();
-  unsigned long t0 = millis();
-  while (!Serial && millis() - t0 < 3000) delay(10);
-
-  Preferences prefs;
-  prefs.begin("pebble", true);   // networks saved by test 5
-  String ssid = prefs.getString("s0", "");
-  String pass = prefs.getString("p0", "");
-  prefs.end();
-  if (ssid.length() == 0) {
-    sayln("No saved Wi-Fi: run test 5");
-    return;
-  }
-
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid.c_str(), pass.c_str());
-  Serial.print("Joining");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  sayln(" connected");
-
-  WiFiClientSecure client;
-  client.setInsecure();   // test only: skips the certificate check
-  HTTPClient http;
-  http.begin(client, TOPIC_URL);
-  http.addHeader("Title", "Pebble test");
-  http.addHeader("Priority", "high");
-  int code = http.POST(deviceName + " says hello");
-  sayf("ntfy %d\n", code);
-  http.end();
-}
-
-void loop() {}
 
 #elif TEST == 4
 
@@ -1329,85 +1265,6 @@ void loop() {
     wifiKick();   // offline: look for a network now
   }
   delay(portalOn ? 2 : 20);   // answer the phone quickly while the setup page is open
-}
-
-#elif TEST == 5
-
-#include <WiFi.h>
-#include <WebServer.h>
-#include <DNSServer.h>
-#include <Preferences.h>
-#include <WiFiClientSecure.h>
-#include <HTTPClient.h>
-
-const int BOOT_BTN = 9;                    // onboard BOOT button (GPIO9), LOW when pressed
-bool joinSaved() {
-  int n = savedCount();
-  if (n == 0) return false;
-  int found = WiFi.scanNetworks();
-  int best = -1, bestRssi = -1000;
-  for (int i = 0; i < n; i++) {
-    String s = prefs.getString(("s" + String(i)).c_str(), "");
-    for (int j = 0; j < found; j++)
-      if (WiFi.SSID(j) == s && WiFi.RSSI(j) > bestRssi) { best = i; bestRssi = WiFi.RSSI(j); }
-  }
-  if (best < 0) { sayln("No saved Wi-Fi in range"); return false; }
-  String s = prefs.getString(("s" + String(best)).c_str(), "");
-  sayf("Join \"%s\" (%d dBm)\n", s.c_str(), bestRssi);
-  WiFi.begin(s.c_str(), prefs.getString(("p" + String(best)).c_str(), "").c_str());
-  return waitForJoin();
-}
-
-void healthCheck() {
-  WiFiClientSecure client;
-  client.setInsecure();   // test only: skips the certificate check
-  HTTPClient http;
-  http.begin(client, "https://ntfy.sh/v1/health");
-  int code = http.GET();
-  sayf("ntfy health %d %s\n", code, code > 0 ? http.getString().c_str() : "");
-  http.end();
-}
-
-void setup() {
-  Serial.begin(115200);
-  loadDevice();
-  unsigned long t0 = millis();
-  while (!Serial && millis() - t0 < 3000) delay(10);
-  sayln("\n== Wi-Fi setup ==");
-  pinMode(BOOT_BTN, INPUT_PULLUP);
-  prefs.begin("pebble", false);
-  WiFi.mode(WIFI_STA);
-  sayf("%d saved, color %s\n", savedCount(), deviceColor.c_str());
-  if (joinSaved()) {
-    sayf("IP %s\n", WiFi.localIP().toString().c_str());
-    healthCheck();
-  }
-  sayln("BOOT 5s: setup, 10s: clear");
-}
-
-void loop() {
-  static unsigned long pressedAt = 0;
-  static bool told5 = false, told10 = false;
-  if (digitalRead(BOOT_BTN) == LOW) {
-    if (!pressedAt) pressedAt = millis();
-    unsigned long held = millis() - pressedAt;
-    if (held >= SETUP_HOLD_MS && !told5) { told5 = true; sayln("5s: release=setup"); }
-    if (held >= CLEAR_HOLD_MS && !told10) { told10 = true; sayln("10s: release=clear"); }
-  } else if (pressedAt) {
-    unsigned long held = millis() - pressedAt;
-    pressedAt = 0; told5 = told10 = false;
-    if (held >= CLEAR_HOLD_MS) {
-      clearNetworks();
-      sayln("Cleared networks");
-    } else if (held >= SETUP_HOLD_MS && !portalOn) {
-      startPortal();
-    }
-  }
-  if (portalTick()) {
-    sayf("IP %s\n", WiFi.localIP().toString().c_str());
-    healthCheck();
-  }
-  delay(10);
 }
 
 #endif

@@ -6,7 +6,7 @@ Two matching palm-size pagers on a Seeed XIAO ESP32-C3. They swap "pulse message
 
 ## Status
 
-Spec and breadboard build are written. The prototype sketch has working, tested pieces on the bare board: Wi-Fi setup page, Wi-Fi connection manager, ntfy send and receive, wake-and-check cycle, and remote updates by ntfy command. The full firmware has only settings and the Wi-Fi manager so far. Buttons, ring, motor and battery wait on parts.
+Spec and breadboard build are written. The prototype sketch has working, tested pieces on the bare board (test 7 is the update build): Wi-Fi setup page, Wi-Fi connection manager, ntfy send and receive, wake-and-check cycle, and remote updates by ntfy command. The full firmware has only settings and the Wi-Fi manager so far. Buttons, ring, motor and battery wait on parts.
 
 ## Layout
 
@@ -14,7 +14,7 @@ Spec and breadboard build are written. The prototype sketch has working, tested 
 README.md                          spec: behavior, parts, pins, power, ntfy, risks
 docs/build-steps.md                breadboard wiring and test steps
 docs/concept.html                  visual concept sheet (open in a browser): look, colorways, every ring state
-firmware/prototype/prototype.ino   breadboard test firmware; pick test 0-7 with TEST (see its header)
+firmware/prototype/prototype.ino   test firmware; pick test 0, 2, 4, 6 or 7 with TEST (see its header)
 firmware/pebble-pager/pebble-pager.ino  the full pager firmware
 ```
 
