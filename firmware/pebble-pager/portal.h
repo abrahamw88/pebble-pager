@@ -66,11 +66,6 @@ void deleteNetwork(int index) {
   prefs.putInt("n", n - 1);
 }
 
-// Forget every saved network. The device's identity and update markers stay.
-void clearNetworks() {
-  while (savedCount() > 0) deleteNetwork(savedCount() - 1);
-}
-
 // Scan for networks. Only done before the hotspot starts or when the page asks: a scan while the hotspot
 // is up makes the radio hop channels for a few seconds and can drop the phone's connection.
 void refreshScan() {

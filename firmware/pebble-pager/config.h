@@ -16,11 +16,14 @@ const int BTN2 = D3;       // small: battery, setup, off
 const int MOTOR = D4;
 const int RING_PWR = D5;
 const int RING_DATA = D10;
-const int BOOT_BTN = 9;    // onboard button: stands in for button 2 until the parts are wired
+const int BOOT_BTN = 9;    // onboard button: acts as button 2 (or button 1, console "boot 1") until the parts are wired
 
 // ---- Values to tune ----
-const unsigned long SETUP_HOLD_MS = 5000;        // hold, then release: open the setup page
-const unsigned long CLEAR_HOLD_MS = 10000;       // hold, then release: forget all Wi-Fi networks
+const unsigned long SETUP_HOLD_MS = 5000;        // hold, then release: open (or close) the setup page
+const unsigned long OFF_HOLD_MS = 10000;         // hold, then release: turn the device off
+const unsigned long DEBOUNCE_MS = 25;            // a button must stay changed this long to count
+const unsigned long RECORD_HOLD_MS = 500;        // hold button 1 this long to start recording
+const unsigned long SEND_PAUSE_MS = 2000;        // a recording is sent after this long without a press
 const unsigned long INBOX_POLL_MS = 30000;       // how often the device reads its own topic
 const unsigned long RECEIPT_POLL_MS = 5000;      // ...and how often while a sent message waits for its receipt
 const unsigned long RECEIPT_WAIT_MS = 45000;     // give up on a receipt after this
@@ -174,7 +177,7 @@ void sayln(const char* msg) { sayf("%s\n", msg); }
 // ---- USB serial console, for setup and testing without a phone ----
 //   show                                   current settings (the base is not printed)
 //   set name|color|partner|base <value>    change one setting
-// The main tab adds: send <message>, play.
+// The main tab adds: send <message>, play, press <1|2> <times>, boot <1|2>.
 bool consoleRead(String& line) {   // true when a whole line has been typed
   static String typed;
   while (Serial.available()) {

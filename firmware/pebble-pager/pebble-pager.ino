@@ -6,13 +6,15 @@
 //   ntfy.h     post to topics, read this device's inbox
 //   pulse.h    the message format
 //   messages.h sending, receiving, receipts, the outbox and the unread list
+//   input.h    buttons: taps, holds and recording
 //   ota.h      remote firmware updates
 //   portal.h   setup page
 //   tests.h    hardware checks, built instead of the firmware with -DTEST=n
 //
-// Built so far: settings, setup page, Wi-Fi manager, messages between devices with receipts, remote updates.
-// Still to build: buttons and recording, ring, motor, battery, sleep. Until then the serial console stands in:
-// "send pink 200 200 500" queues a message as a recording would, and "play" plays the next unread one.
+// Built so far: settings, setup page, Wi-Fi manager, messages between devices with receipts, buttons and
+// recording, remote updates. Still to build: ring, motor, battery, sleep. Until the buttons are wired the
+// serial console can stand in: "press 1 700 300 600" simulates presses, "boot 1" makes the onboard button act
+// as button 1, "send pink 200 200 500" queues a message, "play" plays the next unread one.
 //
 // Build flags (--build-property compiler.cpp.extra_flags="..."):
 //   -DFW_VERSION=N       version of this build, compared with the release's manifest (default 1)
@@ -31,6 +33,7 @@
 #include "ntfy.h"
 #include "pulse.h"
 #include "messages.h"
+#include "input.h"
 #include "ota.h"
 #include "portal.h"
 
@@ -68,57 +71,62 @@ void onConsole(const String& line) {
     sayf("%s\n", problem ? problem : "Queued");
   } else if (line == "play") {
     if (!messagePlay()) sayln("Nothing to play");
+  } else if (line.startsWith("press ")) {
+    inputSimulate(line.substring(6).toInt() == 2, line.substring(8));
+  } else if (line.startsWith("boot ")) {
+    inputBootButton(line.substring(5).toInt() == 2);
   } else {
     consoleSettings(line);
     sayf("unread=%d outbox=%d reports=%d\n", listCount(UNREAD), listCount(OUTBOX), listCount(NOTES));
   }
 }
 
-// The button: a tap, or a hold that acts on release (5 s = setup page, 10 s = forget Wi-Fi networks).
-enum { PRESS_NONE, PRESS_TAP, PRESS_SETUP, PRESS_CLEAR };
-int buttonTick() {
-  static unsigned long downAt = 0;
-  static int told = PRESS_NONE;
-  if (digitalRead(BOOT_BTN) == LOW) {
-    if (!downAt) downAt = millis() | 1;
-    unsigned long held = millis() - downAt;
-    int now = held >= CLEAR_HOLD_MS ? PRESS_CLEAR : held >= SETUP_HOLD_MS ? PRESS_SETUP : PRESS_NONE;
-    if (now != told) { told = now; sayln(now == PRESS_CLEAR ? "Release to forget Wi-Fi networks" : "Release for setup"); }
-    return PRESS_NONE;
+// One thing the user did with the buttons.
+void onInput(int event) {
+  wifiKick();   // any press: if offline, look for a network now
+  switch (event) {
+    case EV_PLAY: if (!messagePlay()) sayln("Nothing to play"); break;
+    case EV_RECORD_START: sayln("Recording"); break;
+    case EV_RECORD_CANCEL: sayln("Recording cancelled"); break;
+    case EV_RECORD_DONE: {
+      String text = pulseText(recorded);
+      const char* problem = messageQueue(text);
+      sayf("Recorded %s: %s\n", text.c_str(), problem ? problem : "queued");
+      break;
+    }
+    case EV_BATTERY: sayln("Battery: not built yet"); break;
+    case EV_SETUP:   // the same hold opens the setup page and closes it
+      if (portalOn) stopPortal();
+      else { wifiPause(); startPortal(); }
+      break;
+    case EV_OFF: sayln("Off: not built yet"); break;
   }
-  if (!downAt) return PRESS_NONE;
-  downAt = 0;
-  int press = told == PRESS_NONE ? PRESS_TAP : told;
-  told = PRESS_NONE;
-  return press;
 }
 
 void setup() {
   Serial.begin(115200);
   settingsBegin();
-  pinMode(BOOT_BTN, INPUT_PULLUP);
+  inputBegin();
   sayf("\n== Pebble v%d ==\n", FW_VERSION);
   updateBoot();
   wifiBegin();
-  if (savedCount() == 0) sayln("No saved Wi-Fi: hold the button 5 s for setup");
+  if (savedCount() == 0) sayln("No saved Wi-Fi: hold button 2 for 5 s for setup");
   if (!ntfyReady()) sayln("No topic base: set it on the setup page");
 }
 
 void loop() {
   static unsigned long lastPoll = 0, lastCheck = 0;
+  static bool checkNow = false;   // look for an update at the next free moment
   String line;
   if (consoleRead(line)) onConsole(line);
 
-  int press = buttonTick();
-  if (press == PRESS_SETUP && !portalOn) { wifiPause(); startPortal(); }
-  if (press == PRESS_CLEAR) { clearNetworks(); wifiListChanged(); wifiRescanNow(); sayln("Wi-Fi networks forgotten"); }
+  for (int event; (event = inputTick()) != EV_NONE;) onInput(event);
 
   bool wasPortal = portalOn;
   if (portalTick()) wifiAdopt();                       // a network was joined through the setup page
   else if (wasPortal && !portalOn) wifiListChanged();  // closed without a join: networks may have been deleted
   wifiTick();
 
-  bool checkNow = press == PRESS_TAP;
   if (wifiJustConnected()) {
     sayf("IP %s\n", WiFi.localIP().toString().c_str());
     checkNow = true;   // also proves the internet works, and validates a freshly updated image
@@ -128,15 +136,14 @@ void loop() {
 #endif
   }
 
-  if (wifiOnline()) {
+  if (inputBusy()) {
+    // someone is pressing or recording: no network work, so loop() stays quick
+  } else if (wifiOnline()) {
     if (millis() - lastPoll >= (messagesAwaiting() ? RECEIPT_POLL_MS : INBOX_POLL_MS)) { lastPoll = millis(); ntfyPoll(onMessage); }
     if (wantUpdate) { wantUpdate = false; lastCheck = millis(); updateCheck(true); }
-    if (checkNow || millis() - lastCheck >= DAILY_CHECK_MS) { lastCheck = millis(); updateCheck(false); }
-  } else if (press == PRESS_TAP) {
-    wifiKick();   // offline: look for a network now
+    if (checkNow || millis() - lastCheck >= DAILY_CHECK_MS) { checkNow = false; lastCheck = millis(); updateCheck(false); }
   }
-  messagesTick();
-  ntfyFlush();
+  if (!inputBusy()) { messagesTick(); ntfyFlush(); }
   delay(portalOn ? 2 : 20);   // answer the phone quickly while the setup page is open
 }
 
