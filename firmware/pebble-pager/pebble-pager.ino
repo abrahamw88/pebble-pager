@@ -4,12 +4,15 @@
 //   config.h   pins, values to tune, saved settings, serial output and console
 //   wifi_manager.h  Wi-Fi connection manager
 //   ntfy.h     post to topics, read this device's inbox
+//   pulse.h    the message format
+//   messages.h sending, receiving, receipts, the outbox and the unread list
 //   ota.h      remote firmware updates
 //   portal.h   setup page
 //   tests.h    hardware checks, built instead of the firmware with -DTEST=n
 //
-// Built so far: settings, setup page, Wi-Fi manager, inbox with the "update" command, remote updates.
-// Still to build: buttons and recording, pulse messages and receipts, ring, motor, battery, sleep.
+// Built so far: settings, setup page, Wi-Fi manager, messages between devices with receipts, remote updates.
+// Still to build: buttons and recording, ring, motor, battery, sleep. Until then the serial console stands in:
+// "send pink 200 200 500" queues a message as a recording would, and "play" plays the next unread one.
 //
 // Build flags (--build-property compiler.cpp.extra_flags="..."):
 //   -DFW_VERSION=N       version of this build, compared with the release's manifest (default 1)
@@ -26,6 +29,8 @@
 #include "config.h"
 #include "wifi_manager.h"
 #include "ntfy.h"
+#include "pulse.h"
+#include "messages.h"
 #include "ota.h"
 #include "portal.h"
 
@@ -35,19 +40,38 @@
 
 bool wantUpdate = false;   // the phone sent "update"
 
-// One message from this device's inbox. Only known commands do anything.
-void onMessage(const String& raw) {
-  String msg = raw;
-  msg.trim();
-  msg.toLowerCase();
-  sayf("Inbox: \"%s\"\n", msg.c_str());
-  if (msg == "update") wantUpdate = true;
+// One message from this device's inbox: a command, a receipt, or a pulse message. Anything else is ignored.
+void onMessage(const NtfyMessage& m) {
+  String text = m.text;
+  text.trim();
+  String lower = text;
+  lower.toLowerCase();
+  sayf("Inbox: \"%s\"\n", text.c_str());
+  if (lower == "update") { wantUpdate = true; return; }
+  if (lower.startsWith("received ")) { messageReceipt(text.substring(9)); return; }
 #ifdef WIFI_TEST   // simulate trouble, to test the Wi-Fi manager from the phone
-  if (msg == "drop") WiFi.disconnect();                                              // connection lost
-  if (msg == "nointernet") wIoFails = WIFI_IO_FAIL_LIMIT;                            // joined but no internet
-  if (msg == "hide") { wTestHideUntil = (millis() + 60000) | 1; WiFi.disconnect(); } // out of range for 60 s
-  if (msg == "roam") { wTestRoam = true; wRssiAt = millis() - WIFI_RSSI_CHECK_MS; }  // weak signal, better one nearby
+  if (lower == "drop") WiFi.disconnect();                                              // connection lost
+  if (lower == "nointernet") wIoFails = WIFI_IO_FAIL_LIMIT;                            // joined but no internet
+  if (lower == "hide") { wTestHideUntil = (millis() + 60000) | 1; WiFi.disconnect(); } // out of range for 60 s
+  if (lower == "roam") { wTestRoam = true; wRssiAt = millis() - WIFI_RSSI_CHECK_MS; }  // weak signal, better one nearby
 #endif
+  if (!pulseLooksLike(lower)) return;
+  Pulse p;
+  if (const char* problem = pulseParse(lower, p)) ntfySay("can't read \"" + text + "\": " + problem);
+  else messageArrived(m, p);
+}
+
+// Console commands that stand in for the buttons until they are wired.
+void onConsole(const String& line) {
+  if (line.startsWith("send ")) {
+    const char* problem = messageQueue(line.substring(5));
+    sayf("%s\n", problem ? problem : "Queued");
+  } else if (line == "play") {
+    if (!messagePlay()) sayln("Nothing to play");
+  } else {
+    consoleSettings(line);
+    sayf("unread=%d outbox=%d reports=%d\n", listCount(UNREAD), listCount(OUTBOX), listCount(NOTES));
+  }
 }
 
 // The button: a tap, or a hold that acts on release (5 s = setup page, 10 s = forget Wi-Fi networks).
@@ -82,7 +106,8 @@ void setup() {
 
 void loop() {
   static unsigned long lastPoll = 0, lastCheck = 0;
-  consoleTick();
+  String line;
+  if (consoleRead(line)) onConsole(line);
 
   int press = buttonTick();
   if (press == PRESS_SETUP && !portalOn) { wifiPause(); startPortal(); }
@@ -104,12 +129,14 @@ void loop() {
   }
 
   if (wifiOnline()) {
-    if (millis() - lastPoll >= INBOX_POLL_MS) { lastPoll = millis(); ntfyPoll(onMessage); }
+    if (millis() - lastPoll >= (messagesAwaiting() ? RECEIPT_POLL_MS : INBOX_POLL_MS)) { lastPoll = millis(); ntfyPoll(onMessage); }
     if (wantUpdate) { wantUpdate = false; lastCheck = millis(); updateCheck(true); }
     if (checkNow || millis() - lastCheck >= DAILY_CHECK_MS) { lastCheck = millis(); updateCheck(false); }
   } else if (press == PRESS_TAP) {
     wifiKick();   // offline: look for a network now
   }
+  messagesTick();
+  ntfyFlush();
   delay(portalOn ? 2 : 20);   // answer the phone quickly while the setup page is open
 }
 

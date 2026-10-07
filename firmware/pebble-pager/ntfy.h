@@ -22,26 +22,6 @@ void ntfyOpen(WiFiClientSecure& client, HTTPClient& http) {
   http.useHTTP10(true);   // the server closes the connection after the body: no waiting on chunked reads
 }
 
-// Post `text` to <base>-<who>. Every result feeds the Wi-Fi manager's internet check.
-bool ntfyPost(const String& who, const String& text) {
-  if (!ntfyReady()) return false;
-  WiFiClientSecure client;
-  HTTPClient http;
-  ntfyOpen(client, http);
-  int code = -1;
-  if (http.begin(client, topicUrl(who))) {
-    http.addHeader("Title", "Pebble");
-    code = http.POST(text);
-  }
-  http.end();
-  wifiIoResult(code == 200);
-  sayf("ntfy %s %d: %s\n", slug(who).c_str(), code, text.c_str());
-  return code == 200;
-}
-
-// A status line for the phone. Every one starts with the device name: "Eliana up to date (v3)".
-bool ntfySay(const String& text) { return ntfyPost("phone", deviceName + " " + text); }
-
 String jsonText(const String& line, const char* key) {   // value of "key":"value" in one JSON line
   String k = String("\"") + key + "\":\"";
   int i = line.indexOf(k);
@@ -57,7 +37,46 @@ unsigned long jsonNumber(const String& line, const char* key) {   // value of "k
   return i < 0 ? 0 : strtoul(line.c_str() + i + k.length(), nullptr, 10);
 }
 
-typedef void (*NtfyHandler)(const String& message);
+// Post `text` to <base>-<who> with `title`. Returns the new message's id, or "" if the server did not take it.
+// Every result feeds the Wi-Fi manager's internet check.
+String ntfyPublish(const String& who, const String& title, const String& text) {
+  if (!ntfyReady()) return "";
+  WiFiClientSecure client;
+  HTTPClient http;
+  ntfyOpen(client, http);
+  int code = -1;
+  String id;
+  if (http.begin(client, topicUrl(who))) {
+    http.addHeader("Title", title);
+    code = http.POST(text);
+    if (code == 200) id = jsonText(http.getString(), "id");
+  }
+  http.end();
+  wifiIoResult(code == 200);
+  sayf("ntfy %s %d: %s\n", slug(who).c_str(), code, text.c_str());
+  return id;
+}
+
+// A status line for the phone. Every one starts with the device name: "Eliana up to date (v3)".
+// If it cannot be posted now (offline, or the post fails) it is kept and posted later, in order.
+const SavedList NOTES = {"nt", NOTES_MAX};
+unsigned long notesRetryAt = 0;
+
+void ntfySay(const String& text) {
+  if (!ntfyReady()) return;
+  String line = deviceName + " " + text;
+  bool sent = listCount(NOTES) == 0 && wifiOnline() && ntfyPublish("phone", "Pebble", line).length() > 0;
+  if (!sent) listPush(NOTES, line);
+}
+
+void ntfyFlush() {   // call every loop(): post one waiting report when online
+  if (!wifiOnline() || listCount(NOTES) == 0 || (long)(millis() - notesRetryAt) < 0) return;
+  if (ntfyPublish("phone", "Pebble", listPeek(NOTES)).length()) listPop(NOTES);
+  else notesRetryAt = millis() + SEND_RETRY_MS;
+}
+
+struct NtfyMessage { String id, title, text; };   // title = the sender's name, when a device sent it
+typedef void (*NtfyHandler)(const NtfyMessage& message);
 
 // Read this device's inbox and pass each new message to `handle`, oldest first.
 // Returns how many were new, or -1 if the server could not be reached.
@@ -83,7 +102,8 @@ int ntfyPoll(NtfyHandler handle) {
   // If it has expired from the server, fall back to "strictly newer than lastTime".
   bool listed = lastId.length() && body.indexOf("\"id\":\"" + lastId + "\"") >= 0;
   bool passed = !listed;
-  String batch[NTFY_BATCH], newId = lastId;
+  NtfyMessage batch[NTFY_BATCH];
+  String newId = lastId;
   unsigned long newTime = lastTime;
   int count = 0;
   for (int pos = 0; pos < (int)body.length() && count < NTFY_BATCH;) {
@@ -98,7 +118,7 @@ int ntfyPoll(NtfyHandler handle) {
     if (!listed && lastTime && t <= lastTime) continue;
     newId = id;
     newTime = t;
-    if (caughtUp) batch[count++] = jsonText(line, "message");
+    if (caughtUp) batch[count++] = {id, jsonText(line, "title"), jsonText(line, "message")};
   }
 
   // Save the markers before handling anything: a handler may restart the device (an update).

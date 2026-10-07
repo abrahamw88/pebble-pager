@@ -6,7 +6,7 @@ Two matching palm-size pagers on a Seeed XIAO ESP32-C3. They swap "pulse message
 
 ## Status
 
-Spec and breadboard build are written. The firmware runs on the bare board with tested settings, setup page, Wi-Fi manager, ntfy inbox and remote updates. Still to build: buttons and recording, pulse messages and receipts, ring, motor, battery and sleep. Buttons, ring, motor and battery wait on parts.
+Spec and breadboard build are written. The firmware runs on the bare board with tested settings, setup page, Wi-Fi manager, messages between devices with receipts, and remote updates. Still to build: buttons and recording, ring, motor, battery and sleep. The serial console stands in for the buttons (`send <message>`, `play`). Buttons, ring, motor and battery wait on parts.
 
 ## Layout
 
@@ -19,6 +19,8 @@ firmware/pebble-pager/         the one sketch; each tab is a module
   config.h                     pins, values to tune, saved settings, serial output and console
   wifi_manager.h               Wi-Fi connection manager
   ntfy.h                       post to topics, read the device's inbox
+  pulse.h                      the message format
+  messages.h                   sending, receiving, receipts, outbox and unread list
   ota.h                        remote firmware updates
   portal.h                     setup page
   tests.h                      hardware checks, built instead of the firmware with -DTEST=n

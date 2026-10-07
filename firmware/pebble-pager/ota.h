@@ -168,7 +168,7 @@ void updateValidate() {
   String msg = to == FW_VERSION ? "updated from v" + String(from) + " to v" + String(to)
                : prefs.getInt("otaWhy", 0) == OTA_INTERRUPTED ? "update to v" + String(to) + " interrupted, will retry"
                : "failed update to v" + String(to) + ", still on v" + String(FW_VERSION);
-  if (!ntfySay(msg)) return;   // not delivered: said again on the next boot
+  ntfySay(msg);   // kept and posted later if it cannot go out now
   prefs.remove("otaTo");
   prefs.remove("otaFrom");
   prefs.remove("otaWhy");

@@ -22,6 +22,17 @@ const int BOOT_BTN = 9;    // onboard button: stands in for button 2 until the p
 const unsigned long SETUP_HOLD_MS = 5000;        // hold, then release: open the setup page
 const unsigned long CLEAR_HOLD_MS = 10000;       // hold, then release: forget all Wi-Fi networks
 const unsigned long INBOX_POLL_MS = 30000;       // how often the device reads its own topic
+const unsigned long RECEIPT_POLL_MS = 5000;      // ...and how often while a sent message waits for its receipt
+const unsigned long RECEIPT_WAIT_MS = 45000;     // give up on a receipt after this
+const unsigned long SEND_RETRY_MS = 10000;       // wait between attempts to post a queued message
+const int MAX_PRESSES = 12;                      // presses in one message
+const unsigned long MAX_RECORD_MS = 15000;       // total length of one message
+const int OUTBOX_MAX = 5;                        // recorded messages waiting to be posted
+const int UNREAD_MAX = 3;                        // received messages waiting to be played
+const int NOTES_MAX = 5;                         // reports for the phone waiting to be posted
+#ifndef QUEUE_MAX_AGE_S                          // anything waiting longer is deleted; override for testing
+#define QUEUE_MAX_AGE_S (24UL * 60 * 60)
+#endif
 const int MAX_NETWORKS = 10;
 const int NAME_MAX_LEN = 20;
 const int BASE_MAX_LEN = 40;
@@ -103,6 +114,49 @@ void settingsBegin() {
   loadSettings();
 }
 
+// ---- A short list of text items saved in settings, oldest first, each stamped with when it was added ----
+struct SavedList { const char* key; int cap; };
+
+// Seconds on the chip's own clock. It keeps counting through deep sleep and restarts from zero after a power cut,
+// which is all an age limit needs: no network time is used.
+unsigned long clockSeconds() { return (unsigned long)time(nullptr); }
+
+String listKey(const SavedList& l, int i) { return String(l.key) + String(i); }
+int listCount(const SavedList& l) { return prefs.getInt((String(l.key) + "n").c_str(), 0); }
+void listSetCount(const SavedList& l, int n) { prefs.putInt((String(l.key) + "n").c_str(), n); }
+String listRaw(const SavedList& l, int i) { return prefs.getString(listKey(l, i).c_str(), ""); }   // "<stamp> <text>"
+
+String listPeek(const SavedList& l) {   // the oldest item's text, or "" if the list is empty
+  if (listCount(l) == 0) return "";
+  String raw = listRaw(l, 0);
+  return raw.substring(raw.indexOf(' ') + 1);
+}
+
+void listPop(const SavedList& l) {   // remove the oldest item
+  int n = listCount(l);
+  if (n == 0) return;
+  for (int i = 0; i < n - 1; i++) prefs.putString(listKey(l, i).c_str(), listRaw(l, i + 1));
+  prefs.remove(listKey(l, n - 1).c_str());
+  listSetCount(l, n - 1);
+}
+
+void listPush(const SavedList& l, const String& text) {   // add as the newest; a full list drops its oldest
+  if (listCount(l) >= l.cap) listPop(l);
+  int n = listCount(l);
+  prefs.putString(listKey(l, n).c_str(), String(clockSeconds()) + " " + text);
+  listSetCount(l, n + 1);
+}
+
+// Delete items older than QUEUE_MAX_AGE_S. A stamp from before a power cut is later than "now": restart its age.
+void listExpire(const SavedList& l) {
+  unsigned long now = clockSeconds();
+  for (int i = listCount(l) - 1; i >= 0; i--) {
+    String raw = listRaw(l, i);
+    if (strtoul(raw.c_str(), nullptr, 10) > now) prefs.putString(listKey(l, i).c_str(), String(now) + raw.substring(raw.indexOf(' ')));
+  }
+  while (listCount(l) > 0 && now - strtoul(listRaw(l, 0).c_str(), nullptr, 10) > QUEUE_MAX_AGE_S) listPop(l);
+}
+
 // ---- Serial output with the device name in front: "Eliana: ...". Indented lines and dots stay plain. ----
 void sayf(const char* fmt, ...) {
   char buf[256];
@@ -117,31 +171,42 @@ void sayf(const char* fmt, ...) {
 }
 void sayln(const char* msg) { sayf("%s\n", msg); }
 
-// ---- USB serial console, for setup without a phone ----
+// ---- USB serial console, for setup and testing without a phone ----
 //   show                                   current settings (the base is not printed)
 //   set name|color|partner|base <value>    change one setting
-void consoleTick() {
-  static String line;
+// The main tab adds: send <message>, play.
+bool consoleRead(String& line) {   // true when a whole line has been typed
+  static String typed;
   while (Serial.available()) {
     char c = Serial.read();
     if (c == '\r') continue;
-    if (c != '\n') { if (line.length() < 100) line += c; continue; }
-    line.trim();
-    if (line.startsWith("set ")) {
-      int sp = line.indexOf(' ', 4);
-      String key = sp < 0 ? line.substring(4) : line.substring(4, sp), value = sp < 0 ? "" : line.substring(sp + 1);
-      value.trim();
-      if (key == "name") saveIdentity(value, deviceColor, partnerName, topicBase);
-      else if (key == "color") saveIdentity(deviceName, value, partnerName, topicBase);
-      else if (key == "partner") saveIdentity(deviceName, deviceColor, value, topicBase);
-      else if (key == "base") saveIdentity(deviceName, deviceColor, partnerName, value);
-      else sayln("set name|color|partner|base <value>");
-    }
-    if (line.length())
-      sayf("v%d color=%s partner=%s base=%s networks=%d\n", FW_VERSION, deviceColor.c_str(),
-           partnerName.length() ? partnerName.c_str() : "(none)", topicBase.length() ? "(set)" : "(none)", savedCount());
-    line = "";
+    if (c != '\n') { if (typed.length() < 120) typed += c; continue; }
+    typed.trim();
+    line = typed;
+    typed = "";
+    if (line.length()) return true;
   }
+  return false;
+}
+
+void consoleSettings(const String& line) {
+  if (line.startsWith("set ")) {
+    int sp = line.indexOf(' ', 4);
+    String key = sp < 0 ? line.substring(4) : line.substring(4, sp), value = sp < 0 ? "" : line.substring(sp + 1);
+    value.trim();
+    if (key == "name") saveIdentity(value, deviceColor, partnerName, topicBase);
+    else if (key == "color") saveIdentity(deviceName, value, partnerName, topicBase);
+    else if (key == "partner") saveIdentity(deviceName, deviceColor, value, topicBase);
+    else if (key == "base") saveIdentity(deviceName, deviceColor, partnerName, value);
+    else sayln("set name|color|partner|base <value>");
+  }
+  sayf("v%d color=%s partner=%s base=%s networks=%d\n", FW_VERSION, deviceColor.c_str(),
+       partnerName.length() ? partnerName.c_str() : "(none)", topicBase.length() ? "(set)" : "(none)", savedCount());
+}
+
+void consoleTick() {   // settings commands only (the hardware checks use this)
+  String line;
+  if (consoleRead(line)) consoleSettings(line);
 }
 
 #endif

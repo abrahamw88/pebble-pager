@@ -151,7 +151,7 @@ bool waitForJoin(unsigned long timeoutMs) {
   return WiFi.status() == WL_CONNECTED;
 }
 
-void countMessage(const String&) { totalMsgs++; }
+void countMessage(const NtfyMessage&) { totalMsgs++; }
 
 void setup() {
   esp_timer_handle_t guard;
