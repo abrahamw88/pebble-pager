@@ -204,9 +204,29 @@ bool waitForJoin() {
 }
 
 // Join whichever saved network is in range with the strongest signal.
+// Networks seen by the last scan, as <option> tags. The page uses this copy, because a scan while the hotspot
+// is up makes the radio hop channels for a few seconds and can drop the phone's connection.
+String scanHtml;
+
+void refreshScan() {
+  int found = WiFi.scanNetworks();
+  scanHtml = "";
+  for (int i = 0; i < found; i++) {
+    String name = WiFi.SSID(i);
+    if (name.length() == 0 || scanHtml.indexOf("<option>" + esc(name) + "</option>") >= 0) continue;   // hidden or repeated
+    scanHtml += "<option>" + esc(name) + "</option>";
+  }
+  sayf("Scan: %d networks\n", found);
+}
+
+void handleRescan() {
+  refreshScan();
+  server.sendHeader("Location", "/");
+  server.send(303, "text/plain", "");
+}
+
 void handleRoot() {
   sayf("Portal: page requested\n");
-  int found = WiFi.scanNetworks();
   String page = "<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'>"
                 "<title>Pebble Wi-Fi</title><body style='font-family:sans-serif;max-width:28em;margin:1em auto;padding:0 1em'>"
                 "<h2>Pebble setup</h2>"
@@ -220,12 +240,11 @@ void handleRoot() {
           "<p><button style='font-size:1.1em;padding:.6em 1.2em'>Save name and color</button></p></form>"
           "<form method=post action=/save><h3>Wi-Fi</h3>"
           "<p><label>Network<br><select name=ssid style='font-size:1.1em;width:100%'>";
-  for (int i = 0; i < found; i++)
-    page += "<option>" + esc(WiFi.SSID(i)) + "</option>";
+  page += scanHtml;
   page += "</select></label></p><p><label>Password<br><input name=pass type=password "
           "style='font-size:1.1em;width:100%'></label></p>"
           "<p><button style='font-size:1.1em;padding:.6em 1.2em'>Save and join</button></p></form>"
-          "<p>2.4 GHz networks only.</p>";
+          "<p>2.4 GHz networks only. <a href=/rescan>Rescan</a> (the page pauses for a few seconds).</p>";
   int n = savedCount();
   if (n > 0) {
     page += "<h3>Saved networks (" + String(n) + " of " + String(MAX_NETWORKS) + ")</h3>";
@@ -237,6 +256,7 @@ void handleRoot() {
               "<button style='font-size:1em;padding:.4em .9em'>Delete</button></form>";
   }
   page += "</body>";
+  server.sendHeader("Cache-Control", "no-store");
   server.send(200, "text/html", page);
 }
 
@@ -273,14 +293,18 @@ void handleSave() {
 void startPortal() {
   sayf("Setup: join \"%s\"\n", SETUP_SSID);
   WiFi.mode(WIFI_AP_STA);
+  refreshScan();   // before the hotspot starts, so the scan cannot disturb a connected phone
   WiFi.softAP(SETUP_SSID, SETUP_PASS);
+  WiFi.AP.enableDhcpCaptivePortal();   // tells phones where the setup page is, so it opens by itself
   dns.start(53, "*", WiFi.softAPIP());   // captive portal: every name points here
   server.on("/", handleRoot);
   server.on("/save", HTTP_POST, handleSave);
   server.on("/delete", HTTP_POST, handleDelete);
   server.on("/device", HTTP_POST, handleDevice);
+  server.on("/rescan", handleRescan);
   server.onNotFound([]() {
     sayf("Portal: redirect %s\n", server.uri().c_str());
+    server.sendHeader("Cache-Control", "no-store");
     server.sendHeader("Location", "http://192.168.4.1/");
     server.send(302, "text/plain", "");
   });
@@ -1122,7 +1146,7 @@ void loop() {
     lastPoll = millis();
     for (int i = 0; i < savedCount() && WiFi.status() != WL_CONNECTED; i++) joinSaved(i);
   }
-  delay(20);
+  delay(portalOn ? 2 : 20);   // answer the phone quickly while the setup page is open
 }
 
 #elif TEST == 5
