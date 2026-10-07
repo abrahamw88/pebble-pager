@@ -90,6 +90,19 @@ void redirectHome() {
   server.send(302, "text/plain", "");
 }
 
+// What to use in the ntfy app. Built fresh on every page load, so it follows the name, partner and base as they change.
+String topicHelp() {
+  String h = "<h3>On your phone</h3>";
+  if (topicBase.length() == 0) return h + "<p>Enter a topic base above and save. The topics to use in the ntfy app will appear here.</p>";
+  h += "<p>In the ntfy app (default server ntfy.sh), tap + and subscribe to this topic. Messages from the pager arrive there:</p>"
+       "<p style='font-size:1.15em'><b>" + esc(topicBase) + "-phone</b></p>"
+       "<p>To send to this device, post to <b>" + esc(topicBase) + "-" + slug(deviceName) + "</b>. "
+       "The text <code>update</code> makes it check for new firmware.</p>";
+  if (partnerName.length())
+    h += "<p>To send to " + esc(partnerName) + ", post to <b>" + esc(topicBase) + "-" + slug(partnerName) + "</b>.</p>";
+  return h;
+}
+
 void handleRoot() {
   String page = String(PAGE_HEAD) + "<h2>Pebble setup</h2><form method=post action=/device><h3>Device</h3>"
                 "<p><label>Name<br><input name=name value=\"" + esc(deviceName) + "\" maxlength=" + String(NAME_MAX_LEN) + FIELD + "></label></p>"
@@ -100,7 +113,7 @@ void handleRoot() {
           "<p><label>Partner's name<br><input name=partner value=\"") + esc(partnerName) + "\" maxlength=" + String(NAME_MAX_LEN) + FIELD + "></label></p>"
           "<p><label>Topic base, the same on both devices and the phone<br><input name=base maxlength=" + String(BASE_MAX_LEN) +
           " placeholder='" + (topicBase.length() ? "saved; leave empty to keep" : "e.g. pebble-xxxxxxx") + "'" + FIELD + "></label></p>" +
-          BUTTON + "Save device</button></p></form>"
+          BUTTON + "Save device</button></p></form>" + topicHelp() +
           "<form method=post action=/save><h3>Wi-Fi</h3>"
           "<p><label>Network<br><select name=ssid" + FIELD + ">" + scanHtml + "</select></label></p>"
           "<p><label>Password<br><input name=pass type=password" + FIELD + "></label></p>" +
