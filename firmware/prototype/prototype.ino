@@ -14,7 +14,7 @@
 //   7. Remote firmware update: joins a saved network (from test 5), reads manifest.txt from the release
 //      location, and if its version is newer than FW_VERSION downloads the .bin, checks size and SHA-256,
 //      installs it and reboots, then posts to the phone topic (secrets.h) that it updated. A new image that crashes before validating rolls back to the old one.
-//      Tap the onboard BOOT button, post \"update\" to the device topic (<base>-a), or wait for the daily check. Build helpers: -DFW_VERSION=N (default 1), -DFW_CRASH
+//      Tap the onboard BOOT button, post \"update\" to the device topic (<base>-a), or wait for the daily check. It also runs the Wi-Fi setup page: hold BOOT 5 s and release, or it opens by itself when no saved network can be joined. Build helpers: -DFW_VERSION=N (default 1), -DFW_CRASH
 //      (image that crashes at startup, to test rollback). -DOTA_LOCAL_IP=a.b.c.d tests against a local
 //      web server (port 8000) instead of GitHub. See README.md (Remote updates).
 //   5. Wi-Fi setup from a phone, no wiring and no secrets.h: hold the onboard BOOT button 5 s and
@@ -42,7 +42,7 @@ const int RING_DATA = D10;
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #endif
-#if TEST == 5
+#if TEST == 5 || TEST == 7
 #include <WebServer.h>
 #include <DNSServer.h>
 #endif
@@ -124,6 +124,199 @@ void sayf(const char* fmt, ...) {
   Serial.print(m);
 }
 void sayln(const char* msg) { sayf("%s\n", msg); }
+
+#if TEST == 5 || TEST == 7
+// ---- Wi-Fi setup portal, shared by the setup test (5) and the update test (7) ----
+const char* SETUP_SSID = "pebblepager";
+const char* SETUP_PASS = "pebblepager";   // placeholder; the full build should use a per-device value
+const unsigned long SETUP_HOLD_MS = 5000;
+const unsigned long CLEAR_HOLD_MS = 10000;
+const unsigned long SETUP_TIMEOUT_MS = 5UL * 60 * 1000;
+const unsigned long PORTAL_JOIN_TIMEOUT_MS = 15000;
+const int MAX_NETWORKS = 10;
+
+Preferences prefs;
+WebServer server(80);
+DNSServer dns;
+bool portalOn = false;
+unsigned long portalStart = 0;
+bool joinedViaPortal = false;
+
+String esc(const String& s) {
+  String o;
+  for (char c : s) {
+    if (c == '&') o += "&amp;";
+    else if (c == '<') o += "&lt;";
+    else if (c == '>') o += "&gt;";
+    else if (c == '"') o += "&quot;";
+    else o += c;
+  }
+  return o;
+}
+
+int savedCount() { return prefs.getInt("n", 0); }
+
+// Newest network goes first; a repeated name is replaced; the list is capped.
+void saveNetwork(const String& ssid, const String& pass) {
+  String ss[MAX_NETWORKS], pp[MAX_NETWORKS];
+  int n = 0;
+  ss[n] = ssid; pp[n] = pass; n++;
+  int old = savedCount();
+  for (int i = 0; i < old && n < MAX_NETWORKS; i++) {
+    String s = prefs.getString(("s" + String(i)).c_str(), "");
+    if (s == ssid) continue;
+    ss[n] = s; pp[n] = prefs.getString(("p" + String(i)).c_str(), ""); n++;
+  }
+  for (int i = 0; i < n; i++) {
+    prefs.putString(("s" + String(i)).c_str(), ss[i]);
+    prefs.putString(("p" + String(i)).c_str(), pp[i]);
+  }
+  prefs.putInt("n", n);
+}
+
+// Forget every saved network but keep the device name, color and update flags.
+void clearNetworks() {
+  int n = savedCount();
+  for (int i = 0; i < n; i++) {
+    prefs.remove(("s" + String(i)).c_str());
+    prefs.remove(("p" + String(i)).c_str());
+  }
+  prefs.putInt("n", 0);
+}
+
+// Remove saved network `index`, shifting later ones up.
+void deleteNetwork(int index) {
+  int n = savedCount();
+  if (index < 0 || index >= n) return;
+  for (int i = index; i < n - 1; i++) {
+    prefs.putString(("s" + String(i)).c_str(), prefs.getString(("s" + String(i + 1)).c_str(), ""));
+    prefs.putString(("p" + String(i)).c_str(), prefs.getString(("p" + String(i + 1)).c_str(), ""));
+  }
+  prefs.remove(("s" + String(n - 1)).c_str());
+  prefs.remove(("p" + String(n - 1)).c_str());
+  prefs.putInt("n", n - 1);
+}
+
+bool waitForJoin() {
+  unsigned long t0 = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - t0 < PORTAL_JOIN_TIMEOUT_MS) delay(250);
+  return WiFi.status() == WL_CONNECTED;
+}
+
+// Join whichever saved network is in range with the strongest signal.
+void handleRoot() {
+  sayf("Portal: page requested\n");
+  int found = WiFi.scanNetworks();
+  String page = "<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'>"
+                "<title>Pebble Wi-Fi</title><body style='font-family:sans-serif;max-width:28em;margin:1em auto;padding:0 1em'>"
+                "<h2>Pebble setup</h2>"
+                "<form method=post action=/device><h3>Device</h3>"
+                "<p><label>Name<br><input name=name value=\"" + esc(deviceName) + "\" maxlength=" + String(NAME_MAX_LEN) +
+                " style='font-size:1.1em;width:100%'></label></p>"
+                "<p><label>Color<br><select name=color style='font-size:1.1em;width:100%'>";
+  for (int i = 0; i < COLOR_COUNT; i++)
+    page += String("<option") + (deviceColor == COLOR_NAMES[i] ? " selected" : "") + ">" + COLOR_NAMES[i] + "</option>";
+  page += "</select></label></p>"
+          "<p><button style='font-size:1.1em;padding:.6em 1.2em'>Save name and color</button></p></form>"
+          "<form method=post action=/save><h3>Wi-Fi</h3>"
+          "<p><label>Network<br><select name=ssid style='font-size:1.1em;width:100%'>";
+  for (int i = 0; i < found; i++)
+    page += "<option>" + esc(WiFi.SSID(i)) + "</option>";
+  page += "</select></label></p><p><label>Password<br><input name=pass type=password "
+          "style='font-size:1.1em;width:100%'></label></p>"
+          "<p><button style='font-size:1.1em;padding:.6em 1.2em'>Save and join</button></p></form>"
+          "<p>2.4 GHz networks only.</p>";
+  int n = savedCount();
+  if (n > 0) {
+    page += "<h3>Saved networks (" + String(n) + " of " + String(MAX_NETWORKS) + ")</h3>";
+    if (n >= MAX_NETWORKS) page += "<p>The list is full: saving another removes the oldest. Delete one below to choose which.</p>";
+    for (int i = 0; i < n; i++)
+      page += "<form method=post action=/delete style='display:flex;justify-content:space-between;align-items:center;margin:.4em 0'>"
+              "<span>" + esc(prefs.getString(("s" + String(i)).c_str(), "")) + "</span>"
+              "<input type=hidden name=i value=" + String(i) + ">"
+              "<button style='font-size:1em;padding:.4em .9em'>Delete</button></form>";
+  }
+  page += "</body>";
+  server.send(200, "text/html", page);
+}
+
+void handleDevice() {
+  String color = server.arg("color");
+  saveDevice(server.arg("name"), color);
+  sayf("Device saved: %s, %s\n", deviceName.c_str(), deviceColor.c_str());
+  server.sendHeader("Location", "/");
+  server.send(303, "text/plain", "");
+}
+
+void handleDelete() {
+  deleteNetwork(server.arg("i").toInt());
+  server.sendHeader("Location", "/");
+  server.send(303, "text/plain", "");
+}
+
+void handleSave() {
+  String ssid = server.arg("ssid"), pass = server.arg("pass");
+  if (ssid.length() == 0) { server.send(400, "text/plain", "Pick a network."); return; }
+  saveNetwork(ssid, pass);
+  WiFi.begin(ssid.c_str(), pass.c_str());
+  bool ok = waitForJoin();
+  String page = "<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'>"
+                "<body style='font-family:sans-serif;max-width:28em;margin:1em auto;padding:0 1em'>";
+  page += ok ? "<h2>Connected to " + esc(ssid) + "</h2><p>Saved. You can leave this page.</p>"
+             : "<h2>Could not join " + esc(ssid) + "</h2><p>Saved anyway. Check the password and try again.</p>";
+  page += "</body>";
+  server.send(200, "text/html", page);
+  sayf("Portal %s \"%s\"\n", ok ? "joined" : "failed", ssid.c_str());
+  joinedViaPortal = ok;
+}
+
+void startPortal() {
+  sayf("Setup: join \"%s\"\n", SETUP_SSID);
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP(SETUP_SSID, SETUP_PASS);
+  dns.start(53, "*", WiFi.softAPIP());   // captive portal: every name points here
+  server.on("/", handleRoot);
+  server.on("/save", HTTP_POST, handleSave);
+  server.on("/delete", HTTP_POST, handleDelete);
+  server.on("/device", HTTP_POST, handleDevice);
+  server.onNotFound([]() {
+    sayf("Portal: redirect %s\n", server.uri().c_str());
+    server.sendHeader("Location", "http://192.168.4.1/");
+    server.send(302, "text/plain", "");
+  });
+  server.begin();
+  portalOn = true;
+  joinedViaPortal = false;
+  portalStart = millis();
+}
+
+void stopPortal() {
+  server.stop();
+  dns.stop();
+  WiFi.softAPdisconnect(true);
+  WiFi.mode(WIFI_STA);
+  portalOn = false;
+  sayln("Setup ended");
+}
+
+
+// Call from loop() while the setup portal may be open. Returns true once, when a network was joined through the page
+// (the portal is closed by then); also closes the portal after SETUP_TIMEOUT_MS.
+bool portalTick() {
+  if (!portalOn) return false;
+  dns.processNextRequest();
+  server.handleClient();
+  if (joinedViaPortal) {
+    delay(3000);   // let the phone show its confirmation page
+    server.handleClient();
+    stopPortal();
+    return true;
+  }
+  if (millis() - portalStart > SETUP_TIMEOUT_MS) stopPortal();
+  return false;
+}
+
+#endif
 
 #if TEST == 0
 
@@ -573,14 +766,6 @@ bool openUrl(HTTPClient& http, WiFiClient& plain, WiFiClientSecure& secure, cons
   return code == 200;
 }
 
-int savedCount() {
-  Preferences prefs;
-  prefs.begin("pebble", true);   // networks saved by test 5
-  int n = prefs.getInt("n", 0);
-  prefs.end();
-  return n;
-}
-
 bool joinSaved(int index) {
   Preferences prefs;
   prefs.begin("pebble", true);
@@ -816,9 +1001,32 @@ bool pollCommands() {
   return wantUpdate;
 }
 
+bool imagePending = false;   // true until the running image has proven itself
+
+void validateImage() {
+  esp_ota_mark_app_valid_cancel_rollback();
+  imagePending = false;
+  sayln("Image valid");
+  reportUpdateResult();
+}
+
+// Reach the update server on the current network. Installs and reboots if there is a newer image.
+// Returns true if the server answered (that proves Wi-Fi and TLS work).
+bool tryServer() {
+  bool reached = false;
+  if (isHttps(OTA_BASE) && !syncTime()) { sayln("No time: skip update"); return false; }
+  if (checkForUpdate(&reached)) {
+    sayln("Installed, rebooting");
+    delay(500);
+    ESP.restart();
+  }
+  return reached;
+}
+
 void setup() {
   Serial.begin(115200);
   loadDevice();
+  prefs.begin("pebble", false);   // global handle used by the setup portal
   unsigned long t0 = millis();
   while (!Serial && millis() - t0 < 3000) delay(10);
 #ifdef FW_CRASH
@@ -842,23 +1050,22 @@ void setup() {
   sayf("\n== OTA v%d, slot %s, %s ==\n", FW_VERSION, running->label, st);
 
   // Try each saved network in turn until one can reach the release location.
-  bool reached = false;
+  bool reached = false, anyJoined = false;
   for (int i = 0; i < savedCount() && !reached; i++) {
     if (!joinSaved(i)) continue;
+    anyJoined = true;
     sayf("IP %s\n", WiFi.localIP().toString().c_str());
-    if (isHttps(OTA_BASE) && !syncTime()) { sayln("No time: skip update"); continue; }
-    if (checkForUpdate(&reached)) {
-      sayln("Update installed. Rebooting into it...");
-      delay(500);
-      ESP.restart();
-    }
-    if (!reached) sayln("Server unreachable, next network");
+    if (tryServer()) reached = true;
+    else sayln("Server unreachable, next network");
   }
-  if (!reached) { sayln("No network reached server"); return; }
-  // Wi-Fi up and the release location readable: the running image has proven itself.
-  esp_ota_mark_app_valid_cancel_rollback();
-  sayln("Image valid");
-  reportUpdateResult();
+  if (reached) { validateImage(); return; }
+  imagePending = true;   // validated later, once a network reaches the server
+  if (!anyJoined) {
+    sayln("No Wi-Fi: opening setup");
+    startPortal();
+  } else {
+    sayln("No network reached server");
+  }
 }
 
 // Check for an update; tell the phone when the check was asked for, and reboot if one was installed.
@@ -877,11 +1084,28 @@ void runCheck(bool asked) {
 }   // installed, rejected and failed outcomes are reported by the update code itself
 
 void loop() {
-  static bool wasDown = false;
-  static unsigned long lastPoll = 0, lastCheck = 0;
-  bool down = digitalRead(BOOT_BTN) == LOW;
-  bool tapped = wasDown && !down;
-  wasDown = down;
+  static unsigned long lastPoll = 0, lastCheck = 0, pressedAt = 0;
+  static bool told5 = false, told10 = false;
+  bool tapped = false;
+  if (digitalRead(BOOT_BTN) == LOW) {   // BOOT: tap = check now, hold 5 s + release = setup page, hold 10 s + release = forget networks
+    if (!pressedAt) pressedAt = millis();
+    unsigned long held = millis() - pressedAt;
+    if (held >= SETUP_HOLD_MS && !told5) { told5 = true; sayln("5s: release=setup"); }
+    if (held >= CLEAR_HOLD_MS && !told10) { told10 = true; sayln("10s: release=clear"); }
+  } else if (pressedAt) {
+    unsigned long held = millis() - pressedAt;
+    pressedAt = 0;
+    told5 = told10 = false;
+    if (held >= CLEAR_HOLD_MS) { clearNetworks(); sayln("Cleared networks"); }
+    else if (held >= SETUP_HOLD_MS) { if (!portalOn) startPortal(); }
+    else tapped = true;
+  }
+
+  if (portalTick()) {   // a network was joined through the setup page
+    sayf("IP %s\n", WiFi.localIP().toString().c_str());
+    if (tryServer() && imagePending) validateImage();
+    lastPoll = millis();
+  }
 
   if (WiFi.status() == WL_CONNECTED) {
     if (tapped) { sayln("Check (BOOT tap)"); runCheck(false); }
@@ -894,7 +1118,7 @@ void loop() {
       sayln("Check (daily)");
       runCheck(false);
     }
-  } else if (millis() - lastPoll >= COMMAND_POLL_MS) {   // lost Wi-Fi: rejoin a saved network
+  } else if (!portalOn && millis() - lastPoll >= COMMAND_POLL_MS) {   // lost Wi-Fi: rejoin a saved network
     lastPoll = millis();
     for (int i = 0; i < savedCount() && WiFi.status() != WL_CONNECTED; i++) joinSaved(i);
   }
@@ -911,83 +1135,6 @@ void loop() {
 #include <HTTPClient.h>
 
 const int BOOT_BTN = 9;                    // onboard BOOT button (GPIO9), LOW when pressed
-const char* SETUP_SSID = "pebblepager";
-const char* SETUP_PASS = "pebblepager";   // placeholder; the full build should use a per-device value
-const unsigned long SETUP_HOLD_MS = 5000;
-const unsigned long CLEAR_HOLD_MS = 10000;
-const unsigned long SETUP_TIMEOUT_MS = 5UL * 60 * 1000;
-const unsigned long JOIN_TIMEOUT_MS = 15000;
-const int MAX_NETWORKS = 10;
-
-Preferences prefs;
-WebServer server(80);
-DNSServer dns;
-bool portalOn = false;
-unsigned long portalStart = 0;
-bool joinedViaPortal = false;
-
-String esc(const String& s) {
-  String o;
-  for (char c : s) {
-    if (c == '&') o += "&amp;";
-    else if (c == '<') o += "&lt;";
-    else if (c == '>') o += "&gt;";
-    else if (c == '"') o += "&quot;";
-    else o += c;
-  }
-  return o;
-}
-
-int savedCount() { return prefs.getInt("n", 0); }
-
-// Newest network goes first; a repeated name is replaced; the list is capped.
-void saveNetwork(const String& ssid, const String& pass) {
-  String ss[MAX_NETWORKS], pp[MAX_NETWORKS];
-  int n = 0;
-  ss[n] = ssid; pp[n] = pass; n++;
-  int old = savedCount();
-  for (int i = 0; i < old && n < MAX_NETWORKS; i++) {
-    String s = prefs.getString(("s" + String(i)).c_str(), "");
-    if (s == ssid) continue;
-    ss[n] = s; pp[n] = prefs.getString(("p" + String(i)).c_str(), ""); n++;
-  }
-  for (int i = 0; i < n; i++) {
-    prefs.putString(("s" + String(i)).c_str(), ss[i]);
-    prefs.putString(("p" + String(i)).c_str(), pp[i]);
-  }
-  prefs.putInt("n", n);
-}
-
-// Forget every saved network but keep the device name, color and update flags.
-void clearNetworks() {
-  int n = savedCount();
-  for (int i = 0; i < n; i++) {
-    prefs.remove(("s" + String(i)).c_str());
-    prefs.remove(("p" + String(i)).c_str());
-  }
-  prefs.putInt("n", 0);
-}
-
-// Remove saved network `index`, shifting later ones up.
-void deleteNetwork(int index) {
-  int n = savedCount();
-  if (index < 0 || index >= n) return;
-  for (int i = index; i < n - 1; i++) {
-    prefs.putString(("s" + String(i)).c_str(), prefs.getString(("s" + String(i + 1)).c_str(), ""));
-    prefs.putString(("p" + String(i)).c_str(), prefs.getString(("p" + String(i + 1)).c_str(), ""));
-  }
-  prefs.remove(("s" + String(n - 1)).c_str());
-  prefs.remove(("p" + String(n - 1)).c_str());
-  prefs.putInt("n", n - 1);
-}
-
-bool waitForJoin() {
-  unsigned long t0 = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - t0 < JOIN_TIMEOUT_MS) delay(250);
-  return WiFi.status() == WL_CONNECTED;
-}
-
-// Join whichever saved network is in range with the strongest signal.
 bool joinSaved() {
   int n = savedCount();
   if (n == 0) return false;
@@ -1013,99 +1160,6 @@ void healthCheck() {
   int code = http.GET();
   sayf("ntfy health %d %s\n", code, code > 0 ? http.getString().c_str() : "");
   http.end();
-}
-
-void handleRoot() {
-  int found = WiFi.scanNetworks();
-  String page = "<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'>"
-                "<title>Pebble Wi-Fi</title><body style='font-family:sans-serif;max-width:28em;margin:1em auto;padding:0 1em'>"
-                "<h2>Pebble setup</h2>"
-                "<form method=post action=/device><h3>Device</h3>"
-                "<p><label>Name<br><input name=name value=\"" + esc(deviceName) + "\" maxlength=" + String(NAME_MAX_LEN) +
-                " style='font-size:1.1em;width:100%'></label></p>"
-                "<p><label>Color<br><select name=color style='font-size:1.1em;width:100%'>";
-  for (int i = 0; i < COLOR_COUNT; i++)
-    page += String("<option") + (deviceColor == COLOR_NAMES[i] ? " selected" : "") + ">" + COLOR_NAMES[i] + "</option>";
-  page += "</select></label></p>"
-          "<p><button style='font-size:1.1em;padding:.6em 1.2em'>Save name and color</button></p></form>"
-          "<form method=post action=/save><h3>Wi-Fi</h3>"
-          "<p><label>Network<br><select name=ssid style='font-size:1.1em;width:100%'>";
-  for (int i = 0; i < found; i++)
-    page += "<option>" + esc(WiFi.SSID(i)) + "</option>";
-  page += "</select></label></p><p><label>Password<br><input name=pass type=password "
-          "style='font-size:1.1em;width:100%'></label></p>"
-          "<p><button style='font-size:1.1em;padding:.6em 1.2em'>Save and join</button></p></form>"
-          "<p>2.4 GHz networks only.</p>";
-  int n = savedCount();
-  if (n > 0) {
-    page += "<h3>Saved networks (" + String(n) + " of " + String(MAX_NETWORKS) + ")</h3>";
-    if (n >= MAX_NETWORKS) page += "<p>The list is full: saving another removes the oldest. Delete one below to choose which.</p>";
-    for (int i = 0; i < n; i++)
-      page += "<form method=post action=/delete style='display:flex;justify-content:space-between;align-items:center;margin:.4em 0'>"
-              "<span>" + esc(prefs.getString(("s" + String(i)).c_str(), "")) + "</span>"
-              "<input type=hidden name=i value=" + String(i) + ">"
-              "<button style='font-size:1em;padding:.4em .9em'>Delete</button></form>";
-  }
-  page += "</body>";
-  server.send(200, "text/html", page);
-}
-
-void handleDevice() {
-  String color = server.arg("color");
-  saveDevice(server.arg("name"), color);
-  sayf("Device saved: %s, %s\n", deviceName.c_str(), deviceColor.c_str());
-  server.sendHeader("Location", "/");
-  server.send(303, "text/plain", "");
-}
-
-void handleDelete() {
-  deleteNetwork(server.arg("i").toInt());
-  server.sendHeader("Location", "/");
-  server.send(303, "text/plain", "");
-}
-
-void handleSave() {
-  String ssid = server.arg("ssid"), pass = server.arg("pass");
-  if (ssid.length() == 0) { server.send(400, "text/plain", "Pick a network."); return; }
-  saveNetwork(ssid, pass);
-  WiFi.begin(ssid.c_str(), pass.c_str());
-  bool ok = waitForJoin();
-  String page = "<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'>"
-                "<body style='font-family:sans-serif;max-width:28em;margin:1em auto;padding:0 1em'>";
-  page += ok ? "<h2>Connected to " + esc(ssid) + "</h2><p>Saved. You can leave this page.</p>"
-             : "<h2>Could not join " + esc(ssid) + "</h2><p>Saved anyway. Check the password and try again.</p>";
-  page += "</body>";
-  server.send(200, "text/html", page);
-  sayf("Portal %s \"%s\"\n", ok ? "joined" : "failed", ssid.c_str());
-  joinedViaPortal = ok;
-}
-
-void startPortal() {
-  sayf("Setup: join \"%s\"\n", SETUP_SSID);
-  WiFi.mode(WIFI_AP_STA);
-  WiFi.softAP(SETUP_SSID, SETUP_PASS);
-  dns.start(53, "*", WiFi.softAPIP());   // captive portal: every name points here
-  server.on("/", handleRoot);
-  server.on("/save", HTTP_POST, handleSave);
-  server.on("/delete", HTTP_POST, handleDelete);
-  server.on("/device", HTTP_POST, handleDevice);
-  server.onNotFound([]() {
-    server.sendHeader("Location", "http://192.168.4.1/");
-    server.send(302, "text/plain", "");
-  });
-  server.begin();
-  portalOn = true;
-  joinedViaPortal = false;
-  portalStart = millis();
-}
-
-void stopPortal() {
-  server.stop();
-  dns.stop();
-  WiFi.softAPdisconnect(true);
-  WiFi.mode(WIFI_STA);
-  portalOn = false;
-  sayln("Setup ended");
 }
 
 void setup() {
@@ -1143,18 +1197,9 @@ void loop() {
       startPortal();
     }
   }
-  if (portalOn) {
-    dns.processNextRequest();
-    server.handleClient();
-    if (joinedViaPortal) {
-      delay(3000);   // let the phone show its confirmation page
-      server.handleClient();
-      sayf("IP %s\n", WiFi.localIP().toString().c_str());
-      healthCheck();
-      stopPortal();
-    } else if (millis() - portalStart > SETUP_TIMEOUT_MS) {
-      stopPortal();
-    }
+  if (portalTick()) {
+    sayf("IP %s\n", WiFi.localIP().toString().c_str());
+    healthCheck();
   }
   delay(10);
 }
