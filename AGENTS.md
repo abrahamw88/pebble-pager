@@ -6,19 +6,26 @@ Two matching palm-size pagers on a Seeed XIAO ESP32-C3. They swap "pulse message
 
 ## Status
 
-Spec and breadboard build are written. The prototype sketch has working, tested pieces on the bare board (test 7 is the update build): Wi-Fi setup page, Wi-Fi connection manager, ntfy send and receive, wake-and-check cycle, and remote updates by ntfy command. The full firmware has only settings and the Wi-Fi manager so far. Buttons, ring, motor and battery wait on parts.
+Spec and breadboard build are written. The firmware runs on the bare board with tested settings, setup page, Wi-Fi manager, ntfy inbox and remote updates. Still to build: buttons and recording, pulse messages and receipts, ring, motor, battery and sleep. Buttons, ring, motor and battery wait on parts.
 
 ## Layout
 
 ```
-README.md                          spec: behavior, parts, pins, power, ntfy, risks
-docs/build-steps.md                breadboard wiring and test steps
-docs/concept.html                  visual concept sheet (open in a browser): look, colorways, every ring state
-firmware/prototype/prototype.ino   test firmware; pick test 0, 2, 4, 6 or 7 with TEST (see its header)
-firmware/pebble-pager/pebble-pager.ino  the full pager firmware
+README.md                      spec: behavior, parts, pins, power, ntfy, risks
+docs/build-steps.md            breadboard wiring and test steps
+docs/concept.html              visual concept sheet (open in a browser): look, colorways, every ring state
+firmware/pebble-pager/         the one sketch; each tab is a module
+  pebble-pager.ino             main flow, build flags (listed in its header)
+  config.h                     pins, values to tune, saved settings, serial output and console
+  wifi_manager.h               Wi-Fi connection manager
+  ntfy.h                       post to topics, read the device's inbox
+  ota.h                        remote firmware updates
+  portal.h                     setup page
+  tests.h                      hardware checks, built instead of the firmware with -DTEST=n
+.secrets                       git-ignored: TOPIC_BASE=... for test scripts on this computer only
 ```
 
-An Arduino sketch must sit in a folder with the same name as its `.ino` file. Keep it that way. The block between `// ---- Wi-Fi connection manager ----` and its end marker is identical in both sketches; change both together.
+There is one sketch: the tests call the same modules as the firmware, and compile out of it. The sketch folder and its `.ino` must share a name. Do not name a tab after a core library (`wifi.h`, `update.h`): macOS file names ignore case, so it would replace `WiFi.h` or `Update.h`. Tabs use `#ifndef` include guards, not `#pragma once`, which the build does not honor here.
 
 ## Pins and hardware rules
 
@@ -42,20 +49,21 @@ An Arduino sketch must sit in a folder with the same name as its `.ino` file. Ke
 
 ```bash
 arduino-cli board list                                    # find the serial port
-arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32C3:PartitionScheme=min_spiffs firmware/prototype
-arduino-cli upload  --fqbn esp32:esp32:XIAO_ESP32C3:PartitionScheme=min_spiffs -p <PORT> firmware/prototype
+arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32C3:PartitionScheme=min_spiffs firmware/pebble-pager
+arduino-cli upload  --fqbn esp32:esp32:XIAO_ESP32C3:PartitionScheme=min_spiffs -p <PORT> firmware/pebble-pager
 arduino-cli monitor -p <PORT> -c baudrate=115200
 ```
 
-Use `firmware/pebble-pager` for the full build. The `PartitionScheme=min_spiffs` option gives each of the two update slots 1.9 MB (the default is 1.25 MB) and must be on every compile and upload; changing the layout needs a USB flash, not an update. USB CDC On Boot is enabled by default for this board, so Serial works over USB. If upload fails, hold the XIAO's BOOT button while plugging it in, then retry.
+Add build flags with `--build-property compiler.cpp.extra_flags="-DFW_VERSION=48 -DTEST=1"`. The `PartitionScheme=min_spiffs` option gives each of the two update slots 1.9 MB (the default is 1.25 MB) and must be on every compile and upload; changing the layout needs a USB flash, not an update. USB CDC On Boot is enabled by default for this board, so Serial works over USB. If upload fails, hold the XIAO's BOOT button while plugging it in, then retry.
 
 ## Rules for AI tools
 
-- Compile before claiming a change works. Flash only when asked, and confirm the serial port first with `arduino-cli board list`.
-- Never commit Wi-Fi names, passwords, ntfy topics or tokens. Put them in `secrets.h` (git-ignored) and include it.
+- Compile before claiming a change works, including the test builds and flags a change touches. Flash only when asked, and confirm the serial port first with `arduino-cli board list`.
+- A reset over USB can leave the board in download mode ("waiting for download"): open the port with DTR and RTS released, pulse RTS only, and check the boot banner.
+- Never commit or compile in Wi-Fi names, passwords, ntfy topics or tokens. Released firmware is public, so they live only in the device's settings (setup page or serial console). Before publishing a release, check the `.bin` with `strings` for the topic base and network names.
 - Measure battery current on battery with USB unplugged; USB keeps the chip awake.
 - Push only to the `test` branch until development is complete. Never push to `main` unless asked.
-- Verify anything that is meant to use ntfy (sending, receiving, receipts, update reports) through the real ntfy path: read what the board posts (poll the topic URL from `secrets.h` with `curl`) and send commands as the phone would. Internal behavior (buttons, ring, timing, sleep, Wi-Fi joins, development) can be checked over serial. An ntfy failure in an ntfy feature is a test failure; report it.
-- After finishing a major piece of functionality, test it thoroughly before calling it done: normal paths, failure paths (no network, bad data, interrupted steps, power cycles) and repeated runs. Check real ntfy messages by reading the topic with `curl` (poll the topic URL from `secrets.h`), and report what was and wasn't covered.
+- Verify anything that is meant to use ntfy (sending, receiving, receipts, update reports) through the real ntfy path: read what the board posts (poll `https://ntfy.sh/<TOPIC_BASE>-phone` with `curl`, base from `.secrets`) and send commands to the device's inbox as the phone would. Internal behavior (buttons, ring, timing, sleep, Wi-Fi joins, development) can be checked over serial. An ntfy failure in an ntfy feature is a test failure; report it.
+- After finishing a major piece of functionality, test it thoroughly before calling it done: normal paths, failure paths (no network, bad data, interrupted steps, power cycles) and repeated runs. Check real ntfy messages by reading the phone topic with `curl`, and report what was and wasn't covered.
 - Do not add dependencies or folders beyond the layout above without asking.
 - The device supplements a phone. Do not add emergency, location or calling features.

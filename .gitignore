@@ -5,6 +5,7 @@ build/
 
 # Wi-Fi credentials, ntfy topics and tokens
 secrets.h
+.secrets
 
 # Claude Code local settings
 .claude/settings.local.json

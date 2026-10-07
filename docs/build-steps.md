@@ -1,6 +1,6 @@
 # Breadboard build steps
 
-These steps build both devices on breadboards so you can test the buttons, ring, motor and ntfy before any case work. Steps 1 to 7 run on USB power, and step 8 adds the battery. Pager firmware isn't written yet, so steps that run code use the test sketches in `firmware/prototype/prototype.ino`, chosen with its `TEST` number (1 to 4). Plan on two or three evenings.
+These steps build both devices on breadboards so you can test the buttons, ring, motor and ntfy before any case work. Steps 1 to 7 run on USB power, and step 8 adds the battery. Pager firmware isn't written yet, so steps that run code use the firmware in `firmware/pebble-pager`, built either as itself or as one of its hardware checks with `-DTEST=n`. Plan on two or three evenings.
 
 ## Tools
 
@@ -27,7 +27,7 @@ The goal is a computer that can upload code to the XIAO and read what it prints.
 2. In File → Preferences, add this board manager URL: `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`
 3. In Tools → Board → Boards Manager, search "esp32" and install "esp32 by Espressif Systems".
 4. Plug the XIAO in with the data cable. Choose Tools → Board → esp32 → XIAO_ESP32C3, then the new port under Tools → Port.
-5. Upload `prototype.ino` with `TEST` 0, then open Tools → Serial Monitor at 115200 baud.
+5. Upload the firmware with `-DTEST=1`, then open Tools → Serial Monitor at 115200 baud.
 
 **Check:** the board prints its chip, MAC address and temperature, then a list of nearby Wi-Fi networks. No wiring is needed.
 
@@ -88,7 +88,7 @@ A pin can't drive the motor directly, so a second transistor switches it. When D
 
 Test 2 checks every part wired so far. It isn't the pager firmware; it just lights and buzzes on each press so you can see each connection works.
 
-1. Plug USB back in and upload `prototype.ino` with `TEST` 2.
+1. Plug USB back in and upload the firmware with `-DTEST=2`.
 2. Open the Serial Monitor at 115200 baud.
 3. Watch for the blue sweep and the white flash, then try each button and compare with the picture.
 
@@ -111,17 +111,11 @@ ntfy needs no account to start. On the free tier the topic name works as the pas
 2. Pick a base name: `pebble-` plus at least seven random letters and digits, like `pebble-7qk2x9m`. Your three topics are that name plus `-a`, `-b` and `-phone`.
 3. On the iPhone, install ntfy from the App Store and allow notifications when it asks. Tap +, enter your `-phone` topic, and keep the default server, ntfy.sh.
 4. Test 1, from the computer: in a terminal, open ntfy.sh/app in a browser, subscribe to your -phone topic and publish a message from there. The phone should show it within a few seconds.
-5. Test 2, from the board: create `firmware/prototype/secrets.h` (git-ignored) defining `TOPIC_URL` (your -phone topic URL), then upload `prototype.ino` with `TEST` 7.
-6. With no saved Wi-Fi it waits. Hold the small BOOT button for 5 s and release, join the `pebblepager` network on your phone (password `pebblepager`), open `http://192.168.4.1` if the page doesn't appear, and pick your Wi-Fi (2.4 GHz only). Open the Serial Monitor at 115200 baud.
-7. Post `update` to your `-a` topic from the ntfy web app.
+5. Test 2, from the board: upload the firmware (no test flag) and open the Serial Monitor at 115200 baud.
+6. Hold the small BOOT button for 5 s and release, join the `pebblepager` network on your phone (password `pebblepager`), and fill in the page: the device's name, its partner's name, the topic base, and your Wi-Fi (2.4 GHz only).
+7. From the ntfy web app, post `update` to the device's inbox, `<base>-<name>` in lower case.
 
-**Check:** the Serial Monitor shows "Wi-Fi online" and "Image valid", and the phone shows messages from "Eliana" such as "checking for update" and "up to date".
-
-- **Dots forever:** wrong password, or the network is 5 GHz only. An iPhone hotspot works as a test network with Maximize Compatibility turned on.
-- **A negative reply code:** Wi-Fi joined but the request failed. Check that the topic URL starts with `https://ntfy.sh/`.
-- **Reply 429:** too many messages too fast. Wait a minute, then press RESET.
-
-`client.setInsecure()` skips checking ntfy's certificate to keep the test short. The pager firmware will check it.
+**Check:** the Serial Monitor shows "Wi-Fi online" and "Image valid", and the phone shows "Eliana checking for update" followed by an answer.
 
 ## Step 8 (optional): Add the battery and battery sensor
 
@@ -132,7 +126,7 @@ With a battery on its BAT pads, the XIAO runs without USB and charges the batter
 3. Solder the cable's + wire to BAT+ and its − wire to BAT−. On the BAT+ pad, also solder one end of a short jumper wire; it carries battery + up to the breadboard for the sensor.
 4. Reseat the XIAO with the wires led out the side, and plug the jumper's free end into an empty column. That column is now battery +.
 5. Divider: a 220 kΩ resistor from the battery + column to a free column, a second 220 kΩ from that column to the − rail, and a jumper from the middle column to D1.
-6. Plug the battery in, connect USB, and upload `prototype.ino` with `TEST` 4.
+6. Plug the battery in, connect USB, and upload the firmware with `-DTEST=4`.
 
 **Check:** with USB in, the Serial Monitor shows about 3.7–4.2 V, creeping up as the battery charges. Unplug USB and the first pixel keeps blinking green, which means the board is running on the battery. If the reading is more than about 0.2 V off from the multimeter across the battery, note the difference; the firmware can correct for it.
 
@@ -140,7 +134,7 @@ From now on, unplug the battery as well as USB before moving any wire, since the
 
 ## Step 9: Build device B and plan the end-to-end test
 
-Repeat steps 2 to 8 on the second XIAO and breadboard, then run `TEST` 2 and 7 on it. Put a strip of tape on each board marked A or B so the topics don't get mixed up.
+Repeat steps 2 to 8 on the second XIAO and breadboard, then run `-DTEST=2` and the firmware on it. Put a strip of tape on each board marked A or B so the topics don't get mixed up.
 
 That's as far as the breadboards go without pager firmware. Once it's written, flash both boards and work through this list. Each line comes from the Spec and Behavior sections, and the diagram in the Overview shows the paths they cover.
 
