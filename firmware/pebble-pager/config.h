@@ -23,6 +23,7 @@ const unsigned long SETUP_HOLD_MS = 5000;        // hold, then release: open (or
 const unsigned long OFF_HOLD_MS = 10000;         // hold, then release: turn the device off
 const unsigned long DEBOUNCE_MS = 25;            // a button must stay changed this long to count
 const unsigned long RECORD_HOLD_MS = 500;        // hold button 1 this long to start recording
+const unsigned long WAKE_LEAD_MS = 300;          // a press that wakes the device began about this long before start-up (estimate)
 const unsigned long SEND_PAUSE_MS = 2000;        // a recording is sent after this long without a press
 const unsigned long INBOX_POLL_MS = 30000;       // how often the device reads its own topic
 const unsigned long RECEIPT_POLL_MS = 5000;      // ...and how often while a sent message waits for its receipt

@@ -86,7 +86,13 @@ void onInput(int event) {
   wifiKick();   // any press: if offline, look for a network now
   switch (event) {
     case EV_PLAY: if (!messagePlay()) sayln("Nothing to play"); break;
-    case EV_RECORD_START: sayln("Recording"); break;
+    case EV_RECORD_START:
+      if (listCount(UNREAD) > 0) {   // unread messages come first: play them all, then record from scratch
+        while (listCount(UNREAD) > 0) messagePlay();
+        inputArm();
+      }
+      sayln("Recording");
+      break;
     case EV_RECORD_CANCEL: sayln("Recording cancelled"); break;
     case EV_RECORD_DONE: {
       String text = pulseText(recorded);

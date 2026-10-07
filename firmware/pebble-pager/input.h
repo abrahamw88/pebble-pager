@@ -1,5 +1,6 @@
-// Buttons. Button 1 (large): a tap plays the next message; a hold of half a second starts a recording, and the
-// presses that follow are the message, sent after a 2 s pause. Button 2 (small): a tap shows the battery, a 5 s hold
+// Buttons. Button 1 (large): a tap plays the next message; a hold of half a second starts a recording and is its
+// first press, and the message is sent 2 s after the last press. (If unread messages are waiting, the main tab
+// plays them first and calls inputArm(): the recording then starts fresh, without that hold.) Button 2 (small): a tap shows the battery, a 5 s hold
 // opens or closes the setup page, a 10 s hold turns the device off; holds act on release.
 //
 // Every press and release is caught by an interrupt and stamped with the time, so press lengths stay exact even
@@ -33,11 +34,21 @@ void IRAM_ATTR edgeIsr(void* arg) {
   edgeHead = next;
 }
 
+struct Button { bool down; unsigned long at; };   // the settled state, and when it last changed
+Button button[2];
+enum { R_IDLE, R_PRESSED, R_ARMED, R_WAIT, R_DOWN };   // button 1: first press, not yet a hold / armed, waiting for release / between presses / in a press
+int recState = R_IDLE, recPresses = 0, holdTold = EV_NONE;
+unsigned long recStart = 0, recLastUp = 0, recQuietUntil = 0;
+
+// A button already down at start-up is the press that woke the device: it began before the chip was running,
+// so count it from WAKE_LEAD_MS ago. That way a hold from sleep is the first press of a message, like any other.
 void inputBegin() {
   for (Source& s : sources) {
     pinMode(s.pin, INPUT_PULLUP);
     attachInterruptArg(s.pin, edgeIsr, &s, CHANGE);
+    if (digitalRead(s.pin) == LOW) button[s.button] = {true, millis() - WAKE_LEAD_MS};
   }
+  if (button[0].down) recState = R_PRESSED;
 }
 
 void inputBootButton(int button) { sources[2].button = button; }   // 0 = act as button 1, 1 = act as button 2
@@ -82,12 +93,6 @@ bool nextEdge(Edge& e) {
 }
 
 // ---- The logic ----
-struct Button { bool down; unsigned long at; };   // the settled state, and when it last changed
-Button button[2];
-enum { R_IDLE, R_PRESSED, R_ARMED, R_WAIT, R_DOWN };   // button 1: first press / hold reached / between presses / in a press
-int recState = R_IDLE, recPresses = 0, holdTold = EV_NONE;
-unsigned long recStart = 0, recLastUp = 0, recQuietUntil = 0;
-
 bool inputBusy() { return recState != R_IDLE || button[1].down; }   // someone is using the buttons: keep loop() free
 
 unsigned long pulseClamp(unsigned long ms) { return ms < PULSE_MIN_MS ? PULSE_MIN_MS : ms > PULSE_MAX_MS ? PULSE_MAX_MS : ms; }
@@ -138,12 +143,20 @@ int onEdge(const Edge& e) {
   switch (recState) {
     case R_PRESSED:   // released before loop() noticed the hold: decide by how long it was down
       if (held < RECORD_HOLD_MS) { recState = R_IDLE; return EV_PLAY; }
-      recPresses = 0; recLastUp = e.at; recState = R_WAIT;
+      recPresses = 0; recStart = e.at - held;
+      recordPressEnd(e.at, held);   // the hold is the first press
       return EV_RECORD_START;
     case R_ARMED: recLastUp = e.at; recState = R_WAIT; return EV_NONE;
     case R_DOWN: return recordPressEnd(e.at, held);
   }
   return EV_NONE;
+}
+
+// Start the recording over with no presses yet: the hold that began it is not part of the message.
+void inputArm() {
+  recPresses = 0;
+  recLastUp = millis();
+  recState = button[0].down ? R_ARMED : R_WAIT;
 }
 
 // Call every loop() until it returns EV_NONE. Returns one thing the user did.
@@ -157,7 +170,10 @@ int inputTick() {
     for (int i = 0; i < 2; i++)
       if (pinsDown(i) != button[i].down && now - button[i].at >= DEBOUNCE_MS) return onEdge({(uint8_t)i, !button[i].down, now});
 
-  if (recState == R_PRESSED && now - button[0].at >= RECORD_HOLD_MS) { recPresses = 0; recState = R_ARMED; return EV_RECORD_START; }
+  if (recState == R_PRESSED && now - button[0].at >= RECORD_HOLD_MS) {   // a hold: recording, and this press is its first
+    recPresses = 0; recStart = button[0].at; recState = R_DOWN;
+    return EV_RECORD_START;
+  }
   if (recState == R_WAIT && now - recLastUp >= SEND_PAUSE_MS) return recordFinish(now, false);
   bool started = recPresses > 0 || recState == R_DOWN;
   if ((recState == R_WAIT || recState == R_DOWN) && started && now - recStart >= MAX_RECORD_MS) {   // out of time
