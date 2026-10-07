@@ -6,7 +6,7 @@ Two matching palm-size pagers on a Seeed XIAO ESP32-C3. They swap "pulse message
 
 ## Status
 
-Spec and breadboard build are written. Firmware is **not written yet**: both sketches are skeletons.
+Spec and breadboard build are written. The prototype sketch has working, tested pieces on the bare board: Wi-Fi setup page, Wi-Fi connection manager, ntfy send and receive, wake-and-check cycle, and remote updates by ntfy command. The full firmware has only settings and the Wi-Fi manager so far. Buttons, ring, motor and battery wait on parts.
 
 ## Layout
 
@@ -18,7 +18,7 @@ firmware/prototype/prototype.ino   breadboard test firmware; pick test 0-7 with 
 firmware/pebble-pager/pebble-pager.ino  the full pager firmware
 ```
 
-An Arduino sketch must sit in a folder with the same name as its `.ino` file. Keep it that way.
+An Arduino sketch must sit in a folder with the same name as its `.ino` file. Keep it that way. The block between `// ---- Wi-Fi connection manager ----` and its end marker is identical in both sketches; change both together.
 
 ## Pins and hardware rules
 

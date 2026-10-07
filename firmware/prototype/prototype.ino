@@ -14,7 +14,7 @@
 //   7. Remote firmware update: joins a saved network (from test 5), reads manifest.txt from the release
 //      location, and if its version is newer than FW_VERSION downloads the .bin, checks size and SHA-256,
 //      installs it and reboots, then posts to the phone topic (secrets.h) that it updated. A new image that crashes before validating rolls back to the old one.
-//      Tap the onboard BOOT button, post \"update\" to the device topic (<base>-a), or wait for the daily check. It also runs the Wi-Fi setup page: hold BOOT 5 s and release, or it opens by itself when no saved network can be joined. Build helpers: -DFW_VERSION=N (default 1), -DFW_CRASH
+//      Tap the onboard BOOT button, post \"update\" to the device topic (<base>-a), or wait for the daily check. It also runs the Wi-Fi setup page, which opens only when BOOT is held 5 s and released, and keeps the device on the best saved network (see the Wi-Fi connection manager). Build helpers: -DFW_VERSION=N (default 1), -DFW_CRASH
 //      (image that crashes at startup, to test rollback). -DOTA_LOCAL_IP=a.b.c.d tests against a local
 //      web server (port 8000) instead of GitHub. See README.md (Remote updates).
 //   5. Wi-Fi setup from a phone, no wiring and no secrets.h: hold the onboard BOOT button 5 s and
@@ -340,6 +340,202 @@ bool portalTick() {
   return false;
 }
 
+#endif
+
+#if TEST == 7
+// ---- Wi-Fi connection manager ----
+// Keeps the device on the best saved network without ever blocking loop():
+//   scan in the background -> join the strongest saved access point by its exact address -> stay online.
+//   A dropout gets a short grace period, then a rescan. Nothing in range: retry with a growing wait, up to 5 min.
+//   Callers report each internet request with wifiIoResult(); repeated failures (a login page, a dead router)
+//   mark the network bad for a while and move to the next one. A weak signal triggers a rescan and a move
+//   only to a clearly stronger access point.
+// Needs: prefs (open on "pebble"), savedCount(), portalOn, sayf()/sayln(), MAX_NETWORKS.
+const unsigned long WIFI_SCAN_TIMEOUT_MS = 10000;
+const unsigned long WIFI_SETTLE_MS = 300;                    // radio settles after a disconnect before scanning
+const int WIFI_SCAN_FAIL_LIMIT = 5;                          // failed scans retried quickly before backing off
+const unsigned long WIFI_JOIN_TIMEOUT_MS = 6000;             // per access point
+const unsigned long WIFI_GRACE_MS = 5000;                    // let a brief dropout heal itself before rescanning
+const unsigned long WIFI_RETRY_MIN_MS = 10000;               // first rescan after finding nothing
+const unsigned long WIFI_RETRY_MAX_MS = 5UL * 60 * 1000;     // away from every saved network: scan every 5 min
+const int WIFI_IO_FAIL_LIMIT = 3;                            // failed internet requests in a row before moving on
+const unsigned long WIFI_BAD_COOLDOWN_MS = 10UL * 60 * 1000; // how long a network without internet is avoided
+const unsigned long WIFI_RSSI_CHECK_MS = 30000;
+const int WIFI_WEAK_DBM = -78;                               // below this for WIFI_WEAK_COUNT checks: look for better
+const int WIFI_WEAK_COUNT = 3;
+const int WIFI_ROAM_GAIN_DB = 10;                            // move only if the other access point is this much stronger
+
+enum { W_IDLE, W_SCAN, W_JOIN, W_ONLINE };
+int wState = W_IDLE, wCur = -1, wCandN = 0, wCandI = 0, wIoFails = 0, wWeak = 0, wScanFails = 0;
+bool wRoam = false, wNewConn = false;
+unsigned long wAt = 0, wNextScan = 0, wRetry = WIFI_RETRY_MIN_MS, wLostAt = 0, wRssiAt = 0;
+unsigned long wBadUntil[MAX_NETWORKS];                       // millis() until which saved network i is avoided; 0 = not avoided
+int wCand[MAX_NETWORKS], wCandRssi[MAX_NETWORKS], wCandCh[MAX_NETWORKS];   // saved networks in range, strongest first
+uint8_t wCandBssid[MAX_NETWORKS][6];
+#ifdef WIFI_TEST   // test hooks, driven by ntfy commands in the update test
+unsigned long wTestHideUntil = 0;   // pretend no network is in range until then (0 = off)
+bool wTestRoam = false;             // pretend the signal is weak and any other access point is better
+#endif
+
+bool wifiDue(unsigned long t) { return (long)(millis() - t) >= 0; }   // safe across millis() rollover
+bool wifiBad(int i) {   // still inside its no-internet cooldown?
+  if (wBadUntil[i] && wifiDue(wBadUntil[i])) wBadUntil[i] = 0;
+  return wBadUntil[i] != 0;
+}
+void wifiListChanged() { memset(wBadUntil, 0, sizeof(wBadUntil)); wCur = -1; }   // saved networks were added or removed
+String savedSsid(int i) { return prefs.getString(("s" + String(i)).c_str(), ""); }
+String savedPass(int i) { return prefs.getString(("p" + String(i)).c_str(), ""); }
+
+void wifiBegin() {
+  WiFi.persistent(false);   // the saved list lives in our own settings, not the Wi-Fi driver's
+  WiFi.mode(WIFI_STA);
+  wNextScan = millis();
+}
+bool wifiOnline() { return wState == W_ONLINE && WiFi.status() == WL_CONNECTED; }
+bool wifiJustConnected() { bool b = wNewConn; wNewConn = false; return b; }   // true once per new connection
+void wifiIoResult(bool ok) { wIoFails = ok ? 0 : wIoFails + 1; }              // call after every internet request
+void wifiKick() { if (wState == W_IDLE) { wRetry = WIFI_RETRY_MIN_MS; wNextScan = millis(); } }   // look now (button press)
+void wifiPause() {   // before the setup portal scans: stop any search in progress
+  if (wState != W_SCAN && wState != W_JOIN) return;
+  if (wState == W_JOIN) WiFi.disconnect();
+  WiFi.scanDelete();
+  wState = W_IDLE;
+}
+void wifiAdopt() {   // the setup portal joined a network itself (it is saved as network 0)
+  wifiListChanged();
+  if (WiFi.status() != WL_CONNECTED) return;
+  wCur = 0; wState = W_ONLINE; wNewConn = true; wIoFails = wWeak = 0; wLostAt = 0;
+  wRetry = WIFI_RETRY_MIN_MS; wRssiAt = millis();
+}
+
+void wifiRetryLater() {
+  wState = W_IDLE;
+  wNextScan = millis() + wRetry;
+  wRetry = min(wRetry * 2, WIFI_RETRY_MAX_MS);
+}
+void wifiRescanNow() { WiFi.disconnect(); wState = W_IDLE; wNextScan = millis() + WIFI_SETTLE_MS; }
+void wifiStartScan(bool roam) {
+  wRoam = roam;
+  WiFi.scanDelete();
+  WiFi.scanNetworks(true);   // true = in the background
+  wState = W_SCAN;
+  wAt = millis();
+}
+void wifiStartJoin() {
+  int i = wCand[wCandI];
+  sayf("Wi-Fi join %d of %d (%d dBm)\n", i + 1, savedCount(), wCandRssi[wCandI]);
+  WiFi.begin(savedSsid(i).c_str(), savedPass(i).c_str(), wCandCh[wCandI], wCandBssid[wCandI]);
+  wState = W_JOIN;
+  wAt = millis();
+}
+
+// Fill the candidate list from a finished scan: each saved network's strongest access point, strongest first.
+void wifiPickCandidates(int found, bool allowBad) {
+  wCandN = 0;
+  int n = savedCount();
+  for (int i = 0; i < n && i < MAX_NETWORKS; i++) {
+    if (!allowBad && wifiBad(i)) continue;
+    String ssid = savedSsid(i);
+    int best = -1;
+    for (int j = 0; j < found; j++)
+      if (WiFi.SSID(j) == ssid && (best < 0 || WiFi.RSSI(j) > WiFi.RSSI(best))) best = j;
+    if (best < 0) continue;
+    int k = wCandN++;
+    for (; k > 0 && wCandRssi[k - 1] < WiFi.RSSI(best); k--) {   // insertion sort, strongest first
+      wCand[k] = wCand[k - 1]; wCandRssi[k] = wCandRssi[k - 1]; wCandCh[k] = wCandCh[k - 1];
+      memcpy(wCandBssid[k], wCandBssid[k - 1], 6);
+    }
+    wCand[k] = i; wCandRssi[k] = WiFi.RSSI(best); wCandCh[k] = WiFi.channel(best);
+    memcpy(wCandBssid[k], WiFi.BSSID(best), 6);
+  }
+}
+
+void wifiTick() {   // call every loop(); returns within a few milliseconds
+  if (portalOn) return;
+  switch (wState) {
+    case W_IDLE:
+      if (savedCount() > 0 && wifiDue(wNextScan)) wifiStartScan(false);
+      break;
+
+    case W_SCAN: {
+      int found = WiFi.scanComplete();
+      if (found == WIFI_SCAN_RUNNING && millis() - wAt < WIFI_SCAN_TIMEOUT_MS) break;
+      if (found < 0 && ++wScanFails < WIFI_SCAN_FAIL_LIMIT) {   // the scan itself failed: not the same as nothing in range
+        WiFi.scanDelete();
+        if (wRoam && WiFi.status() == WL_CONNECTED) { wState = W_ONLINE; break; }
+        wState = W_IDLE;
+        wNextScan = millis() + 1000;
+        break;
+      }
+      wScanFails = 0;
+      if (found < 0) found = 0;   // keeps failing: back off as if nothing were in range
+#ifdef WIFI_TEST
+      if (wTestHideUntil && !wifiDue(wTestHideUntil)) found = 0;
+#endif
+      wifiPickCandidates(found, false);
+      if (wCandN == 0) wifiPickCandidates(found, true);   // a network without internet still beats none
+      WiFi.scanDelete();
+      wCandI = 0;
+      if (wRoam && WiFi.status() == WL_CONNECTED) {   // still online: move only for a clearly stronger access point
+        int gain = WIFI_ROAM_GAIN_DB;
+#ifdef WIFI_TEST
+        if (wTestRoam) { gain = -100; wTestRoam = false; }
+#endif
+        while (wCandI < wCandN && !memcmp(wCandBssid[wCandI], WiFi.BSSID(), 6)) wCandI++;   // skip where we already are
+        if (wCandI >= wCandN || wCandRssi[wCandI] < WiFi.RSSI() + gain) { sayln("Wi-Fi: weak, nothing better in range"); wState = W_ONLINE; break; }
+        sayln("Wi-Fi: stronger access point found");
+        WiFi.disconnect();
+      }
+      if (wCandI >= wCandN) { sayln("Wi-Fi: no saved network in range"); wifiRetryLater(); break; }
+      wifiStartJoin();
+      break;
+    }
+
+    case W_JOIN:
+      if (WiFi.status() == WL_CONNECTED) {
+        wCur = wCand[wCandI];
+        wState = W_ONLINE;
+        wNewConn = true;
+        wIoFails = wWeak = 0;
+        wLostAt = 0;
+        wRetry = WIFI_RETRY_MIN_MS;
+        wRssiAt = millis();
+        sayf("Wi-Fi online (%d dBm)\n", WiFi.RSSI());
+      } else if (millis() - wAt >= WIFI_JOIN_TIMEOUT_MS) {
+        WiFi.disconnect();
+        if (++wCandI < wCandN) wifiStartJoin();
+        else { sayln("Wi-Fi: join failed"); wifiRetryLater(); }
+      }
+      break;
+
+    case W_ONLINE:
+      if (WiFi.status() != WL_CONNECTED) {
+        if (!wLostAt) { wLostAt = millis() | 1; sayln("Wi-Fi lost"); }
+        else if (millis() - wLostAt >= WIFI_GRACE_MS) { wLostAt = 0; wifiRescanNow(); }
+        break;
+      }
+      wLostAt = 0;
+      if (wIoFails >= WIFI_IO_FAIL_LIMIT) {
+        wIoFails = 0;
+        if (wCur >= 0 && !wifiBad(wCur)) {   // not already marked: avoid it for a while and look elsewhere
+          sayln("Wi-Fi: no internet here, trying others");
+          wBadUntil[wCur] = (millis() + WIFI_BAD_COOLDOWN_MS) | 1;
+          wifiRescanNow();
+          break;
+        }   // already marked and rejoined because nothing else is in range: stay, don't churn
+      }
+      if (millis() - wRssiAt >= WIFI_RSSI_CHECK_MS) {
+        wRssiAt = millis();
+        wWeak = WiFi.RSSI() < WIFI_WEAK_DBM ? wWeak + 1 : 0;
+#ifdef WIFI_TEST
+        if (wTestRoam) wWeak = WIFI_WEAK_COUNT;
+#endif
+        if (wWeak >= WIFI_WEAK_COUNT) { wWeak = 0; wifiStartScan(true); }
+      }
+      break;
+  }
+}
+// ---- end Wi-Fi connection manager ----
 #endif
 
 #if TEST == 0
@@ -751,7 +947,6 @@ void loop() {}
 const char* MANIFEST_FILE = "manifest.txt";   // lines: version=N, size=BYTES, sha256=HEX
 const char* BIN_FILE = "pebble-prototype.bin";
 const int BOOT_BTN = 9;
-const unsigned long JOIN_TIMEOUT_MS = 8000;
 #ifndef DAILY_CHECK_MS   // fallback check when no command arrives; override for testing
 #define DAILY_CHECK_MS (24UL * 60 * 60 * 1000)
 #endif
@@ -788,22 +983,6 @@ bool openUrl(HTTPClient& http, WiFiClient& plain, WiFiClientSecure& secure, cons
   lastHttpCode = code;
   sayf("GET %s %d\n", url.substring(url.lastIndexOf('/') + 1).c_str(), code);
   return code == 200;
-}
-
-bool joinSaved(int index) {
-  Preferences prefs;
-  prefs.begin("pebble", true);
-  String ssid = prefs.getString(("s" + String(index)).c_str(), "");
-  String pass = prefs.getString(("p" + String(index)).c_str(), "");
-  prefs.end();
-  WiFi.disconnect(true);
-  delay(100);
-  WiFi.mode(WIFI_STA);
-  sayf("Join \"%s\"\n", ssid.c_str());
-  WiFi.begin(ssid.c_str(), pass.c_str());
-  unsigned long t0 = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - t0 < JOIN_TIMEOUT_MS) delay(100);
-  return WiFi.status() == WL_CONNECTED;
 }
 
 bool postNtfy(const char* title, const String& message) {
@@ -1000,7 +1179,9 @@ bool pollCommands() {
   http.useHTTP10(true);
   String url = commandUrl() + "/json?poll=1&since=" + (last.length() ? last : String("all"));
   bool wantUpdate = false;
-  if (http.begin(client, url) && http.GET() == 200) {
+  int code = http.begin(client, url) ? http.GET() : -1;
+  wifiIoResult(code == 200);
+  if (code == 200) {
     String body = http.getString();
     int pos = 0;
     while (pos < (int)body.length()) {
@@ -1016,6 +1197,12 @@ bool pollCommands() {
       msg.toLowerCase();
       sayf("Command: \"%s\"\n", msg.c_str());
       if (msg == "update") wantUpdate = true;   // anything else is ignored
+#ifdef WIFI_TEST   // simulate trouble, to test the Wi-Fi manager from the phone
+      if (msg == "drop") WiFi.disconnect();                                              // connection lost
+      if (msg == "nointernet") wIoFails = WIFI_IO_FAIL_LIMIT;                            // joined but no internet
+      if (msg == "hide") { wTestHideUntil = (millis() + 60000) | 1; WiFi.disconnect(); }       // out of range for 60 s
+      if (msg == "roam") { wTestRoam = true; wRssiAt = millis() - WIFI_RSSI_CHECK_MS; }  // weak signal, better one nearby
+#endif
     }
   }
   http.end();
@@ -1025,7 +1212,7 @@ bool pollCommands() {
   return wantUpdate;
 }
 
-bool imagePending = false;   // true until the running image has proven itself
+bool imagePending = false;   // true until this boot has reached the update server (then the image is marked valid)
 
 void validateImage() {
   esp_ota_mark_app_valid_cancel_rollback();
@@ -1073,23 +1260,9 @@ void setup() {
     st = state == ESP_OTA_IMG_PENDING_VERIFY ? "pending" : (state == ESP_OTA_IMG_VALID ? "valid" : "other");
   sayf("\n== OTA v%d, slot %s, %s ==\n", FW_VERSION, running->label, st);
 
-  // Try each saved network in turn until one can reach the release location.
-  bool reached = false, anyJoined = false;
-  for (int i = 0; i < savedCount() && !reached; i++) {
-    if (!joinSaved(i)) continue;
-    anyJoined = true;
-    sayf("IP %s\n", WiFi.localIP().toString().c_str());
-    if (tryServer()) reached = true;
-    else sayln("Server unreachable, next network");
-  }
-  if (reached) { validateImage(); return; }
-  imagePending = true;   // validated later, once a network reaches the server
-  if (!anyJoined) {
-    sayln("No Wi-Fi: opening setup");
-    startPortal();
-  } else {
-    sayln("No network reached server");
-  }
+  imagePending = true;   // validated in loop(), once a network reaches the update server
+  wifiBegin();
+  if (savedCount() == 0) sayln("No saved Wi-Fi: hold BOOT 5s for setup");   // the setup hotspot only ever opens from the button
 }
 
 // Check for an update; tell the phone when the check was asked for, and reboot if one was installed.
@@ -1101,6 +1274,7 @@ void runCheck(bool asked) {
     delay(500);
     ESP.restart();
   }
+  wifiIoResult(reached);
   if (!asked) return;
   if (!reached) postNtfy("Pebble", "can't reach server, still on v" + String(FW_VERSION));
   else if (!strcmp(checkNote, "current")) postNtfy("Pebble", "up to date (v" + String(FW_VERSION) + ")");
@@ -1120,18 +1294,27 @@ void loop() {
     unsigned long held = millis() - pressedAt;
     pressedAt = 0;
     told5 = told10 = false;
-    if (held >= CLEAR_HOLD_MS) { clearNetworks(); sayln("Cleared networks"); }
-    else if (held >= SETUP_HOLD_MS) { if (!portalOn) startPortal(); }
+    if (held >= CLEAR_HOLD_MS) { clearNetworks(); wifiListChanged(); wifiRescanNow(); sayln("Cleared networks"); }
+    else if (held >= SETUP_HOLD_MS) { if (!portalOn) { wifiPause(); startPortal(); } }
     else tapped = true;
   }
 
-  if (portalTick()) {   // a network was joined through the setup page
+  bool wasPortal = portalOn;
+  if (portalTick()) wifiAdopt();                       // a network was joined through the setup page
+  else if (wasPortal && !portalOn) wifiListChanged();  // closed without a join: networks may have been deleted
+  wifiTick();
+  if (wifiJustConnected()) {
     sayf("IP %s\n", WiFi.localIP().toString().c_str());
-    if (tryServer() && imagePending) validateImage();
+    bool reached = tryServer();
+    wifiIoResult(reached);
+    if (reached && imagePending) validateImage();
+#ifdef WIFI_TEST
+    postNtfy("Pebble", "online, network " + String(wCur + 1) + " of " + String(savedCount()) + ", " + String(WiFi.RSSI()) + " dBm");
+#endif
     lastPoll = millis();
   }
 
-  if (WiFi.status() == WL_CONNECTED) {
+  if (wifiOnline()) {
     if (tapped) { sayln("Check (BOOT tap)"); runCheck(false); }
     if (millis() - lastPoll >= COMMAND_POLL_MS) {
       lastPoll = millis();
@@ -1142,9 +1325,8 @@ void loop() {
       sayln("Check (daily)");
       runCheck(false);
     }
-  } else if (!portalOn && millis() - lastPoll >= COMMAND_POLL_MS) {   // lost Wi-Fi: rejoin a saved network
-    lastPoll = millis();
-    for (int i = 0; i < savedCount() && WiFi.status() != WL_CONNECTED; i++) joinSaved(i);
+  } else if (tapped) {
+    wifiKick();   // offline: look for a network now
   }
   delay(portalOn ? 2 : 20);   // answer the phone quickly while the setup page is open
 }
