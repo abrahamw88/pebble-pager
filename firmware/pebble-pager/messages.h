@@ -65,7 +65,7 @@ void messageReceipt(const String& id) {
 }
 
 // ---- Receiving ----
-String lastPlayed;   // "<sender>\t<text>", kept for a replay
+RTC_DATA_ATTR char lastPlayed[96] = "";   // "<sender>\t<text>", kept for a replay (through sleep)
 
 // A valid pulse message arrived. Keep it for playing and answer it straight away.
 void messageArrived(const NtfyMessage& m, const Pulse& p) {
@@ -81,14 +81,18 @@ void messageArrived(const NtfyMessage& m, const Pulse& p) {
 bool messagePlay() {
   String item = listPeek(UNREAD);
   bool fresh = item.length() > 0;
-  if (fresh) { listPop(UNREAD); lastPlayed = item; }
-  if (lastPlayed.length() == 0) return false;
-  int tab = lastPlayed.indexOf('\t');
-  String from = lastPlayed.substring(0, tab), text = lastPlayed.substring(tab + 1);
+  if (fresh) { listPop(UNREAD); item.toCharArray(lastPlayed, sizeof(lastPlayed)); }
+  if (!lastPlayed[0]) return false;
+  String last = lastPlayed;
+  int tab = last.indexOf('\t');
+  String from = last.substring(0, tab), text = last.substring(tab + 1);
   sayf("%s from %s: %s (%d unread left)\n", fresh ? "Play" : "Replay", from.c_str(), text.c_str(), listCount(UNREAD));
   if (fresh) ntfySay("played " + text + " from " + from);
   return true;
 }
+
+// Something is queued and worth trying to post right now (not just after a failed attempt).
+bool messagesWaiting() { return messagesCanSend() && listCount(OUTBOX) > 0 && (long)(millis() - sendRetryAt) >= 0; }
 
 // Call every loop() while online: post what is queued, and give up on receipts that never came.
 void messagesTick() {

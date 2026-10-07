@@ -13,6 +13,7 @@
 #include "mbedtls/sha256.h"
 #include "config.h"
 #include "ntfy.h"
+#include "power.h"
 
 #ifdef OTA_LOCAL_IP   // -DOTA_LOCAL_IP=192.168.x.y : test against a local web server on port 8000
 #define OTA_STR_(x) #x
@@ -21,8 +22,8 @@
 #else
 #define OTA_BASE "https://github.com/abrahamw88/pebble-pager/releases/latest/download/"
 #endif
-#ifndef DAILY_CHECK_MS   // fallback check when no "update" command arrives; override for testing
-#define DAILY_CHECK_MS (24UL * 60 * 60 * 1000)
+#ifndef DAILY_CHECK_S   // fallback check when no "update" command arrives, in seconds; override for testing
+#define DAILY_CHECK_S (24UL * 60 * 60)
 #endif
 
 const char* MANIFEST_FILE = "manifest.txt";   // lines: version=N, size=BYTES, sha256=HEX
@@ -33,7 +34,11 @@ const int OTA_CRASHED = 1, OTA_INTERRUPTED = 2;           // why an update did n
 // Keep a new image on probation until updateValidate() runs.
 extern "C" bool verifyRollbackLater() { return true; }
 
-bool updatePending = true;       // true until this boot has reached the update server
+// Kept through sleep, reset by a power cut or a restart: a fresh start checks once, then daily.
+RTC_DATA_ATTR bool updateValidated = false;    // this image has reached the update server since it started
+RTC_DATA_ATTR unsigned long updateCheckedAt = 0;   // clockSeconds() of the last check
+
+bool updateDue() { return !updateValidated || clockSeconds() - updateCheckedAt >= DAILY_CHECK_S; }
 const char* updateNote = "";     // why the last check installed nothing: "current", "skipped", "none" or ""
 int updateSeen = 0;              // the release version the last check saw
 int updateHttp = 0;              // last HTTP status; 0 or less means the server was never reached
@@ -42,6 +47,7 @@ const char* updateReason = "";   // why the last install failed
 // GET `url`, following redirects (GitHub release downloads redirect to another host).
 bool updateOpen(HTTPClient& http, WiFiClient& plain, WiFiClientSecure& secure, const String& url) {
   secure.setInsecure();   // certificates are not checked yet; the SHA-256 guards against a corrupted file only
+  secure.setHandshakeTimeout(5);
   http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
   http.setConnectTimeout(5000);
   http.setTimeout(10000);
@@ -129,7 +135,9 @@ bool updateLook(bool* reached) {
   if (size == 0 || sha.length() != 64) { sayln("Bad manifest"); return false; }
 
   sayf("Installing v%d (%u B)\n", remote, (unsigned)size);
+  stallAllowed = true;   // a download takes a while: not a hang
   int result = updateInstall(size, sha);
+  stallAllowed = false;
   if (result == OTA_RETRY) { sayf("v%d not installed (%s): will retry\n", remote, updateReason); return false; }
   if (result == OTA_BAD_IMAGE) {
     prefs.putInt("otaBad", remote);
@@ -161,7 +169,7 @@ void updateBoot() {
 // The running image reached the server: mark it good, and tell the phone how the last update went.
 void updateValidate() {
   esp_ota_mark_app_valid_cancel_rollback();
-  updatePending = false;
+  updateValidated = true;
   sayln("Image valid");
   int to = prefs.getInt("otaTo", 0), from = prefs.getInt("otaFrom", 0);
   if (to == 0) return;
@@ -185,7 +193,8 @@ bool updateCheck(bool asked) {
     ESP.restart();
   }
   wifiIoResult(reached);
-  if (reached && updatePending) updateValidate();
+  updateCheckedAt = clockSeconds();
+  if (reached && !updateValidated) updateValidate();
   if (!asked) return reached;
   if (!reached) ntfySay("can't reach server, still on v" + String(FW_VERSION));
   else if (!strcmp(updateNote, "current")) ntfySay("up to date (v" + String(FW_VERSION) + ")");

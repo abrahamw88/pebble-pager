@@ -6,7 +6,7 @@ Two matching palm-size pagers on a Seeed XIAO ESP32-C3. They swap "pulse message
 
 ## Status
 
-Spec and breadboard build are written. The firmware runs on the bare board with tested settings, setup page, Wi-Fi manager, messages between devices with receipts, button logic with recording, and remote updates. Still to build: ring, motor, battery and sleep (button 2's tap and 10 s hold are stubs until then). The serial console can simulate presses (`press 1 700 300 600`), which is how button logic is tested without hands on the board. Buttons, ring, motor and battery wait on parts.
+Spec and breadboard build are written. The firmware runs on the bare board with tested settings, setup page, Wi-Fi manager, messages between devices with receipts, button logic with recording, deep sleep with a 30 s check, and remote updates. Still to build: ring, motor and battery (button 2's tap is a stub until then). The serial console can simulate presses (`press 1 700 300 600`), which is how button logic is tested without hands on the board. Buttons, ring, motor and battery wait on parts.
 
 ## Layout
 
@@ -17,6 +17,7 @@ docs/concept.html              visual concept sheet (open in a browser): look, c
 firmware/pebble-pager/         the one sketch; each tab is a module
   pebble-pager.ino             main flow, build flags (listed in its header)
   config.h                     pins, values to tune, saved settings, serial output and console
+  power.h                      deep sleep, wake reasons, the stall guard
   wifi_manager.h               Wi-Fi connection manager
   ntfy.h                       post to topics, read the device's inbox
   pulse.h                      the message format
@@ -62,6 +63,7 @@ Add build flags with `--build-property compiler.cpp.extra_flags="-DFW_VERSION=48
 ## Rules for AI tools
 
 - Compile before claiming a change works, including the test builds and flags a change touches. Flash only when asked, and confirm the serial port first with `arduino-cli board list`.
+- The firmware sleeps, so the USB port comes and goes, and macOS can stop showing it until the cable is replugged. To work over USB, post `awake` to the device's inbox first (10 minutes awake) or flash a `-DNO_SLEEP` build. Without USB, deliver a build as a release and post `update`; `status` reports wake counts and time awake to the phone. Never trigger "off" (button 2 held 10 s) remotely on the bare board: nothing can wake it.
 - A reset over USB can leave the board in download mode ("waiting for download"): open the port with DTR and RTS released, pulse RTS only, and check the boot banner.
 - Never commit or compile in Wi-Fi names, passwords, ntfy topics or tokens. Released firmware is public, so they live only in the device's settings (setup page or serial console). Before publishing a release, check the `.bin` with `strings` for the topic base and network names.
 - Measure battery current on battery with USB unplugged; USB keeps the chip awake.

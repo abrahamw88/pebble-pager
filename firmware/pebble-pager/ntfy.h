@@ -17,6 +17,7 @@ String topicUrl(const String& who) { return String(NTFY_SERVER) + topicBase + "-
 
 void ntfyOpen(WiFiClientSecure& client, HTTPClient& http) {
   client.setInsecure();   // certificates are not checked yet (README: Remote updates)
+  client.setHandshakeTimeout(5);
   http.setConnectTimeout(NTFY_CONNECT_MS);
   http.setTimeout(NTFY_READ_MS);
   http.useHTTP10(true);   // the server closes the connection after the body: no waiting on chunked reads
@@ -68,6 +69,8 @@ void ntfySay(const String& text) {
   bool sent = listCount(NOTES) == 0 && wifiOnline() && ntfyPublish("phone", "Pebble", line).length() > 0;
   if (!sent) listPush(NOTES, line);
 }
+
+bool notesWaiting() { return listCount(NOTES) > 0 && (long)(millis() - notesRetryAt) >= 0; }   // something to post, and worth trying now
 
 void ntfyFlush() {   // call every loop(): post one waiting report when online
   if (!wifiOnline() || listCount(NOTES) == 0 || (long)(millis() - notesRetryAt) < 0) return;

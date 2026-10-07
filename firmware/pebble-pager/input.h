@@ -93,6 +93,7 @@ bool nextEdge(Edge& e) {
 }
 
 // ---- The logic ----
+bool inputPending() { return simNext < simCount || edgeHead != edgeTail; }   // edges not yet handled
 bool inputBusy() { return recState != R_IDLE || button[1].down; }   // someone is using the buttons: keep loop() free
 
 unsigned long pulseClamp(unsigned long ms) { return ms < PULSE_MIN_MS ? PULSE_MIN_MS : ms > PULSE_MAX_MS ? PULSE_MAX_MS : ms; }
