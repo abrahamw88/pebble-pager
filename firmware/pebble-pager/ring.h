@@ -4,8 +4,9 @@
 // browser; keep the two in step (the parity check in AGENTS.md compares their output).
 //
 // The comet: a head in the sender's color with a tail that melts into white, gliding round the ring between
-// pixels. A press fades it in with a small overshoot, it orbits while the button is held, picking up speed, and a
-// release lets it flare slightly, coast and fade out towards white. It carries on from where it stopped.
+// pixels. A press fades it in while the head leaps a little ahead and springs back, stretching the tail; it orbits
+// while the button is held, picking up speed; a release makes it recoil, coast and fade out towards white. The
+// brightness itself only fades smoothly: the playfulness is all in the motion. It carries on from where it stopped.
 #ifndef PEBBLE_RING_H
 #define PEBBLE_RING_H
 #include <math.h>
@@ -20,20 +21,25 @@ struct RingTuning {
   float accel = 0.2f;        // laps per second gained for each second held
   float maxSpeed = 1.9f;     // laps per second, top speed
   float tail = 5.5f;         // tail length in pixels at full brightness
-  float attackHz = 2.6f;     // fade-in spring: how fast (about 0.5 s to settle)...
-  float damping = 0.5f;      // ...and how bouncy (1 = no overshoot, lower = more)
-  float releaseHz = 1.5f;    // fade-out speed (about 0.5 s)
-  float flare = 1.2f;        // extra kick of brightness at the moment of release
+  float tailPower = 1.0f;    // how fast the tail dims along its length (1 = evenly; higher = thinner, dimmer tail)
+  float attackHz = 2.6f;     // fade-in quickness (about 0.5 s)
+  float releaseHz = 1.5f;    // fade-out quickness (about 0.5 s)
+  float leap = 1.2f;         // pixels the head jumps ahead on a press before springing back
+  float recoil = 1.0f;       // pixels the head kicks back on a release
+  float bounceHz = 3.0f;     // how fast that spring wobbles...
+  float bounceDamp = 0.35f;  // ...and how soon it settles (1 = no wobble, lower = more)
+  float stretch = 1.0f;      // how much the tail stretches with a leap and squashes with a recoil
   float pastel = 0.2f;       // how much of the color's own white stays in the head (0 = pure hue, 1 = the full pastel)
-  float whiteGain = 0.9f;    // how bright the white tail is next to the colored head
-  float peak = 1.0f;         // overall brightness, 0 to 1
+  float whiteGain = 1.0f;    // how bright the white tail is next to the colored head
+  float peak = 1.4f;         // brightness; above 1 the head is already at full, so more of the comet reaches full
   float budgetMa = 180.0f;   // the ring may draw at most this; a frame over it is dimmed as a whole
 };
 RingTuning ringTune;
 
 struct RingState {
   bool down = false;             // the comet's "key" is held
-  float level = 0, vel = 0;      // brightness envelope and its rate of change
+  float level = 0, vel = 0;      // brightness, 0 to 1, and its rate of change
+  float hop = 0, hopVel = 0;     // the head's springy offset from its path, in pixels, and its rate of change
   float angle = 0;               // laps travelled; the head is at the fractional part
   float held = 0, speed = 0;     // seconds this press has lasted; current laps per second
   float color[4] = {0, 0, 0, 0}; // the sender's color as red, green, blue, white (0 to 1)
@@ -60,8 +66,9 @@ void ringSetColor(uint32_t rgb) {
 void ringPress(bool down) {   // the button went down or up
   if (down == ring.down) return;
   ring.down = down;
-  if (down) { ring.held = 0; ring.speed = ringTune.speed; }
-  else ring.vel += ringTune.flare;
+  float kick = 6.2831853f * ringTune.bounceHz * 1.4f;   // the push that makes the spring peak at about one pixel
+  if (down) { ring.held = 0; ring.speed = ringTune.speed; ring.hopVel += ringTune.leap * kick; }
+  else ring.hopVel -= ringTune.recoil * kick;
 }
 
 void ringPlay(const uint16_t* ms, int count) {   // play a message: the times alternate press, gap, press...
@@ -91,13 +98,18 @@ void ringStep() {   // advance the simulation by RING_STEP_S
     }
   }
 
-  // Brightness follows the key like a spring: bouncy on the way in, smooth on the way out.
+  // Brightness eases towards on or off, with no overshoot.
   float w = twoPi * (ring.down ? ringTune.attackHz : ringTune.releaseHz);
-  float zeta = ring.down ? ringTune.damping : 1.0f;
   float target = ring.down ? 1.0f : 0.0f;
-  ring.vel += (w * w * (target - ring.level) - 2 * zeta * w * ring.vel) * dt;
+  ring.vel += (w * w * (target - ring.level) - 2 * w * ring.vel) * dt;
   ring.level += ring.vel * dt;
-  if (ring.level < 0 || (!ring.down && ring.level < 0.003f && ring.vel <= 0)) { ring.level = 0; ring.vel = 0; }
+  if (ring.level > 1) ring.level = 1;
+  if (ring.level < 0 || (!ring.down && ring.level < 0.003f && ring.vel <= 0)) { ring.level = 0; ring.vel = 0; ring.hop = 0; ring.hopVel = 0; }
+
+  // The head's offset is a spring that presses and releases kick: it wobbles around the path and settles.
+  float wb = twoPi * ringTune.bounceHz;
+  ring.hopVel += (-wb * wb * ring.hop - 2 * ringTune.bounceDamp * wb * ring.hopVel) * dt;
+  ring.hop += ring.hopVel * dt;
 
   // It orbits while held, a little faster the longer the hold, and coasts to a stop as it fades.
   if (ring.down) {
@@ -129,8 +141,11 @@ float ringSmooth(float a, float b, float x) {   // 0 below a, 1 above b, an S-cu
 float ringRender(uint8_t out[RING_PIXELS][4]) {
   float px[RING_PIXELS][4];
   float level = ring.level;
-  float head = (ring.angle - floorf(ring.angle)) * RING_PIXELS;       // where the head is, in pixels
-  float tail = ringTune.tail * (0.35f + 0.65f * fminf(level, 1.25f)); // the tail grows with the brightness
+  float head = (ring.angle - floorf(ring.angle)) * RING_PIXELS + ring.hop;   // where the head is, in pixels
+  while (head < 0) head += RING_PIXELS;
+  while (head >= RING_PIXELS) head -= RING_PIXELS;
+  float tail = ringTune.tail * (0.35f + 0.65f * level) + ringTune.stretch * ring.hop;   // grows as it brightens; stretches with a leap
+  if (tail < 1) tail = 1;
   float fading = ring.down ? 0 : 1 - fminf(level, 1.0f);             // 0 while held, towards 1 as it fades out
   for (int i = 0; i < RING_PIXELS; i++) {
     float behind = head - i;                                         // how far this pixel is behind the head
@@ -140,7 +155,7 @@ float ringRender(uint8_t out[RING_PIXELS][4]) {
     if (ahead < 1) bright = 1 - ahead;                               // the pixel the head is gliding onto
     else if (behind <= tail) {
       float along = behind / tail;                                   // 0 at the head, 1 at the tail's end
-      bright = powf(1 - along, 1.6f);
+      bright = powf(1 - along, ringTune.tailPower);
       white = ringSmooth(0.12f, 0.7f, along);                        // color at the head, white down the tail
     }
     white += (1 - white) * fading * 0.85f;                           // the whole comet pales as it fades

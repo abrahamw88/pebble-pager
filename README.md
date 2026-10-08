@@ -64,10 +64,11 @@ Presses and releases are caught by interrupts and time-stamped, so the recorded 
 The ring is the device's face, so its motion is designed to be smooth and a little playful. `firmware/pebble-pager/ring.h` is the engine, and `docs/ring-preview.html` runs a copy of the same math in a browser for tuning.
 
 - **The comet.** A head in the sender's color with a tail that melts into white, gliding between pixels so it never jumps. It is the only message animation: recording and playback are computed from the same press times, so both devices show the same thing.
-- **A press is a key on a synth.** Button down fades the comet in over about half a second with a small overshoot; it orbits for as long as the button is held, starting at 0.9 laps per second and gaining 0.2 each second up to 1.9; release gives a slight flare, then it coasts and fades towards white. It carries on from where it stopped, so a long message travels round the ring.
+- **A press is a key on a synth.** Button down fades the comet in over about half a second; it orbits for as long as the button is held, starting at 0.9 laps per second and gaining 0.2 each second up to 1.9; release fades it out towards white as it coasts. It carries on from where it stopped, so a long message travels round the ring.
+- **The playfulness is in the motion, not the brightness.** On a press the head leaps about a pixel ahead and springs back, stretching the tail; on a release it kicks back and the tail squashes. Brightness only fades smoothly, because the head is already at full and an overshoot there would not show.
 - **Not received.** Two soft red pulses when no receipt comes back in the 45 s window. This is the only other color for now.
 - **Message waiting.** One pixel at the top breathes once in the sender's color at each wake.
-- **Brightness and power.** There is no fixed brightness cap. Each frame's current is added up and the frame is dimmed as a whole only if it would pass the budget (180 mA to start), so a few lit pixels can be bright and fades have the full range of steps.
+- **Brightness and power.** There is no fixed brightness cap. Each frame's current is added up and the frame is dimmed as a whole only if it would pass the budget (180 mA to start), so a few lit pixels can be bright and fades have the full range of steps. The comet draws about 75 to 100 mA at its brightest; only the full-ring red pulse reaches the budget.
 - **Not designed yet:** button 2's displays (battery level, the 5 s and 10 s holds), which will keep their own colors and use a different style of motion.
 
 ## Parts list

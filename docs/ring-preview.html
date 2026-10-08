@@ -110,12 +110,12 @@ const RING_STEP_MS = 5;
 const RING_STEP_S = RING_STEP_MS / 1000;
 
 const ringTune = {
-  speed: 0.9, accel: 0.2, maxSpeed: 1.9, tail: 5.5, attackHz: 2.6, damping: 0.5,
-  releaseHz: 1.5, flare: 1.2, pastel: 0.2, whiteGain: 0.9, peak: 1.0, budgetMa: 180.0
+  speed: 0.9, accel: 0.2, maxSpeed: 1.9, tail: 5.5, tailPower: 1.0, attackHz: 2.6, releaseHz: 1.5,
+  leap: 1.2, recoil: 1.0, bounceHz: 3.0, bounceDamp: 0.35, stretch: 1.0, pastel: 0.2, whiteGain: 1.0, peak: 1.4, budgetMa: 180.0
 };
 
 const ring = {
-  down: false, level: 0, vel: 0, angle: 0, held: 0, speed: 0, color: [0, 0, 0, 0],
+  down: false, level: 0, vel: 0, hop: 0, hopVel: 0, angle: 0, held: 0, speed: 0, color: [0, 0, 0, 0],
   failT: -1, blipT: -1, play: null, playCount: 0, playIndex: 0, playLeftMs: 0, clock: 0
 };
 
@@ -130,8 +130,9 @@ function ringSetColor(rgb) {
 function ringPress(down) {
   if (down === ring.down) return;
   ring.down = down;
-  if (down) { ring.held = 0; ring.speed = ringTune.speed; }
-  else ring.vel += ringTune.flare;
+  const kick = 6.2831853 * ringTune.bounceHz * 1.4;
+  if (down) { ring.held = 0; ring.speed = ringTune.speed; ring.hopVel += ringTune.leap * kick; }
+  else ring.hopVel -= ringTune.recoil * kick;
 }
 
 function ringPlay(ms, count) {
@@ -162,11 +163,15 @@ function ringStep() {
   }
 
   const w = twoPi * (ring.down ? ringTune.attackHz : ringTune.releaseHz);
-  const zeta = ring.down ? ringTune.damping : 1.0;
   const target = ring.down ? 1.0 : 0.0;
-  ring.vel += (w * w * (target - ring.level) - 2 * zeta * w * ring.vel) * dt;
+  ring.vel += (w * w * (target - ring.level) - 2 * w * ring.vel) * dt;
   ring.level += ring.vel * dt;
-  if (ring.level < 0 || (!ring.down && ring.level < 0.003 && ring.vel <= 0)) { ring.level = 0; ring.vel = 0; }
+  if (ring.level > 1) ring.level = 1;
+  if (ring.level < 0 || (!ring.down && ring.level < 0.003 && ring.vel <= 0)) { ring.level = 0; ring.vel = 0; ring.hop = 0; ring.hopVel = 0; }
+
+  const wb = twoPi * ringTune.bounceHz;
+  ring.hopVel += (-wb * wb * ring.hop - 2 * ringTune.bounceDamp * wb * ring.hopVel) * dt;
+  ring.hop += ring.hopVel * dt;
 
   if (ring.down) {
     ring.held += dt;
@@ -195,8 +200,11 @@ function ringSmooth(a, b, x) {
 function ringRender(out) {
   const px = [];
   const level = ring.level;
-  const head = (ring.angle - Math.floor(ring.angle)) * RING_PIXELS;
-  const tail = ringTune.tail * (0.35 + 0.65 * Math.min(level, 1.25));
+  let head = (ring.angle - Math.floor(ring.angle)) * RING_PIXELS + ring.hop;
+  while (head < 0) head += RING_PIXELS;
+  while (head >= RING_PIXELS) head -= RING_PIXELS;
+  let tail = ringTune.tail * (0.35 + 0.65 * level) + ringTune.stretch * ring.hop;
+  if (tail < 1) tail = 1;
   const fading = ring.down ? 0 : 1 - Math.min(level, 1.0);
   for (let i = 0; i < RING_PIXELS; i++) {
     let behind = head - i;
@@ -206,7 +214,7 @@ function ringRender(out) {
     if (ahead < 1) bright = 1 - ahead;
     else if (behind <= tail) {
       const along = behind / tail;
-      bright = Math.pow(1 - along, 1.6);
+      bright = Math.pow(1 - along, ringTune.tailPower);
       white = ringSmooth(0.12, 0.7, along);
     }
     white += (1 - white) * fading * 0.85;
@@ -256,13 +264,17 @@ const TUNING = [
   ["accel", "Speed-up while held", "laps per second gained each second", 0, 1.5, 0.05],
   ["maxSpeed", "Top speed", "laps per second", 0.5, 4, 0.1],
   ["tail", "Tail length", "pixels, at full brightness", 2, 10, 0.25],
+  ["tailPower", "Tail thinness", "1 dims evenly along the tail; higher makes it thinner and dimmer", 0.5, 2.5, 0.05],
   ["attackHz", "Fade-in quickness", "higher is snappier; 2.6 settles in about half a second", 1, 6, 0.1],
-  ["damping", "Fade-in bounce", "1 has no overshoot; lower overshoots more", 0.25, 1, 0.05],
   ["releaseHz", "Fade-out quickness", "1.5 fades in about half a second", 0.6, 4, 0.1],
-  ["flare", "Flare on release", "a small kick of brightness as you let go", 0, 3, 0.1],
+  ["leap", "Leap on press", "pixels the head jumps ahead before springing back; 0 turns it off", 0, 3, 0.1],
+  ["recoil", "Recoil on release", "pixels the head kicks back as you let go; 0 turns it off", 0, 3, 0.1],
+  ["bounceHz", "Bounce quickness", "how fast the leap and recoil wobble", 1, 6, 0.1],
+  ["bounceDamp", "Bounce settling", "1 has no wobble; lower wobbles longer", 0.15, 1, 0.05],
+  ["stretch", "Tail stretch", "how much the tail stretches with a leap and squashes with a recoil", 0, 2, 0.1],
   ["pastel", "White in the head", "0 is the pure color; 1 is the full pastel", 0, 1, 0.05],
   ["whiteGain", "White tail brightness", "against the colored head", 0.2, 1.2, 0.05],
-  ["peak", "Overall brightness", "", 0.1, 1, 0.05],
+  ["peak", "Brightness", "above 1 the head is already at full, so more of the comet reaches full", 0.1, 2.5, 0.05],
   ["budgetMa", "Power budget", "mA the ring may draw", 60, 400, 10]
 ];
 const DEFAULTS = Object.assign({}, ringTune);
