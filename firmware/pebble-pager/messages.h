@@ -5,7 +5,7 @@
 //   Receipts: every message received from the partner is answered with "received <id>" as soon as it is read
 //           from the inbox, before it is played. After sending, the sender waits a short while for that answer.
 // Both lists are saved in settings, so they survive sleep, restarts and power cuts. Reports to the phone
-// ("sent ...", "played ...") go through ntfySay, which keeps them until they can be posted.
+// ("sent ...") go through ntfySay, which keeps them until they can be posted.
 #ifndef PEBBLE_MESSAGES_H
 #define PEBBLE_MESSAGES_H
 #include "config.h"
@@ -77,7 +77,8 @@ void messageArrived(const NtfyMessage& m, const Pulse& p) {
 }
 
 // Play the oldest unread message, or replay the last one played. Returns false if there is nothing to play.
-// Playing is only reported here for now; the ring and motor will show it.
+// Playing is only printed here for now; the ring and motor will show it. Nothing is posted: the sender already
+// has its receipt, and the phone saw the message when it was sent.
 bool messagePlay() {
   String item = listPeek(UNREAD);
   bool fresh = item.length() > 0;
@@ -87,7 +88,6 @@ bool messagePlay() {
   int tab = last.indexOf('\t');
   String from = last.substring(0, tab), text = last.substring(tab + 1);
   sayf("%s from %s: %s (%d unread left)\n", fresh ? "Play" : "Replay", from.c_str(), text.c_str(), listCount(UNREAD));
-  if (fresh) ntfySay("played " + text + " from " + from);
   return true;
 }
 
