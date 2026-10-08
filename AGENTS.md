@@ -14,7 +14,10 @@ Spec and breadboard build are written. The firmware runs on the bare board with 
 README.md                      spec: behavior, parts, pins, power, ntfy, risks
 docs/build-steps.md            breadboard wiring and test steps
 docs/concept.html              visual concept sheet (open in a browser): look, colorways, every ring state
-docs/ring-preview.html         the ring animation in a browser, for tuning; holds a JavaScript copy of ring.h
+docs/virtual-pager.html        a second pager in a browser, live on ntfy; a JavaScript port of the firmware's message and button logic
+docs/ring-preview.html         the ring animation in a browser, for tuning
+docs/ring-engine.js            JavaScript copy of ring.h, shared by both pages
+docs/ring-view.js              draws the ring on a canvas, shared by both pages
 firmware/pebble-pager/         the one sketch; each tab is a module
   pebble-pager.ino             main flow, build flags (listed in its header)
   config.h                     pins, values to tune, saved settings, serial output and console
@@ -72,6 +75,7 @@ Add build flags with `--build-property compiler.cpp.extra_flags="-DFW_VERSION=48
 - Push only to the `test` branch until development is complete. Never push to `main` unless asked.
 - Verify anything that is meant to use ntfy (sending, receiving, receipts, update reports) through the real ntfy path: read what the board posts (poll `https://ntfy.sh/<TOPIC_BASE>-phone` with `curl`, base from `.secrets`) and send commands to the device's inbox as the phone would. Internal behavior (buttons, ring, timing, sleep, Wi-Fi joins, development) can be checked over serial. An ntfy failure in an ntfy feature is a test failure; report it.
 - After finishing a major piece of functionality, test it thoroughly before calling it done: normal paths, failure paths (no network, bad data, interrupted steps, power cycles) and repeated runs. Check real ntfy messages by reading the phone topic with `curl`, and report what was and wasn't covered.
-- `docs/ring-preview.html` carries a line-for-line JavaScript copy of `ring.h` between `ENGINE-START` and `ENGINE-END`. Change both together, then check they agree: run the same press patterns through both (compile `ring.h` with `clang++` in a small harness, run the JavaScript with macOS's `jsc`) and compare the 12 RGBW values per frame; they should match to within 1 of 255.
+- `docs/ring-engine.js` is a line-for-line JavaScript copy of `ring.h`. Change both together, then check they agree: run the same press patterns through both (compile `ring.h` with `clang++` in a small harness, run the JavaScript with macOS's `jsc`) and compare the 12 RGBW values per frame; they should match to within 1 of 255.
+- `docs/virtual-pager.html` ports `pulse.h`, `messages.h` and `input.h` to JavaScript. When their behavior changes, change the page too. It holds no topic base: that is typed into its Setup and kept in the browser.
 - Do not add dependencies or folders beyond the layout above without asking.
 - The device supplements a phone. Do not add emergency, location or calling features.

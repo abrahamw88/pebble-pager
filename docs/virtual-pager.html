@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pebble Virtual Pager</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Outfit:wght@500;600&display=swap">
+<style>
+/* A pager on a web page: the device on a dim stage, its status under it, then setup and the log. One column. */
+:root {
+  --bg: #F3F2EF; --surface: #FFFFFF; --ink: #1F2124; --muted: #5A5D62; --line: #DAD8D3; --chip: #E6E4DF;
+  --stage: #141517; --stage-ink: #C9CBCF; --good: #2F7D55; --warn: #9A5B12;
+  --display: 'Outfit', 'Avenir Next', system-ui, sans-serif;
+  --body: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #17181A; --surface: #212326; --ink: #ECEBE8; --muted: #A6A8AC; --line: #36383C; --chip: #2C2E32; --stage: #0D0E0F; --stage-ink: #B4B6BA; --good: #7FCFA2; --warn: #E3B06A; color-scheme: dark }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.45;
+       padding: calc(env(safe-area-inset-top, 0px) + 20px) 16px calc(env(safe-area-inset-bottom, 0px) + 32px); }
+.wrap { max-width: 460px; margin-inline: auto; display: flex; flex-direction: column; gap: 16px; }
+h1 { font-family: var(--display); font-weight: 600; font-size: 1.7rem; line-height: 1.1; margin: 0; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 1.05rem; margin: 0; }
+p { margin: 0; }
+.top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.state { font-size: 0.88rem; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.state.on { color: var(--good); } .state.off { color: var(--warn); }
+.stage { background: var(--stage); border-radius: 28px; padding: 16px; color: var(--stage-ink); display: flex; flex-direction: column; gap: 10px; }
+.device { position: relative; width: 100%; max-width: 380px; aspect-ratio: 1; margin-inline: auto; }
+.device canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.btn { position: absolute; border-radius: 50%; border: 0; background: transparent; cursor: pointer; touch-action: none; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; }
+.btn:focus-visible { outline: 3px solid #FFFFFF; outline-offset: 3px; }
+#b1 { left: 50%; top: 50%; width: 38%; height: 38%; transform: translate(-50%, -50%); }
+#b2 { left: 77%; top: 77%; width: 15%; height: 15%; transform: translate(-50%, -50%); background: rgba(255,255,255,0.10); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.16); }
+.says { font-size: 0.9rem; min-height: 2.7em; }
+.says b { color: #FFFFFF; font-weight: 500; }
+.counts { display: flex; justify-content: space-between; gap: 12px; font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+.panel { background: var(--surface); border-radius: 20px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.note { color: var(--muted); font-size: 0.88rem; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 0.92rem; font-weight: 500; }
+label.check { flex-direction: row; align-items: center; gap: 10px; font-weight: 400; }
+input[type=text], input[type=password], select { font: inherit; padding: 10px 12px; min-height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); width: 100%; }
+input[type=checkbox] { width: 22px; height: 22px; flex: none; accent-color: var(--ink); }
+button.act { font: inherit; font-weight: 500; color: var(--ink); background: var(--chip); border: 0; border-radius: 999px; padding: 10px 18px; min-height: 44px; cursor: pointer; align-self: flex-start; }
+button.act:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+code, .topics b { font-family: var(--mono); font-size: 0.85rem; overflow-wrap: anywhere; }
+.topics { display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; }
+#log { font-family: var(--mono); font-size: 0.76rem; line-height: 1.5; max-height: 16em; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted); margin: 0; }
+details summary { cursor: pointer; font-family: var(--display); font-weight: 600; font-size: 1.05rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1 id="title">Pebble Virtual Pager</h1>
+    <span class="state" id="state">Not set up</span>
+  </div>
+
+  <section class="stage" aria-label="The device">
+    <div class="device">
+      <canvas id="view" width="760" height="760" role="img" aria-label="Light ring around the send button"></canvas>
+      <button class="btn" id="b1" aria-label="Button 1: tap to play a message, hold to record one"></button>
+      <button class="btn" id="b2" aria-label="Button 2: tap for battery, hold 5 seconds for setup, 10 seconds to turn off"></button>
+    </div>
+    <div class="says" id="says">Hold the middle button to record a message. Tap it to play one.</div>
+    <div class="counts"><span>Unread <b id="unreadN">0</b> of 3</span><span>Waiting to send <b id="outboxN">0</b></span><span id="next"></span></div>
+  </section>
+
+  <section class="panel" id="setup" hidden>
+    <h2>Setup</h2>
+    <p class="note">The one part that is not like the real device: there, this is a page on the pager's own Wi-Fi hotspot. Everything is kept in this browser only.</p>
+    <label>This pager's name<input type="text" id="s-name" maxlength="20" autocomplete="off"></label>
+    <label>Color<select id="s-color"></select></label>
+    <label>Partner's name<input type="text" id="s-partner" maxlength="20" autocomplete="off"></label>
+    <label>Topic base, the same as on the real device<input type="password" id="s-base" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+    <label class="check"><input type="checkbox" id="s-live"><span>Deliver instantly. Off is like the real device, which checks every 30 seconds.</span></label>
+    <button class="act" id="s-save">Save</button>
+    <div class="topics" id="topics"></div>
+  </section>
+
+  <section class="panel">
+    <details>
+      <summary>What the pager says</summary>
+      <pre id="log" aria-live="off"></pre>
+    </details>
+    <p class="note">The small button is button 2: tap for battery, hold 5 seconds and release for setup, 10 seconds to turn off. Messages only arrive while this page is open on screen.</p>
+    <button class="act" id="openSetup">Setup</button>
+  </section>
+</div>
+
+<script src="ring-engine.js"></script>
+<script src="ring-view.js"></script>
+<script>
+// A pager in a web page. It follows the firmware in firmware/pebble-pager step for step: the same press rules
+// (input.h), message format (pulse.h), sending, receiving and receipts (messages.h), inbox reading (ntfy.h) and
+// ring animation (ring.h, through ring-engine.js). Setup, sleep and updates are the parts a page cannot copy.
+
+// ---- Values from config.h ----
+const SETUP_HOLD_MS = 5000, OFF_HOLD_MS = 10000, RECORD_HOLD_MS = 500, SEND_PAUSE_MS = 2000;
+const CHECK_INTERVAL_MS = 30000, RECEIPT_POLL_MS = 5000, RECEIPT_WAIT_MS = 45000, SEND_RETRY_MS = 10000;
+const MAX_PRESSES = 12, MAX_RECORD_MS = 15000, OUTBOX_MAX = 5, UNREAD_MAX = 3, NOTES_MAX = 5, NTFY_BATCH = 8;
+const QUEUE_MAX_AGE_MS = 24 * 60 * 60 * 1000, PULSE_MIN_MS = 20, PULSE_MAX_MS = 5000, PULSE_MAX_TIMES = 2 * MAX_PRESSES - 1;
+const NAME_MAX_LEN = 20, BASE_MAX_LEN = 40, NTFY_SERVER = "https://ntfy.sh/";
+const COLOR_NAMES = ["Pink", "Blue", "Green", "Purple", "Orange", "Teal", "Yellow", "Red"];
+const COLOR_RGB = [0xF29BB5, 0x7FB2F0, 0x6CC795, 0xA98BE0, 0xF08A4B, 0x5CC9C0, 0xF2D45C, 0xE8736B];
+const DIFFUSER = 0.6;   // how the ring is drawn; see ring-preview.html
+
+const $ = (id) => document.getElementById(id);
+const colorIndex = (name) => COLOR_NAMES.findIndex((c) => c.toLowerCase() === String(name).toLowerCase());
+const cleanText = (raw, extra, max) => Array.from(String(raw)).filter((c) => /[A-Za-z0-9]/.test(c) || extra.includes(c)).join("").slice(0, max).trim();
+function slug(name) {
+  let out = "";
+  for (const c of String(name)) {
+    if (/[A-Za-z0-9]/.test(c)) out += c.toLowerCase();
+    else if (out.length && !out.endsWith("-")) out += "-";
+  }
+  return out.replace(/-+$/, "");
+}
+
+// ---- What is saved in this browser (the device keeps the same things in its flash memory) ----
+const store = {
+  get(key, fallback) { try { const v = localStorage.getItem("pebble-virtual-" + key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; } },
+  set(key, value) { try { localStorage.setItem("pebble-virtual-" + key, JSON.stringify(value)); } catch (e) {} }
+};
+let settings = store.get("settings", { name: "Sophia", color: "Blue", partner: "Eliana", base: "", live: false });
+let outbox = store.get("outbox", []);     // [{at, text}] recorded, waiting to be posted
+let unread = store.get("unread", []);     // [{at, from, text}] received, waiting to be played
+let notes = store.get("notes", []);       // [{at, line}] reports for the phone that could not be posted yet
+let marks = store.get("marks", { time: 0, seen: [] });   // inbox position: newest message time, and recent ids
+let lastPlayed = store.get("lastPlayed", null);
+const save = () => { store.set("outbox", outbox); store.set("unread", unread); store.set("notes", notes); store.set("marks", marks); store.set("lastPlayed", lastPlayed); };
+const ready = () => settings.base.length > 0;
+const canSend = () => ready() && settings.partner.length > 0;
+const ownRgb = () => COLOR_RGB[Math.max(0, colorIndex(settings.color))];
+
+function say(text) {   // the device's serial output: "Sophia: ..."
+  const line = settings.name + ": " + text;
+  const log = $("log");
+  log.textContent = (log.textContent + line + "\n").split("\n").slice(-200).join("\n");
+  log.scrollTop = log.scrollHeight;
+}
+const show = (html) => { $("says").innerHTML = html; };
+
+// ---- The message format (pulse.h) ----
+function pulseParse(text) {   // returns {color, ms} or a short reason as a string
+  const parts = text.trim().split(/ +/);
+  const color = colorIndex(parts[0]);
+  if (color < 0) return "unknown color";
+  const ms = [];
+  let total = 0;
+  for (const part of parts.slice(1)) {
+    if (!/^[0-9]+$/.test(part)) return "times must be numbers";
+    const value = part.length > 6 ? PULSE_MAX_MS + 1 : parseInt(part, 10);
+    if (value < PULSE_MIN_MS || value > PULSE_MAX_MS) return "a time is out of range";
+    if (ms.length === PULSE_MAX_TIMES) return "too many presses";
+    ms.push(value);
+    total += value;
+  }
+  if (ms.length === 0) return "no times";
+  if (ms.length % 2 === 0) return "must end with a press";
+  if (total > MAX_RECORD_MS) return "too long";
+  return { color, ms };
+}
+const pulseText = (p) => COLOR_NAMES[p.color].toLowerCase() + " " + p.ms.join(" ");
+const pulseLooksLike = (text) => colorIndex(text.split(" ")[0]) >= 0;
+
+// ---- ntfy (ntfy.h) ----
+const topicUrl = (who) => NTFY_SERVER + settings.base + "-" + slug(who);
+let online = false, stream = null, inbox = [];   // inbox: messages that have arrived but the pager has not read yet
+
+async function publish(who, title, text) {   // returns the new message's id, or "" if it was not accepted
+  if (!ready()) return "";
+  let id = "", code = -1;
+  try {
+    const r = await fetch(topicUrl(who), { method: "POST", headers: { Title: title }, body: text });
+    code = r.status;
+    if (r.ok) id = (await r.json()).id || "";
+  } catch (e) {}
+  say("ntfy " + slug(who) + " " + code + ": " + text);
+  return id;
+}
+
+let posting = false, notesRetryAt = 0, sendRetryAt = 0;
+async function tell(text) {   // a status line for the phone, kept and posted later if it cannot go out now
+  if (!ready()) return;
+  const line = settings.name + " " + text;
+  const sent = notes.length === 0 && online && (await publish("phone", "Pebble", line)).length > 0;
+  if (!sent) { notes.push({ at: Date.now(), line }); if (notes.length > NOTES_MAX) notes.shift(); save(); }
+}
+
+function connect() {   // hold a live connection to this pager's own inbox
+  if (stream) stream.close();
+  stream = null; online = false;
+  if (!ready() || off) return;
+  const since = marks.time ? "?since=" + marks.time : "";   // first run: only what arrives from now on
+  stream = new EventSource(topicUrl(settings.name) + "/sse" + since);
+  stream.onopen = () => { online = true; };
+  stream.onmessage = (e) => {
+    let m; try { m = JSON.parse(e.data); } catch (x) { return; }
+    if (m.event !== "message" || marks.seen.includes(m.id) || inbox.some((q) => q.id === m.id)) return;
+    inbox.push({ id: m.id, time: m.time, title: m.title || "", text: m.message || "" });
+  };
+  stream.onerror = () => { online = false; if (stream) stream.close(); stream = null; setTimeout(() => { if (!stream) connect(); }, 4000); };
+}
+
+// ---- Messages (messages.h) ----
+let awaited = [];   // [{id, at}] sent messages whose receipts have not come yet
+function queueMessage(text) {   // returns null if accepted, otherwise a short reason
+  if (!canSend()) return "set the topic base and partner's name in Setup first";
+  const p = pulseParse(text);
+  if (typeof p === "string") return p;
+  outbox.push({ at: Date.now(), text: pulseText(p) });
+  if (outbox.length > OUTBOX_MAX) outbox.shift();
+  sendRetryAt = Date.now();
+  save();
+  return null;
+}
+
+async function sendNext() {
+  const text = outbox[0].text;
+  const id = await publish(settings.partner, settings.name, text);
+  if (!id) { sendRetryAt = Date.now() + SEND_RETRY_MS; return; }
+  outbox.shift();
+  save();
+  await tell("sent " + text);
+  awaited.push({ id, at: Date.now() });
+  if (awaited.length > OUTBOX_MAX) awaited.shift();
+  show("Sent <b>" + text + "</b>. Waiting for it to be received.");
+}
+
+function receipt(id) {
+  const i = awaited.findIndex((a) => a.id === id);
+  if (i < 0) return;
+  say("Delivered in " + (Date.now() - awaited[i].at) + " ms");
+  awaited.splice(i, 1);
+  show("Received by " + settings.partner + ".");
+}
+
+async function arrived(m, p) {
+  const fromPartner = settings.partner.length > 0 && slug(m.title) === slug(settings.partner);
+  const text = pulseText(p);
+  unread.push({ at: Date.now(), from: fromPartner ? settings.partner : "phone", text });
+  if (unread.length > UNREAD_MAX) unread.shift();
+  save();
+  if (fromPartner) await publish(settings.partner, settings.name, "received " + m.id);
+  else await tell("received " + text);
+}
+
+async function handle(m) {   // one message from the inbox: a command, a receipt or a pulse message
+  const text = m.text.trim(), lower = text.toLowerCase();
+  say('Inbox: "' + text + '"');
+  if (lower === "update") { await tell("is a virtual pager: nothing to update"); return; }
+  if (lower === "status") { await tell("status: virtual pager, unread " + unread.length + " outbox " + outbox.length); return; }
+  if (lower.startsWith("received ")) { receipt(text.slice(9)); return; }
+  if (!pulseLooksLike(lower)) return;
+  const p = pulseParse(lower);
+  if (typeof p === "string") await tell('can\'t read "' + text + '": ' + p);
+  else await arrived(m, p);
+}
+
+// ---- Buttons (input.h) ----
+const EV_NONE = 0, EV_PLAY = 1, EV_RECORD_START = 2, EV_RECORD_DONE = 3, EV_RECORD_CANCEL = 4, EV_BATTERY = 5, EV_SETUP = 6, EV_OFF = 7;
+const R_IDLE = 0, R_PRESSED = 1, R_ARMED = 2, R_WAIT = 3, R_DOWN = 4;
+const button = [{ down: false, at: 0 }, { down: false, at: 0 }];
+const edges = [];
+let recState = R_IDLE, recPresses = 0, recStart = 0, recLastUp = 0, recQuietUntil = 0, holdTold = EV_NONE;
+let recMs = [], recorded = [];
+const ms = () => performance.now();
+const inputBusy = () => recState !== R_IDLE || button[1].down;
+const pulseClamp = (v) => Math.round(v < PULSE_MIN_MS ? PULSE_MIN_MS : v > PULSE_MAX_MS ? PULSE_MAX_MS : v);
+
+function recordFinish(at, cutOff) {
+  recState = R_IDLE;
+  if (cutOff) recQuietUntil = at + SEND_PAUSE_MS;
+  if (recPresses === 0) return EV_RECORD_CANCEL;
+  recorded = recMs.slice(0, 2 * recPresses - 1);
+  return EV_RECORD_DONE;
+}
+function recordPressEnd(at, held) {
+  recMs[2 * recPresses] = pulseClamp(held);
+  recPresses++;
+  recLastUp = at;
+  recState = R_WAIT;
+  return recPresses === MAX_PRESSES ? recordFinish(at, true) : EV_NONE;
+}
+function onEdge(e) {
+  const b = button[e.button];
+  if (e.down === b.down) return EV_NONE;
+  const held = e.at - b.at;
+  b.down = e.down; b.at = e.at;
+  if (e.button === 1) {
+    holdTold = EV_NONE;
+    if (e.down) return EV_NONE;
+    return held >= OFF_HOLD_MS ? EV_OFF : held >= SETUP_HOLD_MS ? EV_SETUP : EV_BATTERY;
+  }
+  if (recQuietUntil && e.at < recQuietUntil) return EV_NONE;
+  recQuietUntil = 0;
+  if (e.down) {
+    if (recState === R_IDLE) recState = R_PRESSED;
+    else if (recState === R_WAIT) {
+      if (recPresses === 0) recStart = e.at;
+      else recMs[2 * recPresses - 1] = pulseClamp(e.at - recLastUp);
+      recState = R_DOWN;
+    }
+    return EV_NONE;
+  }
+  if (recState === R_PRESSED) {
+    if (held < RECORD_HOLD_MS) { recState = R_IDLE; return EV_PLAY; }
+    recPresses = 0; recStart = e.at - held;
+    recordPressEnd(e.at, held);
+    return EV_RECORD_START;
+  }
+  if (recState === R_ARMED) { recLastUp = e.at; recState = R_WAIT; return EV_NONE; }
+  if (recState === R_DOWN) return recordPressEnd(e.at, held);
+  return EV_NONE;
+}
+function inputArm() {   // start the recording over with no presses yet
+  recPresses = 0;
+  recLastUp = ms();
+  recState = button[0].down ? R_ARMED : R_WAIT;
+}
+function inputTick() {
+  if (edges.length) return onEdge(edges.shift());
+  const now = ms();
+  if (recState === R_PRESSED && now - button[0].at >= RECORD_HOLD_MS) { recPresses = 0; recStart = button[0].at; recState = R_DOWN; return EV_RECORD_START; }
+  if (recState === R_WAIT && now - recLastUp >= SEND_PAUSE_MS) return recordFinish(now, false);
+  const started = recPresses > 0 || recState === R_DOWN;
+  if ((recState === R_WAIT || recState === R_DOWN) && started && now - recStart >= MAX_RECORD_MS) {
+    const limit = recStart + MAX_RECORD_MS;
+    if (recState === R_DOWN && limit - button[0].at >= PULSE_MIN_MS) recordPressEnd(limit, limit - button[0].at);
+    return recordFinish(now, true);
+  }
+  if (button[1].down) {
+    const held = now - button[1].at;
+    const would = held >= OFF_HOLD_MS ? EV_OFF : held >= SETUP_HOLD_MS ? EV_SETUP : EV_NONE;
+    if (would !== holdTold) { holdTold = would; show(would === EV_OFF ? "Release to turn off." : "Release for setup."); }
+  }
+  return EV_NONE;
+}
+
+// ---- The ring and playback ----
+let off = false, playing = false, armAfterPlay = false;
+const playQueue = [];
+const wait = (t) => new Promise((r) => setTimeout(r, t));
+const ringIdle = () => new Promise((r) => { const look = () => (ring.play === null && !ring.down && ring.level === 0 ? r() : setTimeout(look, 30)); look(); });
+
+function pressRing(down) {   // the ring reacts to every press of button 1, in this pager's own color
+  if (playing || off) return;
+  ringAdvance(ms() / 1000);
+  if (down) ringSetColor(ownRgb());
+  ringPress(down);
+}
+
+async function playAll() {   // play what is queued, one after another, each in its sender's color
+  if (playing) return;
+  playing = true;
+  recQuietUntil = Infinity;   // presses during playback are not part of anything
+  ringAdvance(ms() / 1000);
+  ringPress(false);
+  await ringIdle();
+  while (playQueue.length) {
+    const item = playQueue.shift(), p = pulseParse(item.text);
+    show("Playing <b>" + item.text + "</b> from " + item.from + ".");
+    ringAdvance(ms() / 1000);
+    ringSetColor(COLOR_RGB[p.color]);
+    ringPlay(p.ms, p.ms.length);
+    await ringIdle();
+    await wait(250);
+  }
+  playing = false;
+  recQuietUntil = 0;
+  if (armAfterPlay) { armAfterPlay = false; inputArm(); if (button[0].down) { ringSetColor(ownRgb()); } show("Now recording: press your message."); say("Recording"); }
+}
+
+function playOne() {   // a tap: the oldest unread message, or the last one again
+  const fresh = unread.length > 0;
+  if (fresh) { lastPlayed = unread.shift(); save(); }
+  if (!lastPlayed) { say("Nothing to play"); show("Nothing to play."); return; }
+  say((fresh ? "Play" : "Replay") + " from " + lastPlayed.from + ": " + lastPlayed.text + " (" + unread.length + " unread left)");
+  playQueue.push(lastPlayed);
+  playAll();
+}
+
+function onInput(event) {
+  if (event === EV_PLAY) playOne();
+  if (event === EV_RECORD_START) {
+    if (unread.length) {   // unread messages come first: play them all, then record from scratch
+      while (unread.length) { lastPlayed = unread.shift(); say("Play from " + lastPlayed.from + ": " + lastPlayed.text + " (" + unread.length + " unread left)"); playQueue.push(lastPlayed); }
+      save();
+      armAfterPlay = true;
+      recState = R_ARMED;   // not recording yet: nothing counts, and nothing times out, until playback has finished
+      recPresses = 0;
+      playAll();
+    } else { say("Recording"); show("Recording. It sends 2 seconds after your last press."); }
+  }
+  if (event === EV_RECORD_CANCEL) { say("Recording cancelled"); show("Nothing recorded."); }
+  if (event === EV_RECORD_DONE) {
+    const text = settings.color.toLowerCase() + " " + recorded.join(" ");
+    const problem = queueMessage(text);
+    say("Recorded " + text + ": " + (problem || "queued"));
+    show(problem ? "Not sent: " + problem + "." : "Recorded <b>" + text + "</b>. Sending.");
+  }
+  if (event === EV_BATTERY) { say("Battery: not built yet"); show("Battery level is not built yet."); }
+  if (event === EV_SETUP) toggleSetup();
+  if (event === EV_OFF) { say("Off"); turnOff(); }
+}
+
+function turnOff() {
+  off = true;
+  if (stream) stream.close();
+  stream = null; online = false;
+  ringAdvance(ms() / 1000); ringPress(false);
+  show("Off. Press either button to turn it on.");
+}
+function turnOn() { off = false; say("== Pebble virtual pager =="); show("On."); lastCheck = 0; connect(); }
+
+function wire(el, index) {
+  const edge = (down) => {
+    if (off) { if (down) turnOn(); return; }
+    edges.push({ button: index, down, at: ms() });
+    if (index === 0) pressRing(down);
+  };
+  el.addEventListener("pointerdown", (e) => { e.preventDefault(); el.setPointerCapture(e.pointerId); edge(true); });
+  el.addEventListener("pointerup", () => edge(false));
+  el.addEventListener("pointercancel", () => edge(false));
+  el.addEventListener("contextmenu", (e) => e.preventDefault());
+  el.addEventListener("keydown", (e) => { if ((e.code === "Space" || e.code === "Enter") && !e.repeat) { e.preventDefault(); edge(true); } });
+  el.addEventListener("keyup", (e) => { if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); edge(false); } });
+}
+wire($("b1"), 0);
+wire($("b2"), 1);
+
+// ---- The main loop: read the inbox on the device's schedule, post what is waiting, time out receipts ----
+let lastCheck = 0, working = false;
+async function check() {   // what the device does each time it wakes: read the inbox, then show if a message is waiting
+  lastCheck = Date.now();
+  const batch = inbox.splice(0, NTFY_BATCH);
+  for (const m of batch) {
+    marks.time = Math.max(marks.time, m.time);
+    marks.seen.push(m.id);
+    marks.seen = marks.seen.slice(-40);
+    save();   // before handling, as the device does
+    await handle(m);
+  }
+  if (unread.length && !playing && !ringActive() && !inputBusy()) {
+    const p = pulseParse(unread[0].text);
+    ringAdvance(ms() / 1000);
+    ringBlip(COLOR_RGB[p.color]);   // in the color of whoever sent the waiting message
+  }
+}
+
+async function loop() {
+  for (let event; (event = inputTick()) !== EV_NONE;) onInput(event);
+  if (!working && !off && !inputBusy() && !playing) {
+    working = true;
+    try {
+      const now = Date.now();
+      outbox = outbox.filter((m) => now - m.at <= QUEUE_MAX_AGE_MS);
+      unread = unread.filter((m) => now - m.at <= QUEUE_MAX_AGE_MS);
+      notes = notes.filter((m) => now - m.at <= QUEUE_MAX_AGE_MS);
+      for (const a of awaited.filter((a) => now - a.at >= RECEIPT_WAIT_MS)) {   // no receipt in time: the red pulse
+        say("No receipt");
+        show("Not received by " + settings.partner + ".");
+        ringAdvance(ms() / 1000); ringFail();
+      }
+      awaited = awaited.filter((a) => now - a.at < RECEIPT_WAIT_MS);
+      const every = settings.live ? 0 : awaited.length ? RECEIPT_POLL_MS : CHECK_INTERVAL_MS;
+      if (ready() && (settings.live ? inbox.length > 0 || now - lastCheck >= CHECK_INTERVAL_MS : now - lastCheck >= every)) await check();
+      if (online && canSend() && outbox.length && now >= sendRetryAt) await sendNext();
+      if (online && notes.length && now >= notesRetryAt) {
+        if ((await publish("phone", "Pebble", notes[0].line)).length) { notes.shift(); save(); } else notesRetryAt = now + SEND_RETRY_MS;
+      }
+    } finally { working = false; }
+  }
+  $("unreadN").textContent = unread.length;
+  $("outboxN").textContent = outbox.length;
+  const st = $("state");
+  st.className = "state " + (off || !ready() ? "" : online ? "on" : "off");
+  st.textContent = off ? "Off" : !ready() ? "Not set up" : online ? "Online" : "Connecting";
+  const left = Math.max(0, Math.ceil(((awaited.length ? RECEIPT_POLL_MS : CHECK_INTERVAL_MS) - (Date.now() - lastCheck)) / 1000));
+  $("next").textContent = off || !ready() ? "" : settings.live ? "Instant" : "Next check " + left + " s";
+  setTimeout(loop, 100);
+}
+
+// ---- Drawing ----
+const frame = Array.from({ length: RING_PIXELS }, () => [0, 0, 0, 0]);
+function draw() {
+  ringAdvance(ms() / 1000);
+  ringRender(frame);
+  if (off) frame.forEach((p) => p.fill(0));
+  ringDraw($("view"), frame, ownRgb(), DIFFUSER);
+  requestAnimationFrame(draw);
+}
+
+// ---- Setup ----
+COLOR_NAMES.forEach((c) => $("s-color").insertAdjacentHTML("beforeend", "<option>" + c + "</option>"));
+function fillSetup() {
+  $("s-name").value = settings.name; $("s-color").value = settings.color; $("s-partner").value = settings.partner;
+  $("s-base").value = ""; $("s-base").placeholder = settings.base ? "saved; leave empty to keep" : "e.g. pebble-xxxxxxx";
+  $("s-live").checked = settings.live;
+  $("title").textContent = settings.name + "'s pager";
+  $("topics").innerHTML = !ready() ? "<span>Enter the topic base to connect.</span>"
+    : "<span>This pager listens on <b>" + settings.base + "-" + slug(settings.name) + "</b></span>"
+    + (settings.partner ? "<span>and sends to <b>" + settings.base + "-" + slug(settings.partner) + "</b></span>" : "")
+    + "<span>Copies for the phone go to <b>" + settings.base + "-phone</b></span>";
+}
+function toggleSetup() { const s = $("setup"); s.hidden = !s.hidden; if (!s.hidden) { fillSetup(); s.scrollIntoView({ behavior: "smooth", block: "start" }); } }
+$("openSetup").onclick = toggleSetup;
+$("s-save").onclick = () => {
+  const oldInbox = settings.base + "-" + slug(settings.name);
+  let name = cleanText($("s-name").value, " -_.", NAME_MAX_LEN);
+  if (!slug(name) || slug(name) === "phone") name = "Sophia";
+  let partner = cleanText($("s-partner").value, " -_.", NAME_MAX_LEN);
+  if (slug(partner) === slug(name) || slug(partner) === "phone") partner = "";   // must be someone else
+  const base = cleanText($("s-base").value, "-_", BASE_MAX_LEN) || settings.base;
+  settings = { name, color: $("s-color").value, partner, base, live: $("s-live").checked };
+  store.set("settings", settings);
+  if (settings.base + "-" + slug(settings.name) !== oldInbox) { marks = { time: 0, seen: [] }; inbox = []; save(); }   // a different inbox
+  say("Device saved: " + settings.color + ", partner " + (partner || "(none)"));
+  fillSetup();
+  lastCheck = 0;
+  connect();
+  if (ready()) $("setup").hidden = true;
+};
+
+fillSetup();
+say("== Pebble virtual pager ==");
+if (!ready()) { $("setup").hidden = false; say("No topic base: set it in Setup"); }
+ringSetColor(ownRgb());
+ring.clock = ms() / 1000;
+connect();
+addEventListener("online", connect);
+document.addEventListener("visibilitychange", () => { if (!document.hidden && !stream && !off) connect(); });
+loop();
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

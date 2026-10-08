@@ -103,159 +103,8 @@ button.act:focus-visible, .swatch:focus-visible, input:focus-visible { outline: 
   </div>
 </div>
 
-<script>
-/*ENGINE-START  A line-for-line copy of firmware/pebble-pager/ring.h. Keep the two in step. */
-const RING_PIXELS = 12;
-const RING_STEP_MS = 5;
-const RING_STEP_S = RING_STEP_MS / 1000;
-
-const ringTune = {
-  speed: 0.9, accel: 0.2, maxSpeed: 1.9, tail: 5.5, tailPower: 1.0, attackHz: 2.6, releaseHz: 1.5,
-  leap: 1.2, recoil: 1.0, bounceHz: 3.0, bounceDamp: 0.35, stretch: 1.0, pastel: 0.2, whiteGain: 1.0, peak: 1.4, budgetMa: 180.0
-};
-
-const ring = {
-  down: false, level: 0, vel: 0, hop: 0, hopVel: 0, angle: 0, held: 0, speed: 0, color: [0, 0, 0, 0],
-  failT: -1, blipT: -1, blipColor: [0, 0, 0, 0], play: null, playCount: 0, playIndex: 0, playLeftMs: 0, clock: 0
-};
-
-function ringSplit(rgb, out) {
-  const r = ((rgb >> 16) & 255) / 255, g = ((rgb >> 8) & 255) / 255, b = (rgb & 255) / 255;
-  const w = Math.min(r, Math.min(g, b)), top = Math.max(r, Math.max(g, b)) - w;
-  if (top < 0.001) { out[0] = out[1] = out[2] = 0; out[3] = 1; return; }
-  out[0] = (r - w) / top; out[1] = (g - w) / top; out[2] = (b - w) / top;
-  out[3] = w * ringTune.pastel;
-}
-
-function ringSetColor(rgb) { ringSplit(rgb, ring.color); }
-
-function ringPress(down) {
-  if (down === ring.down) return;
-  ring.down = down;
-  const kick = 6.2831853 * ringTune.bounceHz * 1.4;
-  if (down) { ring.held = 0; ring.speed = ringTune.speed; ring.hopVel += ringTune.leap * kick; }
-  else ring.hopVel -= ringTune.recoil * kick;
-}
-
-function ringPlay(ms, count) {
-  ring.play = ms; ring.playCount = count; ring.playIndex = 0;
-  ring.playLeftMs = count > 0 ? ms[0] : 0;
-  if (count > 0) ringPress(true);
-}
-
-function ringFail() { ring.failT = 0; }
-function ringBlip(rgb) { ringSplit(rgb, ring.blipColor); ring.blipT = 0; }
-
-function ringActive() {
-  return ring.down || ring.level > 0 || ring.failT >= 0 || ring.blipT >= 0 || ring.play !== null;
-}
-
-function ringStep() {
-  const dt = RING_STEP_S, twoPi = 6.2831853;
-  ring.clock += dt;
-
-  if (ring.play) {
-    ring.playLeftMs -= RING_STEP_MS;
-    while (ring.play && ring.playLeftMs <= 0) {
-      ring.playIndex++;
-      if (ring.playIndex >= ring.playCount) { ring.play = null; ringPress(false); break; }
-      ring.playLeftMs += ring.play[ring.playIndex];
-      ringPress(ring.playIndex % 2 === 0);
-    }
-  }
-
-  const w = twoPi * (ring.down ? ringTune.attackHz : ringTune.releaseHz);
-  const target = ring.down ? 1.0 : 0.0;
-  ring.vel += (w * w * (target - ring.level) - 2 * w * ring.vel) * dt;
-  ring.level += ring.vel * dt;
-  if (ring.level > 1) ring.level = 1;
-  if (ring.level < 0 || (!ring.down && ring.level < 0.003 && ring.vel <= 0)) { ring.level = 0; ring.vel = 0; ring.hop = 0; ring.hopVel = 0; }
-
-  const wb = twoPi * ringTune.bounceHz;
-  ring.hopVel += (-wb * wb * ring.hop - 2 * ringTune.bounceDamp * wb * ring.hopVel) * dt;
-  ring.hop += ring.hopVel * dt;
-
-  if (ring.down) {
-    ring.held += dt;
-    ring.speed = Math.min(ringTune.maxSpeed, ringTune.speed + ringTune.accel * ring.held);
-    ring.angle += ring.speed * dt;
-  } else {
-    ring.angle += ring.speed * Math.min(ring.level, 1.0) * dt;
-  }
-  if (ring.angle >= 1024) ring.angle -= 1024;
-
-  if (ring.failT >= 0) { ring.failT += dt; if (ring.failT >= 1.35) ring.failT = -1; }
-  if (ring.blipT >= 0) { ring.blipT += dt; if (ring.blipT >= 0.9) ring.blipT = -1; }
-}
-
-function ringAdvance(nowS) {
-  if (nowS - ring.clock > 1.0) ring.clock = nowS - 1.0;
-  while (ring.clock + RING_STEP_S <= nowS) ringStep();
-}
-
-function ringSmooth(a, b, x) {
-  let t = (x - a) / (b - a);
-  t = t < 0 ? 0 : t > 1 ? 1 : t;
-  return t * t * (3 - 2 * t);
-}
-
-function ringRender(out) {
-  const px = [];
-  const level = ring.level;
-  let head = (ring.angle - Math.floor(ring.angle)) * RING_PIXELS + ring.hop;
-  while (head < 0) head += RING_PIXELS;
-  while (head >= RING_PIXELS) head -= RING_PIXELS;
-  let tail = ringTune.tail * (0.35 + 0.65 * level) + ringTune.stretch * ring.hop;
-  if (tail < 1) tail = 1;
-  const fading = ring.down ? 0 : 1 - Math.min(level, 1.0);
-  for (let i = 0; i < RING_PIXELS; i++) {
-    let behind = head - i;
-    if (behind < 0) behind += RING_PIXELS;
-    const ahead = RING_PIXELS - behind;
-    let bright = 0, white = 0;
-    if (ahead < 1) bright = 1 - ahead;
-    else if (behind <= tail) {
-      const along = behind / tail;
-      bright = Math.pow(1 - along, ringTune.tailPower);
-      white = ringSmooth(0.12, 0.7, along);
-    }
-    white += (1 - white) * fading * 0.85;
-    bright *= level * ringTune.peak;
-    px.push([ring.color[0] * (1 - white) * bright, ring.color[1] * (1 - white) * bright, ring.color[2] * (1 - white) * bright,
-             (ring.color[3] * (1 - white) + ringTune.whiteGain * white) * bright]);
-  }
-
-  if (ring.failT >= 0) {
-    const t = ring.failT;
-    let pulse = 0;
-    if (t < 0.6) pulse = Math.sin(3.1415927 * t / 0.6);
-    else if (t >= 0.75) pulse = Math.sin(3.1415927 * (t - 0.75) / 0.6);
-    pulse = pulse * pulse * ringTune.peak;
-    for (let i = 0; i < RING_PIXELS; i++) px[i][0] += 0.9 * pulse;
-  }
-  if (ring.blipT >= 0) {
-    let breath = Math.sin(3.1415927 * ring.blipT / 0.9);
-    breath = breath * breath * ringTune.peak * 0.8;
-    const at = [RING_PIXELS - 1, 0, 1], share = [0.25, 1.0, 0.25];
-    for (let k = 0; k < 3; k++)
-      for (let c = 0; c < 4; c++) px[at[k]][c] += ring.blipColor[c] * breath * share[k];
-  }
-
-  let sum = 0;
-  for (let i = 0; i < RING_PIXELS; i++)
-    for (let c = 0; c < 4; c++) {
-      const v = px[i][c] < 0 ? 0 : px[i][c] > 1 ? 1 : px[i][c];
-      px[i][c] = Math.pow(v, 2.2);
-      sum += px[i][c];
-    }
-  const idle = RING_PIXELS * 1.0, draw = sum * 18.0;
-  const scale = draw > ringTune.budgetMa - idle ? (ringTune.budgetMa - idle) / draw : 1.0;
-  for (let i = 0; i < RING_PIXELS; i++)
-    for (let c = 0; c < 4; c++) out[i][c] = Math.floor(px[i][c] * scale * 255.0 + 0.5);
-  return idle + draw * scale;
-}
-/*ENGINE-END*/
-</script>
+<script src="ring-engine.js"></script>
+<script src="ring-view.js"></script>
 
 <script>
 // ---- The page around the engine: the button, the drawing and the tuning sliders ----
@@ -367,56 +216,13 @@ $("playSample").onclick = () => play([900, 300, 180, 220, 180]);
 $("fail").onclick = () => { ringAdvance(now()); ringFail(); say("Not received: no receipt came back in time."); };
 $("blip").onclick = () => { ringAdvance(now()); ringBlip(COLORS.find((c) => c[0] === colorName)[1]); say("A message from the " + colorName.toLowerCase() + " device is waiting (shown briefly at each wake)."); };
 
-// ---- Drawing: a dim room, the device's shell, a frosted ring, and each pixel as a soft glow ----
-const view = $("view"), g = view.getContext("2d");
-const glowCanvas = document.createElement("canvas");
-glowCanvas.width = view.width; glowCanvas.height = view.height;
+// ---- Drawing (ring-view.js does the work) ----
+const view = $("view");
 const frame = Array.from({ length: RING_PIXELS }, () => [0, 0, 0, 0]);
 function draw() {
   ringAdvance(now());
   const mA = ringRender(frame);
-  const S = view.width, c = S / 2, R = S * 0.33, body = S * 0.47;
-  g.clearRect(0, 0, S, S);
-  const rgb = COLORS.find((x) => x[0] === colorName)[1];
-  const shell = [(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255].map((v) => Math.round((v * 0.35 + 255 * 0.65) * 0.42));
-  g.fillStyle = `rgb(${shell})`; g.beginPath(); g.arc(c, c, body, 0, 7); g.fill();
-  g.strokeStyle = "rgba(255,255,255,0.07)"; g.lineWidth = S * 0.085; g.beginPath(); g.arc(c, c, R, 0, 7); g.stroke();   // the frosted ring, unlit
-  g.fillStyle = `rgb(${shell.map((v) => Math.round(v * 1.18))})`; g.beginPath(); g.arc(c, c, S * 0.2, 0, 7); g.fill();   // the send button
-
-  // Each LED is a soft circle of light. A stronger diffuser makes each circle wider and softer, until neighbors
-  // merge; the same light over a bigger circle is dimmer at its center. The glow is kept mostly inside the frosted
-  // ring, with a little spill around it.
-  const diffuse = +$("diffuse").value, rad = S * (0.045 + 0.19 * diffuse), spread = Math.pow(rad / (S * 0.045), 0.9);
-  let lit = 0;
-  const gg = glowCanvas.getContext("2d");
-  gg.globalCompositeOperation = "source-over";
-  gg.clearRect(0, 0, S, S);
-  gg.globalCompositeOperation = "lighter";
-  for (let i = 0; i < RING_PIXELS; i++) {
-    const [r, gr, b, w] = frame[i].map((v) => v / 255);                    // linear light from each LED
-    const lin = [r + w, gr + w * 0.93, b + w * 0.8];                       // the white LED is a warm white
-    const top = Math.max(lin[0], lin[1], lin[2]);
-    if (top < 0.0005) continue;
-    lit++;
-    const a = Math.pow(Math.min(top * 2.4 / spread, 1), 1 / 2.2);          // back to what the eye sees
-    const col = lin.map((v) => Math.round(255 * Math.pow(Math.min(v / top, 1), 1 / 2.2)));
-    const ang = (i / RING_PIXELS) * 2 * Math.PI - Math.PI / 2;
-    const x = c + R * Math.cos(ang), y = c + R * Math.sin(ang);
-    const glow = gg.createRadialGradient(x, y, 0, x, y, rad);
-    glow.addColorStop(0, `rgba(${col},${a})`);
-    glow.addColorStop(0.45, `rgba(${col},${a * 0.5})`);
-    glow.addColorStop(1, `rgba(${col},0)`);
-    gg.fillStyle = glow; gg.beginPath(); gg.arc(x, y, rad, 0, 7); gg.fill();
-  }
-  g.globalCompositeOperation = "lighter";
-  g.globalAlpha = 0.22; g.drawImage(glowCanvas, 0, 0); g.globalAlpha = 1;   // the spill onto the shell
-  const band = S * (0.05 + 0.02 * diffuse);                                // then keep only what the frosted ring shows
-  const mask = gg.createRadialGradient(c, c, R - band * 1.5, c, c, R + band * 1.5);
-  mask.addColorStop(0, "rgba(0,0,0,0)"); mask.addColorStop(0.3, "rgba(0,0,0,1)"); mask.addColorStop(0.7, "rgba(0,0,0,1)"); mask.addColorStop(1, "rgba(0,0,0,0)");
-  gg.globalCompositeOperation = "destination-in";
-  gg.fillStyle = mask; gg.fillRect(0, 0, S, S);
-  g.drawImage(glowCanvas, 0, 0);
-  g.globalCompositeOperation = "source-over";
+  const lit = ringDraw(view, frame, COLORS.find((x) => x[0] === colorName)[1], +$("diffuse").value);
   $("ma").textContent = ringActive() ? Math.round(mA) : 0;   // dark: the ring's power is switched off
   $("lit").textContent = lit;
   requestAnimationFrame(draw);

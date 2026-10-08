@@ -1,7 +1,7 @@
 // Ring animation engine. Pure math, no hardware: it turns "the button went down / up" into 12 RGBW pixel values,
 // 200 times a second. The same code plays a recording live and plays a received message back, so both devices
-// show the same thing. docs/ring-preview.html carries a line-for-line JavaScript copy of this file for tuning in a
-// browser; keep the two in step (the parity check in AGENTS.md compares their output).
+// show the same thing. docs/ring-engine.js is a line-for-line JavaScript copy of this file for the browser pages;
+// keep the two in step (the parity check in AGENTS.md compares their output).
 //
 // The comet: a head in the sender's color with a tail that melts into white, gliding round the ring between
 // pixels. A press fades it in while the head leaps a little ahead and springs back, stretching the tail; it orbits
