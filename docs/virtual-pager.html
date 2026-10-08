@@ -374,7 +374,9 @@ async function playAll() {   // play what is queued, one after another, each in 
   if (armAfterPlay) { armAfterPlay = false; inputArm(); if (button[0].down) { ringSetColor(ownRgb()); } show("Now recording: press your message."); say("Recording"); }
 }
 
-function playOne() {   // a tap: the oldest unread message, or the last one again
+function playOne() {   // a tap: the oldest unread message; with none stored, read the inbox first, then the new one or the last again
+  if (!unread.length && !tapWaiting) { tapWaiting = true; lastCheck = 0; return; }
+  tapWaiting = false;
   const fresh = unread.length > 0;
   if (fresh) { lastPlayed = unread.shift(); save(); }
   if (!lastPlayed) { say("Nothing to play"); show("Nothing to play."); return; }
@@ -401,6 +403,7 @@ function onInput(event) {
     const problem = queueMessage(text);
     say("Recorded " + text + ": " + (problem || "queued"));
     show(problem ? "Not sent: " + problem + "." : "Recorded <b>" + text + "</b>. Sending.");
+    lastCheck = 0;   // the recording is done: look for a new message straight away
   }
   if (event === EV_BATTERY) { say("Battery: not built yet"); show("Battery level is not built yet."); }
   if (event === EV_SETUP) toggleSetup();
@@ -433,7 +436,7 @@ wire($("b1"), 0);
 wire($("b2"), 1);
 
 // ---- The main loop: read the inbox on the device's schedule, post what is waiting, time out receipts ----
-let lastCheck = 0, working = false;
+let lastCheck = 0, working = false, tapWaiting = false;
 async function check() {   // what the device does each time it wakes: read the inbox, then show if a message is waiting
   lastCheck = Date.now();
   const batch = inbox.splice(0, NTFY_BATCH);
@@ -468,6 +471,7 @@ async function loop() {
       awaited = awaited.filter((a) => now - a.at < RECEIPT_WAIT_MS);
       const every = settings.live ? 0 : awaited.length ? RECEIPT_POLL_MS : CHECK_INTERVAL_MS;
       if (ready() && (settings.live ? inbox.length > 0 || now - lastCheck >= CHECK_INTERVAL_MS : now - lastCheck >= every)) await check();
+      if (tapWaiting) playOne();   // the tap's answer, now the inbox is read (or can't be)
       if (online && canSend() && outbox.length && now >= sendRetryAt) await sendNext();
       if (online && notes.length && now >= notesRetryAt) {
         if ((await publish("phone", "Pebble", notes[0].line)).length) { notes.shift(); save(); } else notesRetryAt = now + SEND_RETRY_MS;

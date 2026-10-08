@@ -36,13 +36,13 @@ Button 1 is large and does the everyday things: view and send. Button 2 is small
 
 | Button | Press | What happens |
 |---|---|---|
-| 1, large | Tap | Wakes the device and plays the waiting message. Tap again to replay the last one. |
+| 1, large | Tap | Wakes the device and plays the waiting message, checking for a new one first if none is stored. Tap again to replay the last one. |
 | 1, large | Hold | Starts a recording. Each further press within 2 s adds a pulse, and it sends 2 s after the last one. |
 | 2, small | Tap | Shows the battery level on the ring. |
 | 2, small | Hold 5 s | The ring fills purple. Release to open Wi-Fi setup. |
 | 2, small | Keep holding to 10 s | The ring turns red and empties. Release to turn the device off. Any button turns it back on. |
 
-A recording starts with a hold of half a second or longer, and that hold is the first press of the message, even when it is the press that wakes the device from sleep. Further presses, short or long, add to it, and it is sent 2 seconds after the last one; a single hold on its own is a one-press message. The one exception: if unread messages are waiting, the hold plays them all first and then starts a fresh recording, so that hold is not part of the message (and if nothing is pressed in the next 2 seconds, nothing is sent). A tap plays one unread message, or replays the last one. A message is at most 12 presses or 15 seconds, and a press counts as at most 5 seconds; at either limit it is sent at once, the press in progress is cut short, and the button is ignored for 2 seconds so spill-over presses are not taken as taps. A second 5-second hold on button 2 closes the setup page. These values are starting points to tune.
+A recording starts with a hold of half a second or longer, and that hold is the first press of the message, even when it is the press that wakes the device from sleep. Further presses, short or long, add to it, and it is sent 2 seconds after the last one; a single hold on its own is a one-press message. The one exception: if unread messages are waiting, the hold plays them all first and then starts a fresh recording, so that hold is not part of the message (and if nothing is pressed in the next 2 seconds, nothing is sent). A tap plays one unread message; with none stored it reads the inbox first, without waiting for the 30-second check, then plays what arrived or replays the last one. The inbox is never read during a recording, so press timing stays exact, but it is read as soon as the recording ends. A message is at most 12 presses or 15 seconds, and a press counts as at most 5 seconds; at either limit it is sent at once, the press in progress is cut short, and the button is ignored for 2 seconds so spill-over presses are not taken as taps. A second 5-second hold on button 2 closes the setup page. These values are starting points to tune.
 
 Presses and releases are caught by interrupts and time-stamped, so the recorded lengths are exact even while the device is busy with the network, and no network work starts while a button is in use.
 

@@ -111,12 +111,18 @@ void onConsole(const String& line) {
   }
 }
 
+bool inboxRead = false;    // this wake: the inbox has been read (clear it to read again at once)
+bool tapWaiting = false;   // a tap found nothing stored: read the inbox, then play
+
 // One thing the user did with the buttons.
 void onInput(int event) {
   wifiKick();              // any press: if offline, look for a network now
   powerHold(LINGER_MS);    // ...and stay awake a little, in case more follows
   switch (event) {
-    case EV_PLAY: if (!messagePlay()) sayln("Nothing to play"); break;
+    case EV_PLAY:   // nothing stored: a message may have arrived since the last check, so look before answering
+      if (listCount(UNREAD) > 0) messagePlay();
+      else { tapWaiting = true; inboxRead = false; }
+      break;
     case EV_RECORD_START:
       if (listCount(UNREAD) > 0) {   // unread messages come first: play them all, then record from scratch
         while (listCount(UNREAD) > 0) messagePlay();
@@ -129,6 +135,7 @@ void onInput(int event) {
       String text = pulseText(recorded);
       const char* problem = messageQueue(text);
       sayf("Recorded %s: %s\n", text.c_str(), problem ? problem : "queued");
+      inboxRead = false;   // the recording is done: look for a new message straight away
       break;
     }
     case EV_BATTERY: sayln("Battery: not built yet"); break;
@@ -144,14 +151,14 @@ void onInput(int event) {
 }
 
 // True when nothing needs the device awake.
-bool canSleep(bool polled) {
+bool canSleep() {
 #ifdef NO_SLEEP
   return false;
 #endif
-  if (powerHeld() || portalOn || inputBusy() || inputPending() || messagesAwaiting() || wantUpdate) return false;
+  if (powerHeld() || portalOn || tapWaiting || inputBusy() || inputPending() || messagesAwaiting() || wantUpdate) return false;
   if (!wifiSettled()) return false;                         // a scan or join is under way
   if (!wifiOnline()) return true;                           // nothing in range: sleep, and look again later
-  return polled && !messagesWaiting() && !notesWaiting();   // online: the inbox is read and nothing is left to post
+  return inboxRead && !messagesWaiting() && !notesWaiting();   // online: the inbox is read and nothing is left to post
 }
 
 void setup() {
@@ -173,7 +180,7 @@ void setup() {
 
 void loop() {
   static unsigned long lastPoll = 0;
-  static bool polled = false, checked = false;   // this wake: the inbox has been read / an update check was made
+  static bool checked = false;   // this wake: an update check was made
   powerTouch();
   String line;
   if (consoleRead(line)) { powerHold(60000); onConsole(line); }
@@ -186,7 +193,7 @@ void loop() {
   wifiTick();
 
   if (wifiJustConnected()) {
-    polled = false;   // read the inbox straight away
+    inboxRead = false;   // read the inbox straight away
 #ifdef WIFI_TEST
     if (!wWasFast) ntfySay("online, network " + String(wCur + 1) + " of " + String(savedCount()) + ", " + String(WiFi.RSSI()) + " dBm");
 #endif
@@ -194,9 +201,9 @@ void loop() {
 
   if (!inputBusy()) {   // no network work while someone is pressing or recording, so loop() stays quick
     if (wifiOnline()) {
-      if (!polled || millis() - lastPoll >= (messagesAwaiting() ? RECEIPT_POLL_MS : INBOX_POLL_MS)) {
-        bool first = !polled;
-        polled = true;
+      if (!inboxRead || millis() - lastPoll >= (messagesAwaiting() ? RECEIPT_POLL_MS : INBOX_POLL_MS)) {
+        bool first = !inboxRead;
+        inboxRead = true;
         lastPoll = millis();
         int fresh = ntfyPoll(onMessage);
         if (first && wakeReason == WAKE_TIMER) statPollMs += millis() - lastPoll;
@@ -209,11 +216,15 @@ void loop() {
         updateCheck(asked);
       }
     }
+    if (tapWaiting && (inboxRead || (wifiSettled() && !wifiOnline()))) {   // the tap's answer, now the inbox is read (or can't be)
+      tapWaiting = false;
+      if (!messagePlay()) sayln("Nothing to play");
+    }
     messagesTick();
     ntfyFlush();
   }
 
-  if (canSleep(polled)) {
+  if (canSleep()) {
     unsigned long awake = millis() + WAKE_LEAD_MS;
     sayf("Sleep after %lu ms\n", awake);
     powerSleep(!wifiOnline() ? (savedCount() ? wifiRetryMs() : WIFI_RETRY_MAX_MS)
