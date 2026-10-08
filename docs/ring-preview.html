@@ -80,6 +80,16 @@ button.act:focus-visible, .swatch:focus-visible, input:focus-visible { outline: 
       </section>
 
       <section class="panel">
+        <h2>Case</h2>
+        <div class="tune">
+          <label for="diffuse">Diffuser</label><output id="diffuse-v"></output>
+          <input type="range" id="diffuse" min="0" max="1" step="0.05" value="0.35">
+          <small>0 is bare LEDs seen as twelve dots; 1 is a deep frosted channel that merges them into one band. This only changes the drawing, not the firmware.</small>
+        </div>
+        <p class="note">The same light spreads over more of the ring as the diffuser gets stronger, so it also looks dimmer, as it would in the case. Use it to judge how much smoothing the case needs before the comet reads as one moving light.</p>
+      </section>
+
+      <section class="panel">
         <h2>Tuning</h2>
         <div class="tune" id="tune"></div>
         <div class="row">
@@ -276,6 +286,7 @@ COLORS.forEach(([name, rgb]) => {
 function showSettings() {
   $("settings").textContent = TUNING.map(([k]) => k + "=" + (+ringTune[k].toFixed(2))).join("  ");
   $("budget").textContent = Math.round(ringTune.budgetMa);
+  $("diffuse-v").textContent = (+$("diffuse").value).toFixed(2);
 }
 TUNING.forEach(([key, label, hint, min, max, step]) => {
   const id = "t-" + key;
@@ -356,23 +367,33 @@ function draw() {
   g.strokeStyle = "rgba(255,255,255,0.07)"; g.lineWidth = S * 0.085; g.beginPath(); g.arc(c, c, R, 0, 7); g.stroke();   // the frosted ring, unlit
   g.fillStyle = `rgb(${shell.map((v) => Math.round(v * 1.18))})`; g.beginPath(); g.arc(c, c, S * 0.2, 0, 7); g.fill();   // the send button
 
-  let lit = 0;
+  // Each LED's light is spread along the ring by the diffuser: a narrow bump for bare LEDs, a wide one for a deep
+  // frosted channel. The total light stays the same, so more spread also means a lower peak.
+  const diffuse = +$("diffuse").value, sigma = 0.13 + 0.8 * diffuse, SEG = 144;   // sigma in pixel spacings
+  const leds = frame.map((px) => { const [r, gr, b, w] = px.map((v) => v / 255); return [r + w, gr + w * 0.93, b + w * 0.8]; });   // linear light; the white LED is warm
+  const lit = leds.filter((l) => Math.max(l[0], l[1], l[2]) > 0.0005).length;
+  const exposure = 0.42 * (1 + 1.2 * diffuse), norm = 1 / (sigma * 2.5066);
   g.globalCompositeOperation = "lighter";
-  for (let i = 0; i < RING_PIXELS; i++) {
-    const [r, gr, b, w] = frame[i].map((v) => v / 255);                    // linear light from each LED
-    const lin = [r + w, gr + w * 0.93, b + w * 0.8];                       // the white LED is a warm white
+  g.lineCap = "butt";
+  for (let seg = 0; seg < SEG && lit; seg++) {
+    const at = seg / SEG * RING_PIXELS, lin = [0, 0, 0];
+    for (let i = 0; i < RING_PIXELS; i++) {
+      let d = Math.abs(at - i);
+      if (d > RING_PIXELS / 2) d = RING_PIXELS - d;
+      if (d > sigma * 3.5) continue;
+      const k = Math.exp(-d * d / (2 * sigma * sigma)) * norm * exposure;
+      lin[0] += leds[i][0] * k; lin[1] += leds[i][1] * k; lin[2] += leds[i][2] * k;
+    }
     const top = Math.max(lin[0], lin[1], lin[2]);
-    if (top < 0.0005) continue;
-    lit++;
+    if (top < 0.002) continue;
     const a = Math.pow(Math.min(top, 1), 1 / 2.2);                         // back to what the eye sees
     const col = lin.map((v) => Math.round(255 * Math.pow(Math.min(v / top, 1), 1 / 2.2)));
-    const ang = (i / RING_PIXELS) * 2 * Math.PI - Math.PI / 2;
-    const x = c + R * Math.cos(ang), y = c + R * Math.sin(ang), rad = S * 0.13;
-    const glow = g.createRadialGradient(x, y, 0, x, y, rad);
-    glow.addColorStop(0, `rgba(${col},${a})`);
-    glow.addColorStop(0.35, `rgba(${col},${a * 0.55})`);
-    glow.addColorStop(1, `rgba(${col},0)`);
-    g.fillStyle = glow; g.beginPath(); g.arc(x, y, rad, 0, 7); g.fill();
+    const a0 = (seg - 0.5) / SEG * 2 * Math.PI - Math.PI / 2, a1 = (seg + 0.5) / SEG * 2 * Math.PI - Math.PI / 2 + 0.002;   // butt the segments together: overlap would show as stripes
+    for (const [width, share] of [[0.07, 0.7], [0.11, 0.22], [0.16, 0.08]]) {   // a bright core with a soft halo
+      g.strokeStyle = `rgba(${col},${a * share})`;
+      g.lineWidth = S * width * (0.75 + 0.5 * diffuse);
+      g.beginPath(); g.arc(c, c, R, a0, a1); g.stroke();
+    }
   }
   g.globalCompositeOperation = "source-over";
   $("ma").textContent = ringActive() ? Math.round(mA) : 0;   // dark: the ring's power is switched off
@@ -380,6 +401,7 @@ function draw() {
   requestAnimationFrame(draw);
 }
 
+$("diffuse").oninput = showSettings;
 setColor("Pink");
 showSettings();
 ring.clock = now();
