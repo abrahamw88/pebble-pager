@@ -67,7 +67,7 @@ The ring is the device's face, so its motion is designed to be smooth and a litt
 - **A press is a key on a synth.** Button down fades the comet in over about half a second; it orbits for as long as the button is held, starting at 0.9 laps per second and gaining 0.2 each second up to 1.9; release fades it out towards white as it coasts. It carries on from where it stopped, so a long message travels round the ring.
 - **The playfulness is in the motion, not the brightness.** On a press the head leaps about a pixel ahead and springs back, stretching the tail; on a release it kicks back and the tail squashes. Brightness only fades smoothly, because the head is already at full and an overshoot there would not show.
 - **Not received.** Two soft red pulses when no receipt comes back in the 45 s window. This is the only other color for now.
-- **Message waiting.** One pixel at the top breathes once in the sender's color at each wake.
+- **Message waiting.** One pixel at the top breathes once at each wake, in the color of whoever sent the waiting message (the oldest one, if several are waiting), not the device's own color.
 - **Brightness and power.** There is no fixed brightness cap. Each frame's current is added up and the frame is dimmed as a whole only if it would pass the budget (180 mA to start), so a few lit pixels can be bright and fades have the full range of steps. The comet draws about 75 to 100 mA at its brightest; only the full-ring red pulse reaches the budget.
 - **Not designed yet:** button 2's displays (battery level, the 5 s and 10 s holds), which will keep their own colors and use a different style of motion.
 

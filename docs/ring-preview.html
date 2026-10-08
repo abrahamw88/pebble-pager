@@ -76,7 +76,7 @@ button.act:focus-visible, .swatch:focus-visible, input:focus-visible { outline: 
           <button class="act" id="fail">Not received</button>
           <button class="act" id="blip">Message waiting</button>
         </div>
-        <p class="note">Recording and playback use the same press times, so both devices show the same motion. "Not received" is the only other color: a red pulse when no receipt comes back.</p>
+        <p class="note">Recording and playback use the same press times, so both devices show the same motion. "Message waiting" is in the color of whoever sent it. "Not received" is the only other color: a red pulse when no receipt comes back.</p>
       </section>
 
       <section class="panel">
@@ -116,16 +116,18 @@ const ringTune = {
 
 const ring = {
   down: false, level: 0, vel: 0, hop: 0, hopVel: 0, angle: 0, held: 0, speed: 0, color: [0, 0, 0, 0],
-  failT: -1, blipT: -1, play: null, playCount: 0, playIndex: 0, playLeftMs: 0, clock: 0
+  failT: -1, blipT: -1, blipColor: [0, 0, 0, 0], play: null, playCount: 0, playIndex: 0, playLeftMs: 0, clock: 0
 };
 
-function ringSetColor(rgb) {
+function ringSplit(rgb, out) {
   const r = ((rgb >> 16) & 255) / 255, g = ((rgb >> 8) & 255) / 255, b = (rgb & 255) / 255;
   const w = Math.min(r, Math.min(g, b)), top = Math.max(r, Math.max(g, b)) - w;
-  if (top < 0.001) { ring.color[0] = ring.color[1] = ring.color[2] = 0; ring.color[3] = 1; return; }
-  ring.color[0] = (r - w) / top; ring.color[1] = (g - w) / top; ring.color[2] = (b - w) / top;
-  ring.color[3] = w * ringTune.pastel;
+  if (top < 0.001) { out[0] = out[1] = out[2] = 0; out[3] = 1; return; }
+  out[0] = (r - w) / top; out[1] = (g - w) / top; out[2] = (b - w) / top;
+  out[3] = w * ringTune.pastel;
 }
+
+function ringSetColor(rgb) { ringSplit(rgb, ring.color); }
 
 function ringPress(down) {
   if (down === ring.down) return;
@@ -142,7 +144,7 @@ function ringPlay(ms, count) {
 }
 
 function ringFail() { ring.failT = 0; }
-function ringBlip() { ring.blipT = 0; }
+function ringBlip(rgb) { ringSplit(rgb, ring.blipColor); ring.blipT = 0; }
 
 function ringActive() {
   return ring.down || ring.level > 0 || ring.failT >= 0 || ring.blipT >= 0 || ring.play !== null;
@@ -236,7 +238,7 @@ function ringRender(out) {
     breath = breath * breath * ringTune.peak * 0.8;
     const at = [RING_PIXELS - 1, 0, 1], share = [0.25, 1.0, 0.25];
     for (let k = 0; k < 3; k++)
-      for (let c = 0; c < 4; c++) px[at[k]][c] += ring.color[c] * breath * share[k];
+      for (let c = 0; c < 4; c++) px[at[k]][c] += ring.blipColor[c] * breath * share[k];
   }
 
   let sum = 0;
@@ -363,7 +365,7 @@ hold.addEventListener("keyup", (e) => { if (e.code === "Space" || e.code === "En
 $("playLast").onclick = () => play(lastMessage);
 $("playSample").onclick = () => play([900, 300, 180, 220, 180]);
 $("fail").onclick = () => { ringAdvance(now()); ringFail(); say("Not received: no receipt came back in time."); };
-$("blip").onclick = () => { ringAdvance(now()); ringBlip(); say("A message is waiting (shown briefly at each wake)."); };
+$("blip").onclick = () => { ringAdvance(now()); ringBlip(COLORS.find((c) => c[0] === colorName)[1]); say("A message from the " + colorName.toLowerCase() + " device is waiting (shown briefly at each wake)."); };
 
 // ---- Drawing: a dim room, the device's shell, a frosted ring, and each pixel as a soft glow ----
 const view = $("view"), g = view.getContext("2d");

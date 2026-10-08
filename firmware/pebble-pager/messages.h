@@ -76,6 +76,16 @@ void messageArrived(const NtfyMessage& m, const Pulse& p) {
   else ntfySay("received " + text);
 }
 
+// The color of the oldest unread message, which is its sender's color (0xRRGGBB), or -1 if nothing is waiting.
+// The ring's "message waiting" blip uses it.
+long messageWaitingColor() {
+  String item = listPeek(UNREAD);
+  if (item.length() == 0) return -1;
+  String text = item.substring(item.indexOf('\t') + 1);
+  int c = colorIndex(text.substring(0, text.indexOf(' ')));
+  return COLOR_RGB[c < 0 ? 0 : c];
+}
+
 // Play the oldest unread message, or replay the last one played. Returns false if there is nothing to play.
 // Playing is only printed here for now; the ring and motor will show it. Nothing is posted: the sender already
 // has its receipt, and the phone saw the message when it was sent.

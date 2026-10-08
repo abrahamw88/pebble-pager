@@ -44,7 +44,8 @@ struct RingState {
   float held = 0, speed = 0;     // seconds this press has lasted; current laps per second
   float color[4] = {0, 0, 0, 0}; // the sender's color as red, green, blue, white (0 to 1)
   float failT = -1;              // seconds into the red "not received" pulse, or -1
-  float blipT = -1;              // seconds into the "unread" blip, or -1
+  float blipT = -1;              // seconds into the "message waiting" blip, or -1
+  float blipColor[4] = {0, 0, 0, 0};   // the color of that blip: the waiting message's sender, not this device
   const uint16_t* play = nullptr;   // a message being played back: press, gap, press... in ms
   int playCount = 0, playIndex = 0;
   int playLeftMs = 0;               // what is left of the current press or gap (whole ms, so every device agrees)
@@ -55,13 +56,15 @@ RingState ring;
 // A pastel is a strong hue plus white, and the ring has a white LED. Split the color into the two: the hue at full
 // strength on the colored LEDs, and a share of its white on the white LED. Keeping only part of the white makes
 // the head read clearly as the color, next to the white tail.
-void ringSetColor(uint32_t rgb) {
+void ringSplit(uint32_t rgb, float out[4]) {
   float r = ((rgb >> 16) & 255) / 255.0f, g = ((rgb >> 8) & 255) / 255.0f, b = (rgb & 255) / 255.0f;
   float w = fminf(r, fminf(g, b)), top = fmaxf(r, fmaxf(g, b)) - w;
-  if (top < 0.001f) { ring.color[0] = ring.color[1] = ring.color[2] = 0; ring.color[3] = 1; return; }   // white or grey
-  ring.color[0] = (r - w) / top; ring.color[1] = (g - w) / top; ring.color[2] = (b - w) / top;
-  ring.color[3] = w * ringTune.pastel;
+  if (top < 0.001f) { out[0] = out[1] = out[2] = 0; out[3] = 1; return; }   // white or grey
+  out[0] = (r - w) / top; out[1] = (g - w) / top; out[2] = (b - w) / top;
+  out[3] = w * ringTune.pastel;
 }
+
+void ringSetColor(uint32_t rgb) { ringSplit(rgb, ring.color); }   // the color of the comet: whoever sent the message
 
 void ringPress(bool down) {   // the button went down or up
   if (down == ring.down) return;
@@ -78,7 +81,7 @@ void ringPlay(const uint16_t* ms, int count) {   // play a message: the times al
 }
 
 void ringFail() { ring.failT = 0; }   // red pulse: the message was not received
-void ringBlip() { ring.blipT = 0; }   // one soft pixel: a message is waiting
+void ringBlip(uint32_t rgb) { ringSplit(rgb, ring.blipColor); ring.blipT = 0; }   // one soft pixel in the waiting message's sender's color
 
 bool ringActive() {   // false when everything is dark: the ring's power can be switched off
   return ring.down || ring.level > 0 || ring.failT >= 0 || ring.blipT >= 0 || ring.play;
@@ -177,7 +180,7 @@ float ringRender(uint8_t out[RING_PIXELS][4]) {
     const int at[3] = {RING_PIXELS - 1, 0, 1};
     const float share[3] = {0.25f, 1.0f, 0.25f};
     for (int k = 0; k < 3; k++)
-      for (int c = 0; c < 4; c++) px[at[k]][c] += ring.color[c] * breath * share[k];
+      for (int c = 0; c < 4; c++) px[at[k]][c] += ring.blipColor[c] * breath * share[k];
   }
 
   // To LED values: the eye is not linear, so apply gamma; then keep the whole frame inside the power budget.
