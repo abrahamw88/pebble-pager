@@ -8,8 +8,6 @@
 #include "wifi_manager.h"
 
 const char* NTFY_SERVER = "https://ntfy.sh/";
-const char* NTFY_READ_SERVER = "http://ntfy.sh/";   // inbox reads skip TLS: it saves most of the read time on every
-                                                     // check, at the cost of the topic name crossing the network in the clear
 const int NTFY_CONNECT_MS = 5000;
 const int NTFY_READ_MS = 10000;
 const int NTFY_BATCH = 8;   // most messages handled per poll; any more wait for the next one
@@ -93,12 +91,10 @@ int ntfyPoll(NtfyHandler handle) {
   unsigned long lastTime = prefs.getULong("inTime", 0);
   String lastId = prefs.getString("inId", "");
 
-  WiFiClient client;
+  WiFiClientSecure client;
   HTTPClient http;
-  http.setConnectTimeout(NTFY_CONNECT_MS);
-  http.setTimeout(NTFY_READ_MS);
-  http.useHTTP10(true);
-  String url = String(NTFY_READ_SERVER) + topicBase + "-" + slug(deviceName) + "/json?poll=1&since=" + (lastTime ? String(lastTime) : String("all"));
+  ntfyOpen(client, http);
+  String url = topicUrl(deviceName) + "/json?poll=1&since=" + (lastTime ? String(lastTime) : String("all"));
   int code = http.begin(client, url) ? http.GET() : -1;
   String body = code == 200 ? http.getString() : String();
   http.end();
