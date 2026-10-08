@@ -59,6 +59,17 @@ Presses and releases are caught by interrupts and time-stamped, so the recorded 
 | Purple, filling then solid | Holding for setup, then setup mode |
 | Red, emptying | Turning off |
 
+### The ring's animation
+
+The ring is the device's face, so its motion is designed to be smooth and a little playful. `firmware/pebble-pager/ring.h` is the engine, and `docs/ring-preview.html` runs a copy of the same math in a browser for tuning.
+
+- **The comet.** A head in the sender's color with a tail that melts into white, gliding between pixels so it never jumps. It is the only message animation: recording and playback are computed from the same press times, so both devices show the same thing.
+- **A press is a key on a synth.** Button down fades the comet in over about half a second with a small overshoot; it orbits for as long as the button is held, gaining a little speed; release gives a slight flare, then it coasts and fades towards white. It carries on from where it stopped, so a long message travels round the ring.
+- **Not received.** Two soft red pulses when no receipt comes back in the 45 s window. This is the only other color for now.
+- **Message waiting.** One pixel at the top breathes once in the sender's color at each wake.
+- **Brightness and power.** There is no fixed brightness cap. Each frame's current is added up and the frame is dimmed as a whole only if it would pass the budget (180 mA to start), so a few lit pixels can be bright and fades have the full range of steps.
+- **Not designed yet:** button 2's displays (battery level, the 5 s and 10 s holds), which will keep their own colors and use a different style of motion.
+
 ## Parts list
 
 A breadboard prototype of both devices, batteries included, costs about $87 in parts. The final-build extras add about $10. Prices marked "est." are estimates; the rest were checked on the seller's page.

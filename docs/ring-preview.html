@@ -1,0 +1,388 @@
+<title>Pebble Ring Preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Outfit:wght@500;600&display=swap">
+<style>
+/* Layout: the device on a dim stage (so emitted light reads), with the controls beside it; stacked on a phone. */
+:root {
+  --bg: #F3F2EF; --surface: #FFFFFF; --ink: #1F2124; --muted: #5A5D62; --line: #DAD8D3; --chip: #E6E4DF;
+  --stage: #141517; --stage-ink: #C9CBCF;
+  --display: 'Outfit', 'Avenir Next', system-ui, sans-serif;
+  --body: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #17181A; --surface: #212326; --ink: #ECEBE8; --muted: #A6A8AC; --line: #36383C; --chip: #2C2E32; --stage: #0D0E0F; --stage-ink: #B4B6BA; color-scheme: dark }
+}
+:root[data-theme="dark"] { --bg: #17181A; --surface: #212326; --ink: #ECEBE8; --muted: #A6A8AC; --line: #36383C; --chip: #2C2E32; --stage: #0D0E0F; --stage-ink: #B4B6BA; color-scheme: dark }
+
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.45; padding-inline: 16px; padding-block: 24px 40px; }
+.wrap { max-width: 1040px; margin-inline: auto; display: flex; flex-direction: column; gap: 20px; }
+h1 { font-family: var(--display); font-weight: 600; font-size: 2rem; line-height: 1.1; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 1.05rem; margin: 0; }
+p { margin: 0; }
+.lede { color: var(--muted); max-width: 62ch; }
+.cols { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 760px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+
+.stage { background: var(--stage); border-radius: 28px; padding: 20px; display: flex; flex-direction: column; gap: 14px; color: var(--stage-ink); position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+@media (max-width: 760px) { .stage { position: static; } }
+.device { position: relative; width: 100%; max-width: 380px; aspect-ratio: 1; margin-inline: auto; }
+.device canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+#hold { position: absolute; left: 50%; top: 50%; width: 36%; height: 36%; transform: translate(-50%, -50%); border-radius: 50%; border: 0; background: transparent; cursor: pointer; touch-action: none; -webkit-tap-highlight-color: transparent; }
+#hold:focus-visible { outline: 3px solid #FFFFFF; outline-offset: 4px; }
+.readout { font-family: var(--mono); font-size: 0.82rem; min-height: 2.6em; overflow-wrap: anywhere; }
+.readout b { color: #FFFFFF; font-weight: 500; }
+.meter { display: flex; justify-content: space-between; gap: 12px; font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+
+.panel { background: var(--surface); border-radius: 20px; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+button.act { font: inherit; font-weight: 500; color: var(--ink); background: var(--chip); border: 0; border-radius: 999px; padding: 10px 16px; min-height: 44px; cursor: pointer; }
+button.act:hover { filter: brightness(0.96); }
+button.act:focus-visible, .swatch:focus-visible, input:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.swatch { width: 44px; height: 44px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; padding: 0; }
+.swatch[aria-pressed="true"] { border-color: var(--ink); }
+.tune { display: grid; grid-template-columns: minmax(0, 1fr) 4.2em; gap: 2px 12px; align-items: center; }
+.tune label { font-size: 0.92rem; }
+.tune small { grid-column: 1 / -1; color: var(--muted); font-size: 0.8rem; margin-bottom: 8px; }
+.tune output { font-family: var(--mono); font-size: 0.85rem; text-align: right; font-variant-numeric: tabular-nums; }
+.tune input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--ink); min-height: 28px; }
+.note { color: var(--muted); font-size: 0.88rem; }
+#settings { font-family: var(--mono); font-size: 0.8rem; background: var(--chip); border-radius: 10px; padding: 10px 12px; overflow-wrap: anywhere; user-select: all; }
+</style>
+
+<div class="wrap">
+  <header class="stack" style="gap:8px">
+    <h1>Pebble Ring Preview</h1>
+    <p class="lede">The ring's animation, running the same math as the firmware. Hold the middle button to record: each press lights the comet, and it keeps gliding for as long as you hold. A quick tap plays the last message back.</p>
+  </header>
+
+  <div class="cols">
+    <section class="stage" aria-label="The device">
+      <div class="device">
+        <canvas id="view" width="760" height="760" role="img" aria-label="Twelve-pixel light ring around the send button"></canvas>
+        <button id="hold" aria-label="Send button: hold to record, tap to play"></button>
+      </div>
+      <div class="readout" id="readout">Hold the middle button, or the space bar.</div>
+      <div class="meter"><span>Ring current <b id="ma">0</b> mA of <span id="budget">180</span></span><span>Pixels lit <b id="lit">0</b> of 12</span></div>
+    </section>
+
+    <div class="stack">
+      <section class="panel">
+        <h2>Sender's color</h2>
+        <div class="row" id="swatches"></div>
+        <div class="row">
+          <button class="act" id="playLast">Play last message</button>
+          <button class="act" id="playSample">Play long, short, short</button>
+          <button class="act" id="fail">Not received</button>
+          <button class="act" id="blip">Message waiting</button>
+        </div>
+        <p class="note">Recording and playback use the same press times, so both devices show the same motion. "Not received" is the only other color: a red pulse when no receipt comes back.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Tuning</h2>
+        <div class="tune" id="tune"></div>
+        <div class="row">
+          <button class="act" id="copy">Copy settings</button>
+          <button class="act" id="reset">Reset</button>
+        </div>
+        <div id="settings"></div>
+        <p class="note">Send these numbers back to change the firmware's defaults. The current shown is an estimate from the LED values, held under the budget by dimming a whole frame when it would go over.</p>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+/*ENGINE-START  A line-for-line copy of firmware/pebble-pager/ring.h. Keep the two in step. */
+const RING_PIXELS = 12;
+const RING_STEP_MS = 5;
+const RING_STEP_S = RING_STEP_MS / 1000;
+
+const ringTune = {
+  speed: 0.9, accel: 0.35, maxSpeed: 2.2, tail: 5.5, attackHz: 2.6, damping: 0.5,
+  releaseHz: 1.5, flare: 1.2, pastel: 0.3, whiteGain: 0.9, peak: 1.0, budgetMa: 180.0
+};
+
+const ring = {
+  down: false, level: 0, vel: 0, angle: 0, held: 0, speed: 0, color: [0, 0, 0, 0],
+  failT: -1, blipT: -1, play: null, playCount: 0, playIndex: 0, playLeftMs: 0, clock: 0
+};
+
+function ringSetColor(rgb) {
+  const r = ((rgb >> 16) & 255) / 255, g = ((rgb >> 8) & 255) / 255, b = (rgb & 255) / 255;
+  const w = Math.min(r, Math.min(g, b)), top = Math.max(r, Math.max(g, b)) - w;
+  if (top < 0.001) { ring.color[0] = ring.color[1] = ring.color[2] = 0; ring.color[3] = 1; return; }
+  ring.color[0] = (r - w) / top; ring.color[1] = (g - w) / top; ring.color[2] = (b - w) / top;
+  ring.color[3] = w * ringTune.pastel;
+}
+
+function ringPress(down) {
+  if (down === ring.down) return;
+  ring.down = down;
+  if (down) { ring.held = 0; ring.speed = ringTune.speed; }
+  else ring.vel += ringTune.flare;
+}
+
+function ringPlay(ms, count) {
+  ring.play = ms; ring.playCount = count; ring.playIndex = 0;
+  ring.playLeftMs = count > 0 ? ms[0] : 0;
+  if (count > 0) ringPress(true);
+}
+
+function ringFail() { ring.failT = 0; }
+function ringBlip() { ring.blipT = 0; }
+
+function ringActive() {
+  return ring.down || ring.level > 0 || ring.failT >= 0 || ring.blipT >= 0 || ring.play !== null;
+}
+
+function ringStep() {
+  const dt = RING_STEP_S, twoPi = 6.2831853;
+  ring.clock += dt;
+
+  if (ring.play) {
+    ring.playLeftMs -= RING_STEP_MS;
+    while (ring.play && ring.playLeftMs <= 0) {
+      ring.playIndex++;
+      if (ring.playIndex >= ring.playCount) { ring.play = null; ringPress(false); break; }
+      ring.playLeftMs += ring.play[ring.playIndex];
+      ringPress(ring.playIndex % 2 === 0);
+    }
+  }
+
+  const w = twoPi * (ring.down ? ringTune.attackHz : ringTune.releaseHz);
+  const zeta = ring.down ? ringTune.damping : 1.0;
+  const target = ring.down ? 1.0 : 0.0;
+  ring.vel += (w * w * (target - ring.level) - 2 * zeta * w * ring.vel) * dt;
+  ring.level += ring.vel * dt;
+  if (ring.level < 0 || (!ring.down && ring.level < 0.003 && ring.vel <= 0)) { ring.level = 0; ring.vel = 0; }
+
+  if (ring.down) {
+    ring.held += dt;
+    ring.speed = Math.min(ringTune.maxSpeed, ringTune.speed + ringTune.accel * ring.held);
+    ring.angle += ring.speed * dt;
+  } else {
+    ring.angle += ring.speed * Math.min(ring.level, 1.0) * dt;
+  }
+  if (ring.angle >= 1024) ring.angle -= 1024;
+
+  if (ring.failT >= 0) { ring.failT += dt; if (ring.failT >= 1.35) ring.failT = -1; }
+  if (ring.blipT >= 0) { ring.blipT += dt; if (ring.blipT >= 0.9) ring.blipT = -1; }
+}
+
+function ringAdvance(nowS) {
+  if (nowS - ring.clock > 1.0) ring.clock = nowS - 1.0;
+  while (ring.clock + RING_STEP_S <= nowS) ringStep();
+}
+
+function ringSmooth(a, b, x) {
+  let t = (x - a) / (b - a);
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  return t * t * (3 - 2 * t);
+}
+
+function ringRender(out) {
+  const px = [];
+  const level = ring.level;
+  const head = (ring.angle - Math.floor(ring.angle)) * RING_PIXELS;
+  const tail = ringTune.tail * (0.35 + 0.65 * Math.min(level, 1.25));
+  const fading = ring.down ? 0 : 1 - Math.min(level, 1.0);
+  for (let i = 0; i < RING_PIXELS; i++) {
+    let behind = head - i;
+    if (behind < 0) behind += RING_PIXELS;
+    const ahead = RING_PIXELS - behind;
+    let bright = 0, white = 0;
+    if (ahead < 1) bright = 1 - ahead;
+    else if (behind <= tail) {
+      const along = behind / tail;
+      bright = Math.pow(1 - along, 1.6);
+      white = ringSmooth(0.12, 0.7, along);
+    }
+    white += (1 - white) * fading * 0.85;
+    bright *= level * ringTune.peak;
+    px.push([ring.color[0] * (1 - white) * bright, ring.color[1] * (1 - white) * bright, ring.color[2] * (1 - white) * bright,
+             (ring.color[3] * (1 - white) + ringTune.whiteGain * white) * bright]);
+  }
+
+  if (ring.failT >= 0) {
+    const t = ring.failT;
+    let pulse = 0;
+    if (t < 0.6) pulse = Math.sin(3.1415927 * t / 0.6);
+    else if (t >= 0.75) pulse = Math.sin(3.1415927 * (t - 0.75) / 0.6);
+    pulse = pulse * pulse * ringTune.peak;
+    for (let i = 0; i < RING_PIXELS; i++) px[i][0] += 0.9 * pulse;
+  }
+  if (ring.blipT >= 0) {
+    let breath = Math.sin(3.1415927 * ring.blipT / 0.9);
+    breath = breath * breath * ringTune.peak * 0.8;
+    const at = [RING_PIXELS - 1, 0, 1], share = [0.25, 1.0, 0.25];
+    for (let k = 0; k < 3; k++)
+      for (let c = 0; c < 4; c++) px[at[k]][c] += ring.color[c] * breath * share[k];
+  }
+
+  let sum = 0;
+  for (let i = 0; i < RING_PIXELS; i++)
+    for (let c = 0; c < 4; c++) {
+      const v = px[i][c] < 0 ? 0 : px[i][c] > 1 ? 1 : px[i][c];
+      px[i][c] = Math.pow(v, 2.2);
+      sum += px[i][c];
+    }
+  const idle = RING_PIXELS * 1.0, draw = sum * 18.0;
+  const scale = draw > ringTune.budgetMa - idle ? (ringTune.budgetMa - idle) / draw : 1.0;
+  for (let i = 0; i < RING_PIXELS; i++)
+    for (let c = 0; c < 4; c++) out[i][c] = Math.floor(px[i][c] * scale * 255.0 + 0.5);
+  return idle + draw * scale;
+}
+/*ENGINE-END*/
+</script>
+
+<script>
+// ---- The page around the engine: the button, the drawing and the tuning sliders ----
+const COLORS = [["Pink", 0xF29BB5], ["Blue", 0x7FB2F0], ["Green", 0x6CC795], ["Purple", 0xA98BE0], ["Orange", 0xF08A4B], ["Teal", 0x5CC9C0], ["Yellow", 0xF2D45C], ["Red", 0xE8736B]];
+const RECORD_HOLD_MS = 500, SEND_PAUSE_MS = 2000, MAX_PRESSES = 12;
+const TUNING = [
+  ["speed", "Starting speed", "laps per second when a press begins", 0.3, 2.5, 0.05],
+  ["accel", "Speed-up while held", "laps per second gained each second", 0, 1.5, 0.05],
+  ["maxSpeed", "Top speed", "laps per second", 0.5, 4, 0.1],
+  ["tail", "Tail length", "pixels, at full brightness", 2, 10, 0.25],
+  ["attackHz", "Fade-in quickness", "higher is snappier; 2.6 settles in about half a second", 1, 6, 0.1],
+  ["damping", "Fade-in bounce", "1 has no overshoot; lower overshoots more", 0.25, 1, 0.05],
+  ["releaseHz", "Fade-out quickness", "1.5 fades in about half a second", 0.6, 4, 0.1],
+  ["flare", "Flare on release", "a small kick of brightness as you let go", 0, 3, 0.1],
+  ["pastel", "White in the head", "0 is the pure color; 1 is the full pastel", 0, 1, 0.05],
+  ["whiteGain", "White tail brightness", "against the colored head", 0.2, 1.2, 0.05],
+  ["peak", "Overall brightness", "", 0.1, 1, 0.05],
+  ["budgetMa", "Power budget", "mA the ring may draw", 60, 400, 10]
+];
+const DEFAULTS = Object.assign({}, ringTune);
+const $ = (id) => document.getElementById(id);
+const now = () => performance.now() / 1000;
+let colorName = "Pink", lastMessage = [700, 300, 150, 200, 150], recording = null, pressAt = 0, sendTimer = 0;
+
+function setColor(name) {
+  colorName = name;
+  ringSetColor(COLORS.find((c) => c[0] === name)[1]);
+  document.querySelectorAll(".swatch").forEach((s) => s.setAttribute("aria-pressed", s.dataset.name === name));
+}
+COLORS.forEach(([name, rgb]) => {
+  const b = document.createElement("button");
+  b.className = "swatch"; b.dataset.name = name; b.title = name; b.setAttribute("aria-label", name);
+  b.style.background = "#" + rgb.toString(16).padStart(6, "0");
+  b.onclick = () => setColor(name);
+  $("swatches").appendChild(b);
+});
+
+function showSettings() {
+  $("settings").textContent = TUNING.map(([k]) => k + "=" + (+ringTune[k].toFixed(2))).join("  ");
+  $("budget").textContent = Math.round(ringTune.budgetMa);
+}
+TUNING.forEach(([key, label, hint, min, max, step]) => {
+  const id = "t-" + key;
+  $("tune").insertAdjacentHTML("beforeend",
+    `<label for="${id}">${label}</label><output id="${id}-v"></output><input type="range" id="${id}" min="${min}" max="${max}" step="${step}"><small>${hint}</small>`);
+  const input = $(id);
+  const sync = () => { $(id + "-v").textContent = (+ringTune[key]).toFixed(2); input.value = ringTune[key]; };
+  input.oninput = () => { ringTune[key] = +input.value; sync(); showSettings(); setColor(colorName); };
+  sync();
+});
+$("reset").onclick = () => { Object.assign(ringTune, DEFAULTS); TUNING.forEach(([k]) => { $("t-" + k).value = ringTune[k]; $("t-" + k + "-v").textContent = (+ringTune[k]).toFixed(2); }); showSettings(); setColor(colorName); };
+$("copy").onclick = () => {
+  const text = $("settings").textContent;
+  const done = () => { $("copy").textContent = "Copied"; setTimeout(() => $("copy").textContent = "Copy settings", 1500); };
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, () => getSelection().selectAllChildren($("settings")));
+  else getSelection().selectAllChildren($("settings"));
+};
+
+function say(html) { $("readout").innerHTML = html; }
+const messageText = (ms) => colorName.toLowerCase() + " " + ms.join(" ");
+
+function play(ms) {
+  if (ring.down || recording) return;
+  ringAdvance(now());
+  ringPlay(ms, ms.length);
+  say("Playing <b>" + messageText(ms) + "</b>");
+}
+
+// The button behaves like the device: a tap plays, a hold of half a second records and is the first press.
+function press(down) {
+  const t = performance.now();
+  ringAdvance(now());
+  if (down) {
+    if (ring.play) return;
+    clearTimeout(sendTimer);
+    if (recording && recording.length) recording.push(Math.round(t - pressAt));   // the gap since the last release
+    pressAt = t;
+    ringPress(true);
+    return;
+  }
+  if (!ring.down) return;
+  ringPress(false);
+  const held = Math.round(t - pressAt);
+  pressAt = t;
+  if (!recording && held < RECORD_HOLD_MS) { say("A tap: playing the last message back."); setTimeout(() => play(lastMessage), 450); return; }
+  if (!recording) recording = [];
+  recording.push(Math.min(held, 5000));
+  say("Recording <b>" + messageText(recording) + "</b>");
+  const finish = () => { lastMessage = recording; recording = null; say("Sent <b>" + messageText(lastMessage) + "</b> (2 s after the last press)"); };
+  if ((recording.length + 1) / 2 >= MAX_PRESSES) finish(); else sendTimer = setTimeout(finish, SEND_PAUSE_MS);
+}
+const hold = $("hold");
+hold.addEventListener("pointerdown", (e) => { hold.setPointerCapture(e.pointerId); press(true); });
+hold.addEventListener("pointerup", () => press(false));
+hold.addEventListener("pointercancel", () => press(false));
+hold.addEventListener("contextmenu", (e) => e.preventDefault());
+addEventListener("keydown", (e) => { if (e.code === "Space" && !e.repeat && !/INPUT|BUTTON/.test(e.target.tagName)) { e.preventDefault(); press(true); } });
+addEventListener("keyup", (e) => { if (e.code === "Space" && !/INPUT|BUTTON/.test(e.target.tagName)) { e.preventDefault(); press(false); } });
+hold.addEventListener("keydown", (e) => { if ((e.code === "Space" || e.code === "Enter") && !e.repeat) { e.preventDefault(); press(true); } });
+hold.addEventListener("keyup", (e) => { if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); press(false); } });
+
+$("playLast").onclick = () => play(lastMessage);
+$("playSample").onclick = () => play([900, 300, 180, 220, 180]);
+$("fail").onclick = () => { ringAdvance(now()); ringFail(); say("Not received: no receipt came back in time."); };
+$("blip").onclick = () => { ringAdvance(now()); ringBlip(); say("A message is waiting (shown briefly at each wake)."); };
+
+// ---- Drawing: a dim room, the device's shell, a frosted ring, and each pixel as a soft glow ----
+const view = $("view"), g = view.getContext("2d");
+const frame = Array.from({ length: RING_PIXELS }, () => [0, 0, 0, 0]);
+function draw() {
+  ringAdvance(now());
+  const mA = ringRender(frame);
+  const S = view.width, c = S / 2, R = S * 0.33, body = S * 0.47;
+  g.clearRect(0, 0, S, S);
+  const rgb = COLORS.find((x) => x[0] === colorName)[1];
+  const shell = [(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255].map((v) => Math.round((v * 0.35 + 255 * 0.65) * 0.42));
+  g.fillStyle = `rgb(${shell})`; g.beginPath(); g.arc(c, c, body, 0, 7); g.fill();
+  g.strokeStyle = "rgba(255,255,255,0.07)"; g.lineWidth = S * 0.085; g.beginPath(); g.arc(c, c, R, 0, 7); g.stroke();   // the frosted ring, unlit
+  g.fillStyle = `rgb(${shell.map((v) => Math.round(v * 1.18))})`; g.beginPath(); g.arc(c, c, S * 0.2, 0, 7); g.fill();   // the send button
+
+  let lit = 0;
+  g.globalCompositeOperation = "lighter";
+  for (let i = 0; i < RING_PIXELS; i++) {
+    const [r, gr, b, w] = frame[i].map((v) => v / 255);                    // linear light from each LED
+    const lin = [r + w, gr + w * 0.93, b + w * 0.8];                       // the white LED is a warm white
+    const top = Math.max(lin[0], lin[1], lin[2]);
+    if (top < 0.0005) continue;
+    lit++;
+    const a = Math.pow(Math.min(top, 1), 1 / 2.2);                         // back to what the eye sees
+    const col = lin.map((v) => Math.round(255 * Math.pow(Math.min(v / top, 1), 1 / 2.2)));
+    const ang = (i / RING_PIXELS) * 2 * Math.PI - Math.PI / 2;
+    const x = c + R * Math.cos(ang), y = c + R * Math.sin(ang), rad = S * 0.13;
+    const glow = g.createRadialGradient(x, y, 0, x, y, rad);
+    glow.addColorStop(0, `rgba(${col},${a})`);
+    glow.addColorStop(0.35, `rgba(${col},${a * 0.55})`);
+    glow.addColorStop(1, `rgba(${col},0)`);
+    g.fillStyle = glow; g.beginPath(); g.arc(x, y, rad, 0, 7); g.fill();
+  }
+  g.globalCompositeOperation = "source-over";
+  $("ma").textContent = ringActive() ? Math.round(mA) : 0;   // dark: the ring's power is switched off
+  $("lit").textContent = lit;
+  requestAnimationFrame(draw);
+}
+
+setColor("Pink");
+showSettings();
+ring.clock = now();
+requestAnimationFrame(draw);
+if (!matchMedia("(prefers-reduced-motion: reduce)").matches) setTimeout(() => play([900, 300, 180, 220, 180]), 600);
+</script>

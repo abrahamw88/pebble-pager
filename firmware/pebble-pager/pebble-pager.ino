@@ -8,6 +8,7 @@
 //   pulse.h    the message format
 //   messages.h sending, receiving, receipts, the outbox and the unread list
 //   input.h    buttons: taps, holds and recording
+//   ring.h     the light ring's animation engine (not yet connected to the hardware)
 //   ota.h      remote firmware updates
 //   portal.h   setup page
 //   tests.h    hardware checks, built instead of the firmware with -DTEST=n
@@ -42,6 +43,7 @@
 #include "pulse.h"
 #include "messages.h"
 #include "input.h"
+#include "ring.h"
 #include "ota.h"
 #include "portal.h"
 
