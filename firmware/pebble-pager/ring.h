@@ -17,14 +17,14 @@ const float RING_STEP_S = RING_STEP_MS / 1000.0f;
 
 struct RingTuning {
   float speed = 0.9f;        // laps per second when a press starts
-  float accel = 0.35f;       // laps per second gained for each second held
-  float maxSpeed = 2.2f;     // laps per second, top speed
+  float accel = 0.2f;        // laps per second gained for each second held
+  float maxSpeed = 1.9f;     // laps per second, top speed
   float tail = 5.5f;         // tail length in pixels at full brightness
   float attackHz = 2.6f;     // fade-in spring: how fast (about 0.5 s to settle)...
   float damping = 0.5f;      // ...and how bouncy (1 = no overshoot, lower = more)
   float releaseHz = 1.5f;    // fade-out speed (about 0.5 s)
   float flare = 1.2f;        // extra kick of brightness at the moment of release
-  float pastel = 0.3f;       // how much of the color's own white stays in the head (0 = pure hue, 1 = the full pastel)
+  float pastel = 0.2f;       // how much of the color's own white stays in the head (0 = pure hue, 1 = the full pastel)
   float whiteGain = 0.9f;    // how bright the white tail is next to the colored head
   float peak = 1.0f;         // overall brightness, 0 to 1
   float budgetMa = 180.0f;   // the ring may draw at most this; a frame over it is dimmed as a whole
