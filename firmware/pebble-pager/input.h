@@ -23,6 +23,7 @@ volatile Edge edgeQueue[EDGE_QUEUE];
 volatile int edgeHead = 0, edgeTail = 0;
 Edge simQueue[2 * MAX_PRESSES + 8];   // simulated edges, each with the time it is due
 int simCount = 0, simNext = 0;
+volatile bool simHeld = false;        // a simulated press of button 1 is down (the ring follows it, as it follows the pin)
 
 void IRAM_ATTR edgeIsr(void* arg) {
   Source* s = (Source*)arg;
@@ -88,7 +89,11 @@ bool nextEdge(Edge& e) {
   }
   interrupts();
   if (have) return true;
-  if (simNext < simCount && (long)(millis() - simQueue[simNext].at) >= 0) { e = simQueue[simNext++]; return true; }
+  if (simNext < simCount && (long)(millis() - simQueue[simNext].at) >= 0) {
+    e = simQueue[simNext++];
+    if (e.button == 0) simHeld = e.down;
+    return true;
+  }
   return false;
 }
 
@@ -158,6 +163,12 @@ void inputArm() {
   recPresses = 0;
   recLastUp = millis();
   recState = button[0].down ? R_ARMED : R_WAIT;
+}
+
+// A message has just played, and nothing pressed meanwhile is part of anything: take the buttons as they are now.
+void inputSkip() {
+  Edge e;
+  while (nextEdge(e)) button[e.button] = {e.down, e.at};
 }
 
 // Call every loop() until it returns EV_NONE. Returns one thing the user did.

@@ -6,12 +6,16 @@
 //           from the inbox, before it is played. After sending, the sender waits a short while for that answer.
 // Both lists are saved in settings, so they survive sleep, restarts and power cuts. Reports to the phone
 // ("sent ...") go through ntfySay, which keeps them until they can be posted.
+//   On the ring: nothing while a message is on its way (it is assumed to be sending), then its one status: a green
+//           sweep when the partner's receipt comes, or two red pulses if it can't go now (it stays queued) or if no
+//           receipt comes. Each comes with a short buzz.
 #ifndef PEBBLE_MESSAGES_H
 #define PEBBLE_MESSAGES_H
 #include "config.h"
 #include "wifi_manager.h"
 #include "ntfy.h"
 #include "pulse.h"
+#include "output.h"
 
 const SavedList OUTBOX = {"ob", OUTBOX_MAX};
 const SavedList UNREAD = {"ur", UNREAD_MAX};
@@ -20,6 +24,8 @@ const SavedList UNREAD = {"ur", UNREAD_MAX};
 struct Awaited { String id; unsigned long at; };   // a sent message whose receipt has not arrived yet
 Awaited awaited[OUTBOX_MAX];
 unsigned long sendRetryAt = 0;
+bool sendShown = false;   // a message recorded in this wake is still in the outbox: if it can't go, the ring says so once
+RTC_DATA_ATTR unsigned long lastSentAt = 0;   // clockSeconds() when a message last went out from here (0 = never), through sleep
 
 bool messagesCanSend() { return ntfyReady() && partnerName.length() > 0; }
 bool messagesAwaiting() {   // true while any sent message is still waiting for its receipt
@@ -35,6 +41,7 @@ const char* messageQueue(const String& text) {
   if (const char* problem = pulseParse(text, p)) return problem;
   listPush(OUTBOX, pulseText(p));
   sendRetryAt = millis();
+  sendShown = true;
   return nullptr;
 }
 
@@ -43,8 +50,14 @@ const char* messageQueue(const String& text) {
 void messageSendNext() {
   String text = listPeek(OUTBOX);
   String id = ntfyPublish(partnerName, deviceName, text);
-  if (id.length() == 0) { sendRetryAt = millis() + SEND_RETRY_MS; return; }
+  if (id.length() == 0) {
+    sendRetryAt = millis() + SEND_RETRY_MS;
+    if (sendShown) { sendShown = false; showFailed(); }   // once: later tries are quiet
+    return;
+  }
   listPop(OUTBOX);
+  if (listCount(OUTBOX) == 0) sendShown = false;
+  lastSentAt = clockSeconds() | 1;
   ntfySay("sent " + text);
   int slot = 0;   // remember the id until its receipt comes; if all slots are busy, reuse the oldest
   for (int i = 0; i < OUTBOX_MAX; i++) {
@@ -59,19 +72,22 @@ void messageSendNext() {
 void messageReceipt(const String& id) {
   for (Awaited& a : awaited) {
     if (a.id != id) continue;
-    sayf("Delivered in %lu ms\n", millis() - a.at);   // the ring's "delivered" sweep goes here
+    sayf("Delivered in %lu ms\n", millis() - a.at);
+    showReceived();
     a.id = "";
   }
 }
 
 // ---- Receiving ----
 RTC_DATA_ATTR char lastPlayed[96] = "";   // "<sender>\t<text>", kept for a replay (through sleep)
+int arrived = 0;                          // messages that came in and have not been announced yet
 
 // A valid pulse message arrived. Keep it for playing and answer it straight away.
 void messageArrived(const NtfyMessage& m, const Pulse& p) {
   bool fromPartner = partnerName.length() && slug(m.title) == slug(partnerName);
   String text = pulseText(p);
   listPush(UNREAD, (fromPartner ? partnerName : String("phone")) + "\t" + text);
+  arrived++;
   if (fromPartner) ntfyPublish(partnerName, deviceName, "received " + m.id);
   else ntfySay("received " + text);
 }
@@ -86,20 +102,40 @@ long messageWaitingColor() {
   return COLOR_RGB[c < 0 ? 0 : c];
 }
 
+// Play one stored item, "<sender>\t<text>", on the ring and the motor. Returns when it has finished.
+void messageShow(const char* what, const String& item) {
+  int tab = item.indexOf('\t');
+  String from = item.substring(0, tab), text = item.substring(tab + 1);
+  sayf("%s from %s: %s (%d unread)\n", what, from.c_str(), text.c_str(), listCount(UNREAD));
+  Pulse p;
+  if (!pulseParse(text, p)) showPlay(p);
+}
+
 // Play the oldest unread message, or replay the last one played. Returns false if there is nothing to play.
-// Playing is only printed here for now; the ring and motor will show it. Nothing is posted: the sender already
-// has its receipt, and the phone saw the message when it was sent.
+// Nothing is posted: the sender already has its receipt, and the phone saw the message when it was sent.
 bool messagePlay() {
   String item = listPeek(UNREAD);
   bool fresh = item.length() > 0;
   if (fresh) { listPop(UNREAD); item.toCharArray(lastPlayed, sizeof(lastPlayed)); }
   if (!lastPlayed[0]) return false;
-  String last = lastPlayed;
-  int tab = last.indexOf('\t');
-  String from = last.substring(0, tab), text = last.substring(tab + 1);
-  sayf("%s from %s: %s (%d unread left)\n", fresh ? "Play" : "Replay", from.c_str(), text.c_str(), listCount(UNREAD));
+  messageShow(fresh ? "Play" : "Replay", lastPlayed);
   return true;
 }
+
+// A message went out from here a moment ago: a conversation is going on.
+bool messagesConversing() { return lastSentAt && clockSeconds() - lastSentAt < CONVERSATION_S; }
+
+// Call after reading the inbox. A message normally waits for a tap of button 1, with only the ring's waiting light
+// to show it. During a conversation, what has just arrived plays at once, and counts as played. Returns true if
+// anything was played.
+bool messagesAnnounce() {
+  bool any = arrived > 0;
+  arrived = 0;
+  if (!any || !messagesConversing()) return false;
+  while (listCount(UNREAD) > 0) messagePlay();
+  return true;
+}
+
 
 // Something is queued and worth trying to post right now (not just after a failed attempt).
 bool messagesWaiting() { return messagesCanSend() && listCount(OUTBOX) > 0 && (long)(millis() - sendRetryAt) >= 0; }
@@ -114,7 +150,12 @@ void messagesTick() {
     listExpire(NOTES);
   }
   for (Awaited& a : awaited)
-    if (a.id.length() && millis() - a.at >= RECEIPT_WAIT_MS) { sayln("No receipt"); a.id = ""; }
+    if (a.id.length() && millis() - a.at >= RECEIPT_WAIT_MS) { sayln("No receipt"); showFailed(); a.id = ""; }
+  if (sendShown && listCount(OUTBOX) > 0 && wifiSettled() && !wifiOnline()) {   // no network to send it on: it waits in the outbox
+    sendShown = false;
+    sayln("Can't send now: queued");
+    showFailed();
+  }
   if (wifiOnline() && messagesCanSend() && listCount(OUTBOX) > 0 && (long)(millis() - sendRetryAt) >= 0) messageSendNext();
 }
 

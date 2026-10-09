@@ -7,6 +7,10 @@
 // pixels. A press fades it in while the head leaps a little ahead and springs back, stretching the tail; it orbits
 // while the button is held, picking up speed; a release makes it recoil, coast and fade out towards white. The
 // brightness itself only fades smoothly: the playfulness is all in the motion. It carries on from where it stopped.
+//
+// The status lights are plainer on purpose, so they are never mistaken for a message: a sweep (one soft lap:
+// message sent and received), a chase (two dots circling: working), and a meter (pixels lit from the top, clockwise: battery level,
+// and button 2's holds). They are added on top of the comet, and all share the power budget.
 #ifndef PEBBLE_RING_H
 #define PEBBLE_RING_H
 #include <math.h>
@@ -33,6 +37,7 @@ struct RingTuning {
   float whiteGain = 1.0f;    // how bright the white tail is next to the colored head
   float peak = 1.4f;         // brightness; above 1 the head is already at full, so more of the comet reaches full
   float budgetMa = 180.0f;   // the ring may draw at most this; a frame over it is dimmed as a whole
+  float meter = 0.6f;        // brightness of the meter, which can light the whole ring, next to the comet
 };
 RingTuning ringTune;
 
@@ -46,6 +51,17 @@ struct RingState {
   float failT = -1;              // seconds into the red "not received" pulse, or -1
   float blipT = -1;              // seconds into the "message waiting" blip, or -1
   float blipColor[4] = {0, 0, 0, 0};   // the color of that blip: the waiting message's sender, not this device
+  int blipAt = 0;                // the pixel it breathes on
+  float sweepT = -1;             // seconds into a sweep, or -1
+  float sweepColor[4] = {0, 0, 0, 0};
+  bool busy = false;             // the chase is wanted
+  float busyLevel = 0, busyAngle = 0;   // its brightness, 0 to 1, and how far round it is, 0 to 1
+  float busyColor[4] = {0, 0, 0, 0};
+  float meterFill = 0;           // the meter: this many pixels are lit (a fraction lights the next one partly)
+  float meterTarget = 0, meterLevel = 0;   // its brightness, 0 to 1: wanted, and now
+  float meterColor[4] = {0, 0, 0, 0};
+  int gaugeMs = -1;              // ms into a gauge (the meter fills, holds and fades by itself), or -1
+  int gaugePixels = 0;
   const uint16_t* play = nullptr;   // a message being played back: press, gap, press... in ms
   int playCount = 0, playIndex = 0;
   int playLeftMs = 0;               // what is left of the current press or gap (whole ms, so every device agrees)
@@ -81,10 +97,31 @@ void ringPlay(const uint16_t* ms, int count) {   // play a message: the times al
 }
 
 void ringFail() { ring.failT = 0; }   // red pulse: the message was not received
-void ringBlip(uint32_t rgb) { ringSplit(rgb, ring.blipColor); ring.blipT = 0; }   // one soft pixel in the waiting message's sender's color
+void ringBlip(uint32_t rgb, int at = 0) { ringSplit(rgb, ring.blipColor); ring.blipAt = at; ring.blipT = 0; }   // one soft pixel breathes once
+void ringSweep(uint32_t rgb) { ringSplit(rgb, ring.sweepColor); ring.sweepT = 0; }   // one soft lap of light
+void ringBusy(uint32_t rgb) { ringSplit(rgb, ring.busyColor); ring.busy = true; }    // the chase, until ringBusyStop()
+void ringBusyStop() { ring.busy = false; }
+
+// The meter: `fill` pixels lit from the top, clockwise, at brightness `level`. It stays until changed or stopped.
+void ringMeter(uint32_t rgb, float fill, float level) {
+  ringSplit(rgb, ring.meterColor);
+  ring.meterFill = fill; ring.meterTarget = level; ring.gaugeMs = -1;
+}
+void ringMeterStop() { ring.meterTarget = 0; ring.gaugeMs = -1; }
+void ringGauge(uint32_t rgb, int pixels) {   // the meter fills to `pixels`, holds and fades by itself
+  ringSplit(rgb, ring.meterColor);
+  ring.gaugePixels = pixels; ring.gaugeMs = 0; ring.meterFill = 0; ring.meterTarget = 1;
+}
 
 bool ringActive() {   // false when everything is dark: the ring's power can be switched off
-  return ring.down || ring.level > 0 || ring.failT >= 0 || ring.blipT >= 0 || ring.play;
+  return ring.down || ring.level > 0 || ring.failT >= 0 || ring.blipT >= 0 || ring.play ||
+         ring.sweepT >= 0 || ring.busy || ring.busyLevel > 0 || ring.meterTarget > 0 || ring.meterLevel > 0;
+}
+
+float ringSmooth(float a, float b, float x) {   // 0 below a, 1 above b, an S-curve between
+  float t = (x - a) / (b - a);
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  return t * t * (3 - 2 * t);
 }
 
 void ringStep() {   // advance the simulation by RING_STEP_S
@@ -126,17 +163,26 @@ void ringStep() {   // advance the simulation by RING_STEP_S
 
   if (ring.failT >= 0) { ring.failT += dt; if (ring.failT >= 1.35f) ring.failT = -1; }
   if (ring.blipT >= 0) { ring.blipT += dt; if (ring.blipT >= 0.9f) ring.blipT = -1; }
+  if (ring.sweepT >= 0) { ring.sweepT += dt; if (ring.sweepT >= 0.8f) ring.sweepT = -1; }
+
+  // The chase fades in and out, and circles while it shows.
+  ring.busyLevel += ((ring.busy ? 1.0f : 0.0f) - ring.busyLevel) * 6.0f * dt;
+  if (!ring.busy && ring.busyLevel < 0.003f) ring.busyLevel = 0;
+  if (ring.busyLevel > 0) { ring.busyAngle += 0.8f * dt; if (ring.busyAngle >= 1) ring.busyAngle -= 1; }
+
+  // The meter's brightness eases to what is wanted. A gauge drives the meter: fill, hold, fade.
+  if (ring.gaugeMs >= 0) {
+    ring.gaugeMs += RING_STEP_MS;
+    ring.meterFill = ring.gaugePixels * ringSmooth(0.0f, 500.0f, ring.gaugeMs);
+    if (ring.gaugeMs >= 2500) { ring.gaugeMs = -1; ring.meterTarget = 0; }
+  }
+  ring.meterLevel += (ring.meterTarget - ring.meterLevel) * 8.0f * dt;
+  if (ring.meterTarget == 0 && ring.meterLevel < 0.003f) ring.meterLevel = 0;
 }
 
 void ringAdvance(double nowS) {   // bring the simulation up to `nowS` seconds
   if (nowS - ring.clock > 1.0) ring.clock = nowS - 1.0;   // after a long pause, don't replay the gap
   while (ring.clock + RING_STEP_S <= nowS) ringStep();
-}
-
-float ringSmooth(float a, float b, float x) {   // 0 below a, 1 above b, an S-curve between
-  float t = (x - a) / (b - a);
-  t = t < 0 ? 0 : t > 1 ? 1 : t;
-  return t * t * (3 - 2 * t);
 }
 
 // Work out the 12 pixels: out[i] = red, green, blue, white, 0 to 255, ready to send. Pixel 0 is the top; the
@@ -174,13 +220,37 @@ float ringRender(uint8_t out[RING_PIXELS][4]) {
     pulse = pulse * pulse * ringTune.peak;
     for (int i = 0; i < RING_PIXELS; i++) px[i][0] += 0.9f * pulse;
   }
-  if (ring.blipT >= 0) {   // one pixel at the top breathes once, with a faint glow either side
+  if (ring.blipT >= 0) {   // one pixel breathes once, with a faint glow either side
     float breath = sinf(3.1415927f * ring.blipT / 0.9f);
     breath = breath * breath * ringTune.peak * 0.8f;
-    const int at[3] = {RING_PIXELS - 1, 0, 1};
+    const int at[3] = {(ring.blipAt + RING_PIXELS - 1) % RING_PIXELS, ring.blipAt, (ring.blipAt + 1) % RING_PIXELS};
     const float share[3] = {0.25f, 1.0f, 0.25f};
     for (int k = 0; k < 3; k++)
       for (int c = 0; c < 4; c++) px[at[k]][c] += ring.blipColor[c] * breath * share[k];
+  }
+  if (ring.sweepT >= 0) {   // a soft band leaves the top, goes once round and fades as it comes back
+    float t = ring.sweepT / 0.8f, at = t * RING_PIXELS, glow = sinf(3.1415927f * t);
+    for (int i = 0; i < RING_PIXELS; i++) {
+      float d = fabsf(i - at);
+      if (d > RING_PIXELS / 2.0f) d = RING_PIXELS - d;
+      if (d >= 2.5f) continue;
+      for (int c = 0; c < 4; c++) px[i][c] += ring.sweepColor[c] * (1 - d / 2.5f) * glow;
+    }
+  }
+  if (ring.busyLevel > 0) {   // two soft dots, opposite each other, circling
+    for (int i = 0; i < RING_PIXELS; i++) {
+      float d = fmodf(fabsf(i - ring.busyAngle * RING_PIXELS), RING_PIXELS / 2.0f);   // distance to the nearer dot
+      if (d > RING_PIXELS / 4.0f) d = RING_PIXELS / 2.0f - d;
+      if (d >= 1.5f) continue;
+      for (int c = 0; c < 4; c++) px[i][c] += ring.busyColor[c] * (1 - d / 1.5f) * ring.busyLevel * 0.8f;
+    }
+  }
+  if (ring.meterLevel > 0) {   // pixels lit from the top, clockwise; the last one partly, so the fill glides
+    for (int i = 0; i < RING_PIXELS; i++) {
+      float lit = ring.meterFill - i;
+      lit = lit < 0 ? 0 : lit > 1 ? 1 : lit;
+      for (int c = 0; c < 4; c++) px[i][c] += ring.meterColor[c] * lit * ring.meterLevel * ringTune.meter;
+    }
   }
 
   // To LED values: the eye is not linear, so apply gamma; then keep the whole frame inside the power budget.

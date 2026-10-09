@@ -1,6 +1,6 @@
 # Breadboard build steps
 
-These steps build both devices on breadboards so you can test the buttons, ring, motor and ntfy before any case work. Steps 1 to 7 run on USB power, and step 8 adds the battery. Pager firmware isn't written yet, so steps that run code use the firmware in `firmware/pebble-pager`, built either as itself or as one of its hardware checks with `-DTEST=n`. Plan on two or three evenings.
+These steps build both devices on breadboards so you can test the buttons, ring, motor and ntfy before any case work. Steps 1 to 7 run on USB power, and step 8 adds the battery. Steps that run code use the firmware in `firmware/pebble-pager`, built either as itself or as one of its hardware checks with `-DTEST=n`. The checks come first because they are simple: they light and buzz with nothing else going on, so a wiring fault is easy to see. The firmware's own ring, motor and battery code has not run on real parts yet, so steps 7 to 9 are also its first test. Plan on two or three evenings.
 
 ## Tools
 
@@ -103,6 +103,8 @@ If something's off:
 - **A button fires over and over without a press:** the button is turned 90°, so the two wired legs are always connected. Turn it a quarter turn, or wire the diagonally opposite leg as in step 3.
 - **The ring works but nothing buzzes:** check that the 1 kΩ from D4 goes to the motor transistor's middle leg and that the emitter, not the collector, goes to the − rail.
 
+One more check while the ring is dark, between presses: no pixel should glow, even faintly. The transistor switches the ring's ground wire, so a dark ring must have no other path to ground.
+
 ## Step 7: Set up ntfy and send a test message
 
 ntfy needs no account to start. On the free tier the topic name works as the password, so pick a long random one and don't post it anywhere.
@@ -117,6 +119,30 @@ ntfy needs no account to start. On the free tier the topic name works as the pas
 
 **Check:** the Serial Monitor shows "Wi-Fi online" and "Image valid", and the phone shows "Eliana checking for update" followed by an answer.
 
+Now the ring and motor under the firmware. The device sleeps between checks, so first type `awake` in the Serial Monitor (10 minutes awake), or upload a build with `-DNO_SLEEP`. Then type each line and compare:
+
+| Type | The ring and motor should |
+|---|---|
+| `show received` | One soft green lap, starting and ending at the top, with a short, gentle buzz: the message status "sent and received" |
+| `show failed` | Two red pulses over the whole ring, with a short buzz |
+| `show waiting` | One pixel at the top breathes once, in the device's color |
+| `show low` | One pixel at the bottom breathes once, amber |
+| `battery` | One amber pixel for 2 s (no battery sensor yet; step 8 makes this the real level) |
+| `press 1 700 300 200` | A comet in the device's color: a long press, a gap, a short press. The ring stays dark while it sends, and about 2 s after the last press shows the green lap if the other device answers, or two red pulses after 45 s if not |
+| Post `pink 400 300 400` to this device's inbox from the ntfy web app | Within 30 s one pixel at the top breathes pink, and again at each check. `play` plays it: a pink comet with a buzz for each press |
+| `press 2 3000` | The ring fills purple a little over halfway, then shows the battery level |
+| `press 2 5300` | Fills purple to full; the setup page opens and the ring stays dim purple. The same again closes it |
+
+Then the real buttons: hold button 1 and the comet should start at once and stop when you let go.
+
+If something's off:
+
+- **The top of the ring is not where the pixel breathes:** pixel 0 is the top. Turn the ring so its first pixel (next to the data input pad) is at the top of the device.
+- **The comet runs anticlockwise:** the ring is face down or mirrored; it should run clockwise seen from the front.
+- **Colors look washed out, or the ring dims and flickers when a lot is lit:** note which display, and whether USB or battery power. The firmware limits the ring to 180 mA; that limit and the brightness of each display are settings to tune (`ringTune` in `ring.h`, and `docs/ring-preview.html` shows the same animation in a browser).
+- **The ring flashes or a pixel stays lit after a display ends:** note it. The firmware cuts the ring's power and releases its data pin when it goes dark, and this is the first time that has run on real pixels.
+- **The motor does not turn, or the buzz is too weak or too strong:** it runs at part power on purpose. Raise or lower `MOTOR_STRENGTH` in `config.h` (100 of 255 to start; a coin motor may need more to start turning). `BUZZ_SHORT_MS` sets how long the short buzz lasts.
+
 ## Step 8 (optional): Add the battery and battery sensor
 
 With a battery on its BAT pads, the XIAO runs without USB and charges the battery whenever USB is plugged in. The resistor pair lets D1 measure the battery, since the board can't report its own level. This step means soldering tiny pads next to a LiPo, so go slowly.
@@ -128,31 +154,35 @@ With a battery on its BAT pads, the XIAO runs without USB and charges the batter
 5. Divider: a 220 kΩ resistor from the battery + column to a free column, a second 220 kΩ from that column to the − rail, and a jumper from the middle column to D1.
 6. Plug the battery in, connect USB, and upload the firmware with `-DTEST=4`.
 
-**Check:** with USB in, the Serial Monitor shows about 3.7–4.2 V, creeping up as the battery charges. Unplug USB and the first pixel keeps blinking green, which means the board is running on the battery. If the reading is more than about 0.2 V off from the multimeter across the battery, note the difference; the firmware can correct for it.
+**Check:** with USB in, the Serial Monitor shows about 3.7–4.2 V and a percentage, creeping up as the battery charges. Unplug USB and the first pixel keeps blinking green, which means the board is running on the battery. If the reading is more than about 0.1 V off from the multimeter across the battery, note the difference for each board; the firmware has no correction yet and would need one.
+
+Then upload the firmware (no test flag) and tap button 2: the ring shows the level as 1 to 12 green pixels for 2 s. Post `battery` to the device's inbox and the phone shows the same reading, for example "Eliana battery 3.92 V, 64%".
 
 From now on, unplug the battery as well as USB before moving any wire, since the battery powers the rails too. Don't leave it charging unattended, and if the cell swells, gets hot or smells odd, unplug it and move it somewhere it can't catch anything on fire.
 
 ## Step 9: Build device B and plan the end-to-end test
 
-Repeat steps 2 to 8 on the second XIAO and breadboard, then run `-DTEST=2` and the firmware on it. Put a strip of tape on each board marked A or B so the topics don't get mixed up.
+Repeat steps 2 to 8 on the second XIAO and breadboard, then run `-DTEST=2` and the firmware on it. Put a strip of tape on each board marked A or B so the topics don't get mixed up. On each setup page, give the device its name and color and the other one's name as its partner.
 
-That's as far as the breadboards go without pager firmware. Once it's written, flash both boards and work through this list. Each line comes from the Spec and Behavior sections, and the diagram in the Overview shows the paths they cover.
+Then work through this list with both boards running the firmware. Each line comes from the Behavior section of the README, and the diagram in its Overview shows the paths they cover. With only one board built, `docs/virtual-pager.html` can stand in for the other.
 
-- Both devices show a cyan chase at startup, then join the saved Wi-Fi.
-- Hold button 1 on A, then press a long-short-short pattern: A's ring lights in A's color with each press and sends 2 s after the last one.
-- B plays the same pattern as pulses in A's color with matching buzzes within 30 s, and the phone shows the message.
-- A shows a green sweep when it sends, then a second sweep with a short buzz when B confirms delivery.
-- B blinks one pixel in A's color until button 1 is tapped. The tap plays the message, and a second tap replays it.
+- Press RESET on each device: it shows a cyan chase while it joins the saved Wi-Fi.
+- Hold button 1 on A, then press a long-short-short pattern: a comet in A's color lights with each press, and the message sends 2 s after the last one.
+- A's ring stays dark after it finishes recording, then shows one green sweep with a short buzz when B confirms receipt: sent and received.
+- Within 30 s the phone shows the message, and B breathes one pixel in A's color at each 30 s check until button 1 is tapped. The tap plays the same pattern as a comet in A's color, with a buzz for each press, and a second tap replays it.
+- Reply from B within 2 minutes: A plays the reply as soon as it arrives, with no tap, because A has just sent. Wait more than 2 minutes and send from B again: this time A only shows the waiting light.
+- With a message waiting on B, hold button 1 on B: the message plays first, then a fresh recording starts.
 - A single short tap on button 1 never sends anything.
-- Tap button 2: the ring shows the battery level.
-- Hold button 2 for 5 s and release: the ring fills purple, "Pebble-Setup" appears, and a new network can be added from the phone.
-- Hold button 2 for 10 s and release: the ring empties red and the device turns off. Any button turns it back on.
-- Turn off A's Wi-Fi, record a message, then turn the Wi-Fi back on: the queued message goes out.
+- Tap button 2: the ring shows the battery level for 2 s.
+- Hold button 2 for 5 s and release: the ring fills purple, the `pebblepager` network appears, the ring stays dim purple while the setup page is open, and a new network can be added from the phone.
+- Hold button 2 for 10 s: after full purple the ring turns red and counts down to dark. Release and the device turns off. Press button 1: nothing happens. Tap button 2: nothing visible, and the device goes back to sleep. Hold button 2: the ring fills green, and at 5 s the device turns on.
+- Turn off A's Wi-Fi and record a message: A shows two red pulses with a short buzz. Turn the Wi-Fi back on: the queued message goes out.
+- Switch B off (button 2, 10 s) and send from A: A's ring stays dark for 45 s, then shows two red pulses with a short buzz, because no receipt came.
 - Send from the iPhone Shortcut to each device's topic: each one plays the pattern.
 - Time ten messages each way: every one arrives within 30 s.
 - Take a device out of range of every saved network for an hour, then bring it back: it rejoins within 5 minutes and delivers anything queued.
-- Run each device from full on battery with the hourly voltage report and count the days. The target is seven.
-- As the battery drops below 20%, the ring blinks amber every 60 s.
+- Post `battery on` to each device's inbox, run it from full on battery with USB unplugged, and count the days from the hourly reports on the phone. The target is seven.
+- As the battery drops below 20%, the ring blinks amber at the bottom every 60 s.
 - After a firmware update over Wi-Fi, the saved networks are still there.
 - Change A's color on the setup page: A's next message plays on B in the new color, and the color is still set after a firmware update.
 

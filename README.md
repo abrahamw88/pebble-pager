@@ -34,30 +34,54 @@ Out of scope: emergency alerts, location tracking, cellular, networks with login
 
 Button 1 is large and does the everyday things: view and send. Button 2 is small and recessed, for the occasional ones. A single short tap never sends anything.
 
+### Quick reference
+
+The same list is on the virtual pager page (`docs/virtual-pager.html`). A short, gentle buzz goes with every sweep, red signal and playing press.
+
+| Function | How, and what you see |
+|---|---|
+| Power on | Press and hold button 2 for 5 seconds. A green light fills the ring. |
+| Power off | Press and hold button 2 for 10 seconds. The ring fills purple, then red counts down; let go when it is dark. |
+| Send a message | Hold button 1, then tap and press a pattern of long and short presses. Each press lights a comet in your color. The ring is dark while it sends (it is assumed to be sending) and ends with one green sweep: sent and received. |
+| Play a message | One pixel breathing at the top, in the sender's color, means a message is waiting. Tap button 1 to play it; tap again to replay it. During a conversation it plays by itself. |
+| Check the battery | Tap button 2. 1 to 12 green pixels light up (amber under 20%). |
+| Wi-Fi setup | Hold button 2 for 5 seconds and let go when the ring is full purple. Do it again to close. |
+| Something went wrong | Two red pulses: the message could not be sent, or was not received. A message that could not go is kept and retried. |
+| Low battery | One amber pixel at the bottom, once a minute. |
+
+While the device is off, button 1 does nothing.
+
+Colors: the sender's color is one of Pink, Blue, Green, Purple, Orange, Teal, Yellow, Red, set on the setup page and sent with every message. The device's own status colors are fixed: **cyan** joining Wi-Fi, **green** message sent and received, battery level and turning on, **red** failed and the countdown to off, **purple** setup, **amber** low battery.
+
 | Button | Press | What happens |
 |---|---|---|
 | 1, large | Tap | Wakes the device and plays the waiting message, checking for a new one first if none is stored. Tap again to replay the last one. |
 | 1, large | Hold | Starts a recording. Each further press within 2 s adds a pulse, and it sends 2 s after the last one. |
 | 2, small | Tap | Shows the battery level on the ring. |
 | 2, small | Hold 5 s | The ring fills purple. Release to open Wi-Fi setup. |
-| 2, small | Keep holding to 10 s | The ring turns red and empties. Release to turn the device off. Any button turns it back on. |
+| 2, small | Keep holding to 10 s | The ring turns red and counts down until it is dark. Release then to turn the device off. |
+| 2, small | Hold 5 s, while off | Turns the device on. The ring fills green, the same meter as the other holds, and a shorter press does nothing. Button 1 does nothing while it is off. |
 
 A recording starts with a hold of half a second or longer, and that hold is the first press of the message, even when it is the press that wakes the device from sleep. Further presses, short or long, add to it, and it is sent 2 seconds after the last one; a single hold on its own is a one-press message. The one exception: if unread messages are waiting, the hold plays them all first and then starts a fresh recording, so that hold is not part of the message (and if nothing is pressed in the next 2 seconds, nothing is sent). A tap plays one unread message; with none stored it reads the inbox first, without waiting for the 30-second check, then plays what arrived or replays the last one. The inbox is never read during a recording, so press timing stays exact, but it is read as soon as the recording ends. A message is at most 12 presses or 15 seconds, and a press counts as at most 5 seconds; at either limit it is sent at once, the press in progress is cut short, and the button is ignored for 2 seconds so spill-over presses are not taken as taps. A second 5-second hold on button 2 closes the setup page. These values are starting points to tune.
+
+A message waits for a tap: when it arrives, the ring only shows that it is waiting, at every check, until button 1 plays it. The exception is a conversation. If this device sent a message in the last 2 minutes (`CONVERSATION_S`), a message that arrives plays at once, light and buzz, and counts as played. Nothing pressed while a message plays counts for anything.
+
+The motor runs gently (`MOTOR_STRENGTH`, 100 of 255 to start) and never for long: with each press of a message being played, and for a short buzz with every green sweep and every red signal.
 
 Presses and releases are caught by interrupts and time-stamped, so the recorded lengths are exact even while the device is busy with the network, and no network work starts while a button is in use.
 
 | Ring and buzz | Meaning |
 |---|---|
-| Pulses in the sender's color, with matching buzzes | A message playing, on arrival or on a tap |
-| One pixel blinking slowly in the sender's color | A message is waiting to be viewed |
-| The device's own color while button 1 is held | Recording |
-| Cyan chase | Joining Wi-Fi and sending |
-| Green sweep, then a second sweep with a short buzz | Sent, then delivered |
-| 3 red blinks and a long buzz | Couldn't send; queued to retry |
-| 1 to 12 pixels lit | Battery level, after a button 2 tap |
-| Amber blink every 60 s | Battery under 20% |
-| Purple, filling then solid | Holding for setup, then setup mode |
-| Red, emptying | Turning off |
+| A comet in the sender's color, with a buzz for each press | A message playing: on a tap, or on arrival during a conversation |
+| One pixel at the top breathing once in the sender's color | A message is waiting to be viewed (at each 30 s check) |
+| A comet in the device's own color while button 1 is held | Recording |
+| Cyan chase (two dots circling) | Joining Wi-Fi after switching on |
+| One green sweep with a short buzz | Message status: sent and received |
+| Two red pulses with a short buzz | Couldn't send (queued to retry), or sent but no receipt came back in 45 s |
+| 1 to 12 pixels lit for 2 s, green (amber under 20%) | Battery level, after a button 2 tap |
+| Amber blink at the bottom every 60 s | Battery under 20% |
+| Purple, filling; then solid and dim | Holding for setup; then the setup page is open |
+| Red, counting down to dark | Still holding, towards "off" |
 
 ### The ring's animation
 
@@ -66,10 +90,13 @@ The ring is the device's face, so its motion is designed to be smooth and a litt
 - **The comet.** A head in the sender's color with a tail that melts into white, gliding between pixels so it never jumps. It is the only message animation: recording and playback are computed from the same press times, so both devices show the same thing.
 - **A press is a key on a synth.** Button down fades the comet in over about half a second; it orbits for as long as the button is held, starting at 0.9 laps per second and gaining 0.2 each second up to 1.9; release fades it out towards white as it coasts. It carries on from where it stopped, so a long message travels round the ring.
 - **The playfulness is in the motion, not the brightness.** On a press the head leaps about a pixel ahead and springs back, stretching the tail; on a release it kicks back and the tail squashes. Brightness only fades smoothly, because the head is already at full and an overshoot there would not show.
-- **Not received.** Two soft red pulses when no receipt comes back in the 45 s window. This is the only other color for now.
-- **Message waiting.** One pixel at the top breathes once at each wake, in the color of whoever sent the waiting message (the oldest one, if several are waiting), not the device's own color.
+- **Not received.** Two soft red pulses with a short buzz: when a message just recorded can't be sent (no network, or ntfy refused it; it stays queued and later tries are silent), and when no receipt comes back in the 45 s window.
+- **Message waiting.** One pixel at the top breathes once at each wake, in the color of whoever sent the waiting message (the oldest one, if several are waiting), not the device's own color. It starts as the device wakes, alongside the Wi-Fi join, so it adds no time awake.
+- **Status lights.** Everything else uses the device's own fixed colors and a plainer motion, so it is never mistaken for a message. A message has one status, shown once: green (one sweep and a short buzz) means it was sent and received; red (two pulses and a short buzz) means it failed to send or was not received. Nothing shows while a message is on its way: it is assumed to be sending, and the ring is dark until that status appears. A *chase* is two cyan dots circling while the device joins Wi-Fi after being switched on. A *meter* lights pixels from the top, clockwise, the last one partly so it glides: the battery level (it fills, holds 2 s and fades), and button 2's hold. The low-battery blink is the waiting light's twin, amber and at the bottom.
+- **Button 2's hold.** (While the device is off, holding it fills the same meter in green for 5 s, which turns the device on.) Nothing shows for the first 0.4 s, so a tap stays dark until the battery level appears. Then the ring fills purple, reaching full at 5 s; it stays full for 0.8 s, then turns red and counts down to dark at 10 s. Releasing anywhere from full purple to the last red pixel opens setup; releasing after it is dark turns the device off. While the setup page is open the whole ring glows dim purple.
 - **Brightness and power.** There is no fixed brightness cap. Each frame's current is added up and the frame is dimmed as a whole only if it would pass the budget (180 mA to start), so a few lit pixels can be bright and fades have the full range of steps. The comet draws about 75 to 100 mA at its brightest; only the full-ring red pulse reaches the budget.
-- **Not designed yet:** button 2's displays (battery level, the 5 s and 10 s holds), which will keep their own colors and use a different style of motion.
+- **On the hardware.** `output.h` drives the pixels and the motor from a small task that runs about 60 times a second, so the light keeps moving while the main loop waits on a network request. The comet follows button 1 straight from the pin. The motor runs with each press of a message being played, and for the short buzzes, at part power: its pin is switched at 20 kHz. The ring's power (D5) is on only while something is lit, and the device does not sleep until the ring is dark and the motor still.
+- **Not run on the parts yet.** All of the ring, motor and battery code compiles and its animation math is checked against the browser copy, but none of it has driven a real ring, motor or battery. Brightness, colors and buzz lengths are first guesses to tune on the hardware (`show received|failed|waiting|low` and `battery` on the serial console show each one).
 
 ## Parts list
 
@@ -115,7 +142,8 @@ Both buttons sit on GPIO0–5, which can wake the chip from deep sleep. Boot-mod
 - D3 (GPIO5) can't take reliable analog readings but works as a button input.
 - A 10 kΩ from each transistor base to ground keeps the motor and ring off while the chip sleeps or starts.
 - The ring's SK6812 RGBW pixels are rated 5 V but run from 3V3 here, matching the XIAO's 3.3 V data signal. Colors may look dimmer or shifted; if so, power the ring from battery + instead.
-- A full ring could draw over 800 mA (12 pixels × 4 LEDs × about 18 mA), but the 3V3 pin is rated 700 mA, with Wi-Fi peaking at 335 mA and the motor at 60 mA. Keep ring brightness around 30 of 255.
+- A full ring could draw over 800 mA (12 pixels × 4 LEDs × about 18 mA), but the 3V3 pin is rated 700 mA, with Wi-Fi peaking at 335 mA and the motor at 60 mA. The firmware keeps every frame inside a 180 mA budget (see "The ring's animation"); the hardware checks use a fixed brightness of 30 of 255.
+- The ring's transistor switches its ground side. While the ring is off, a data pin held low would give the pixels a path to ground through the 330 Ω resistor, so the firmware releases the data pin whenever it cuts the ring's power. To confirm on the breadboard: with the ring dark, no pixel glows and the ring's ground wire carries no current.
 - The ring pixel type must be four-channel GRBW, or colors come out scrambled.
 
 ## Power budget
@@ -127,7 +155,7 @@ A week on 2,000 mAh means averaging under about 9.5 mA (80% usable: 1,600 mAh ov
 | A: stay connected | Wi-Fi stays joined in light sleep and the server pushes messages | About 1.5 mA | About 44 days | A few seconds |
 | B: wake and check | Deep sleep, wake every 30 s, connect, check, sleep | 3–9 mA | 7–21 days | Up to 30 s |
 | Away: no saved network in range | Deep sleep, wake every 5 min for a quick scan, no connection attempt | Under 1 mA | Months | Nothing arrives until back on Wi-Fi |
-| Off: button 2 held 10 s | Deep sleep with no timer; only a button press wakes it | About 0.05 mA | Years | Nothing arrives until turned on |
+| Off: button 2 held 10 s | Deep sleep with no timer; only a 5 s hold of button 2 wakes it | About 0.05 mA | Years | Nothing arrives until turned on |
 
 **Sleep strategy.** On a saved network use plan B. With no saved network in range, switch to away mode. A button press wakes the device at once in every mode; in away mode a recorded message is queued if there's still no network. Back in range it rejoins within 5 minutes and collects messages ntfy still holds. The 5-minute interval is a starting value to tune; the away figure assumes a 2 s scan at about 80 mA.
 
@@ -140,19 +168,20 @@ A week on 2,000 mAh means averaging under about 9.5 mA (80% usable: 1,600 mAh ov
 - Measure on battery with USB unplugged; USB keeps the chip awake and inflates every reading.
 - Charging: the XIAO's charger is listed at about 370 mA (Seeed doesn't state it), roughly 6 hours for 2,000 mAh, within the 500 mA Adafruit recommends for this cell.
 - NeoPixels draw current even when dark (up to about 1 mA per pixel, no datasheet figure), so the D5 transistor cuts ring power whenever it isn't showing something.
-- To verify, have each device report its battery voltage to ntfy every hour, run it from full, and count the days.
+- To verify, post `battery on` to each device's inbox: it then reports its battery voltage to the phone every hour. Run it from full and count the days. `battery off` stops the reports.
+- **Battery level.** D1 is read at every wake, before the radio starts (Wi-Fi pulls the voltage down while it transmits), averaged over 16 readings and doubled. The percentage comes from a table of a resting lithium cell's voltage (3.30 V empty, 3.84 V half, 4.20 V full), so it is only a guide under load, and reads high while charging. A reading under 2.5 V means no sensor is wired, and the device says "battery not connected" instead of a level. There is no per-device correction yet.
 
 **How sleep works in the firmware.** Deep sleep restarts the program, so each wake is a fresh start that does one job and sleeps again.
 
-- **Wake:** a timer every 30 s, or either button at once. After power-on or a restart it stays awake 30 s first.
+- **Wake:** a timer every 30 s, or either button at once (only button 2, held, after "off"). After power-on or a restart it stays awake 30 s first.
 - **A check:** rejoin the same access point with the same IP settings (no scan, no DHCP), read the inbox, act on what is there, sleep for what is left of the 30 s.
 - **Stays awake while needed:** a button in use or a recording, 5 s after the last press, a message being posted, up to 45 s for a receipt, the setup page, an update, or 10 minutes after an `awake` command.
 - **Away:** with no saved network in range it sleeps 10 s, then 20, 40 and so on up to 5 minutes between looks. With no networks saved at all it sleeps 5 minutes at a time; a button still wakes it.
-- **Off:** button 2 held 10 s sleeps with no timer; only a button wakes it. On the bare board nothing can, because the onboard BOOT button cannot wake the chip: only the real button pins (GPIO4 and GPIO5) can.
+- **Off:** button 2 held 10 s sleeps with no timer, with only button 2's pin (GPIO5) armed to wake it. A press of it wakes the chip for a moment; the firmware turns on only if the button is still down after 5 s (the ring fills green meanwhile), and otherwise goes back to sleep at once, which costs almost no battery. "Off" is remembered in RTC memory, so a power cut, a restart or RESET boots normally: that is also the way out on the bare board, where nothing else can wake it (the onboard BOOT button cannot wake the chip).
 - **Remembered through sleep:** the access point and IP settings, which networks have no internet, the failed-request count, wake statistics and the last message played (RTC memory); settings, queues and inbox markers (flash).
 - **Guards:** every request has connect, handshake and read time limits, and if the main loop stops for a minute the device sleeps anyway.
 - **Updates:** checked once after each cold start, then once a day, and on an `update` command. Not on every wake.
-- **Inbox commands for testing:** `status` (checks made, time awake, joins, signal, queues, to the phone), `awake` (stay awake 10 minutes), `sleep`.
+- **Inbox commands for testing:** `status` (checks made, time awake, joins, signal, queues and battery, to the phone), `battery` (voltage and percent, to the phone), `battery on` and `battery off` (the hourly report), `awake` (stay awake 10 minutes), `sleep`.
 - **USB while sleeping:** the serial port disappears during each sleep, and after many reconnects macOS can stop showing it until the cable is replugged. Send `awake` first, or use `-DNO_SLEEP` builds, when working over USB.
 
 ## Phone and ntfy
@@ -176,7 +205,7 @@ The base name, the device's name and its partner's name are settings on the setu
 - **Phone to device.** An iPhone Shortcut using "Get Contents of URL" POSTs the same one-line message to a device's inbox. Posting `update` there makes the device check for new firmware.
 - **Security.** On the free tier the topic name is the password, so the base is kept out of the firmware and appears only on the setup page while the hotspot is open (its password is still the public placeholder). The Supporter plan ($6/month, or $5 billed yearly) includes three reserved topics, exactly what this design uses. Give each device and the phone its own access token.
 - **Queues.** Three short lists are saved on the device, so they survive sleep, restarts and power cuts. The outbox holds up to 5 messages waiting to be posted, in order; once ntfy has one it is deleted, because ntfy holds it from there. The unread list holds up to 3 received messages, oldest dropped first, played oldest first. Reports for the phone ("sent", update results) wait in a third list of 5 if they cannot be posted, and go out in order. Anything waiting more than 24 hours is deleted. That age comes from the chip's own clock, which keeps counting through deep sleep; after a power cut it restarts, and waiting items get a fresh 24 hours.
-- **Setup page.** Hold the button 5 s and release, and the device opens a password-protected hotspot (`pebblepager` for now) with one page: device name, color, partner's name, topic base, and Wi-Fi networks (up to 10, newest first, each with a Delete button). It opens only from the button, never by itself, and closes after a join, after 5 minutes, or with a second 5 s hold. The page is at `http://192.168.4.1` and opens by itself on an iPhone: the hotspot sends the standard captive-portal address, and networks are scanned once before the hotspot starts (a scan while it is up can drop the phone, so the page has a Rescan link). The page also lists the exact ntfy topics to subscribe to on the phone and to post to for each device, rebuilt from the current name, partner and base each time it loads. The base is shown only on this page, which exists only while the hotspot is open. Until button 2 is wired, the onboard BOOT button acts as button 2 (the console's `boot 1` makes it button 1 until the next restart). The same settings can be changed over USB with the serial console (`show`, `set name|color|partner|base <value>`). The console can also stand in for the buttons: `press 1 700 300 600 200 150` simulates presses on button 1 (times alternate down, up; here a hold, a gap, then long, gap, short), `press 2 5300` a 5 s hold on button 2, `send pink 200 200 500` queues a message directly, and `play` plays the next unread one.
+- **Setup page.** Hold the button 5 s and release, and the device opens a password-protected hotspot (`pebblepager` for now) with one page: device name, color, partner's name, topic base, and Wi-Fi networks (up to 10, newest first, each with a Delete button). It opens only from the button, never by itself, and closes after a join, after 5 minutes, or with a second 5 s hold. The page is at `http://192.168.4.1` and opens by itself on an iPhone: the hotspot sends the standard captive-portal address, and networks are scanned once before the hotspot starts (a scan while it is up can drop the phone, so the page has a Rescan link). The page also lists the exact ntfy topics to subscribe to on the phone and to post to for each device, rebuilt from the current name, partner and base each time it loads. The base is shown only on this page, which exists only while the hotspot is open. Until button 2 is wired, the onboard BOOT button acts as button 2 (the console's `boot 1` makes it button 1 until the next restart). The same settings can be changed over USB with the serial console (`show`, `set name|color|partner|base <value>`). The console can also stand in for the buttons: `press 1 700 300 600 200 150` simulates presses on button 1 (times alternate down, up; here a hold, a gap, then long, gap, short), `press 2 5300` a 5 s hold on button 2, `send pink 200 200 500` queues a message directly, `play` plays the next unread one, `battery` shows the level as a tap of button 2 does, and `show received|failed|waiting|low` puts one display on the ring and motor.
 - **Staying connected.** A small Wi-Fi manager keeps the device on the best saved network without blocking the buttons or the setup page. It scans in the background, joins the strongest saved access point by its exact address, and stays there. A dropout gets 5 s to heal, then a rescan. With nothing in range it retries after 10 s, doubling up to the 5-minute away scan. Every ntfy or update request reports success or failure; three failures in a row (a login page, a dead router) mark that network as bad for 10 minutes and move to the next one, and if every network is bad it stays on the strongest and does not keep reconnecting. A signal under -78 dBm for three checks 30 s apart triggers a rescan and a move only to an access point at least 10 dB stronger. Verified with simulated faults (`-DWIFI_TEST` adds `drop`, `nointernet`, `hide` and `roam` inbox commands), each confirmed by an "online" post on ntfy. After a sleep it skips the scan and rejoins the remembered access point with the same IP settings; it scans again if that fails, after an hour (to renew the IP lease), or after three weak wakes in a row. The failure count and the no-internet marks are kept through sleep, and a network that keeps failing is dealt with before the device sleeps again. Verified across sleeps: away mode with backoff, and the no-internet move. Not covered: a real walk out of range and a real login-page network.
 - **Virtual pager.** `docs/virtual-pager.html` is a second pager in a browser, served by GitHub Pages with no server of its own. It records, sends, receives, sends receipts, queues and plays like the device, with the same ring animation, and talks to ntfy directly. Its name, color, partner and topic base are typed into its Setup and kept in that browser only. It checks its inbox every 30 s like the device, or instantly with "live" on. It has no Wi-Fi setup, battery, sleep or updates, and it only runs while the page is open.
 - **Remote updates.** The device reads `manifest.txt` (version, size, SHA-256) from the latest GitHub release and installs a newer `pebble-pager.bin` only if its size and SHA-256 match. The new image is on probation until it reaches the update server, then posts "Eliana updated from vX to vY" to the phone. **Triggers:** `update` posted to the device's inbox (read at every 30 s check), once after each cold start, and once a day. A command always gets an answer on the phone topic: "checking for update", then "updated from vX to vY", "up to date (vX)", "no update published", "failed update to vY: bad hash" (or bad size, too big), "skipped vY (failed before)" or "can't reach server". **Failures:** an image that crashes before validating is rolled back, reported as "failed update", and that version is never tried again. A power cut or reset is not a crash: the old image keeps running and the update is retried, and updates are not skipped on a low battery for that reason. A wrong size or SHA-256 is rejected before anything is installed. **Verified through ntfy:** update by command; first command on a new inbox; no replay after restarts; unknown commands, odd capitalization and bursts; a crashing image and the skip rule; an update cut off before validating, then retried successfully; a wrong SHA-256; and no secrets in the published file. **Not done yet:** certificate checking and signatures (the hash only catches corruption, so anyone who can replace the release files or intercept the connection could ship firmware), and an image is marked valid only after reaching the update server. To publish: compile with `--output-dir`, write `manifest.txt` for the `.bin`, attach both to a release as `pebble-pager.bin` and `manifest.txt`; GitHub can serve the previous files for a minute or two after a release changes. The layout is `PartitionScheme=min_spiffs`: two 1.9 MB app slots (the firmware uses 1.16 MB, 58%); changing it needs a USB flash.

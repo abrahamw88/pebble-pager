@@ -6,20 +6,22 @@
 //   wifi_manager.h  Wi-Fi connection manager
 //   ntfy.h     post to topics, read this device's inbox
 //   pulse.h    the message format
-//   messages.h sending, receiving, receipts, the outbox and the unread list
 //   input.h    buttons: taps, holds and recording
-//   ring.h     the light ring's animation engine (not yet connected to the hardware)
+//   ring.h     the light ring's animation engine: pure math
+//   output.h   the ring and the motor as hardware, and what the device shows on them
+//   battery.h  battery level
+//   messages.h sending, receiving, receipts, the outbox and the unread list
 //   ota.h      remote firmware updates
 //   portal.h   setup page
 //   tests.h    hardware checks, built instead of the firmware with -DTEST=n
 //
-// Built so far: settings, setup page, Wi-Fi manager, messages between devices with receipts, buttons and
-// recording, sleep, remote updates. Still to build: ring, motor, battery.
+// The ring, motor and battery code is written but has not run on the parts yet (README: The ring's animation).
 //
 // The serial console and the inbox help with testing:
 //   console: show, set name|color|partner|base <value>, send <message>, play, press <1|2> <times>, boot <1|2>,
-//            awake, sleep
-//   inbox:   update, status (wake counts and time awake, to the phone), awake (stay awake 10 minutes), sleep
+//            battery, show received|failed|waiting|low, awake, sleep
+//   inbox:   update, status (wake counts, time awake and battery, to the phone), battery, battery on|off (report
+//            every hour), awake (stay awake 10 minutes), sleep
 //
 // Build flags (--build-property compiler.cpp.extra_flags="..."):
 //   -DFW_VERSION=N       version of this build, compared with the release's manifest (default 1)
@@ -41,9 +43,11 @@
 #include "wifi_manager.h"
 #include "ntfy.h"
 #include "pulse.h"
-#include "messages.h"
 #include "input.h"
 #include "ring.h"
+#include "output.h"
+#include "battery.h"
+#include "messages.h"
 #include "ota.h"
 #include "portal.h"
 
@@ -63,7 +67,7 @@ String statusText() {
          String(statJoinMs / n) + " inbox " + String(statPollMs / n) + "), joins " + String(wFastJoins) + " fast " +
          String(wFullJoins) + " full " + String(wFastFails) + " failed, " + String(WiFi.RSSI()) + " dBm, " +
          String(statButtonWakes) + " button wakes, " + String(statStalls) + " stalls, unread " + String(listCount(UNREAD)) +
-         " outbox " + String(listCount(OUTBOX));
+         " outbox " + String(listCount(OUTBOX)) + ", " + batteryText();
 }
 
 // One message from this device's inbox: a command, a receipt, or a pulse message. Anything else is ignored.
@@ -77,6 +81,12 @@ void onMessage(const NtfyMessage& m) {
   if (lower == "status") { ntfySay(statusText()); return; }
   if (lower == "awake") { powerHold(AWAKE_COMMAND_MS); ntfySay("awake for " + String(AWAKE_COMMAND_MS / 60000) + " min"); return; }
   if (lower == "sleep") { powerRelease(); ntfySay("back to sleeping"); return; }
+  if (lower == "battery") { ntfySay(batteryText()); return; }
+  if (lower == "battery on" || lower == "battery off") {
+    batteryReports(lower.endsWith("on"));
+    ntfySay(battReports ? "battery report every " + String(BATT_REPORT_S / 60) + " min; now " + batteryText() : String("battery report off"));
+    return;
+  }
   if (lower.startsWith("received ")) { messageReceipt(text.substring(9)); return; }
 #ifdef WIFI_TEST   // simulate trouble, to test the Wi-Fi manager from the phone
   if (lower == "drop") WiFi.disconnect();                                              // connection lost
@@ -90,7 +100,13 @@ void onMessage(const NtfyMessage& m) {
   else messageArrived(m, p);
 }
 
-// Console commands that stand in for the buttons until they are wired.
+void batteryTap() {   // button 2's tap: the level on the ring
+  batteryRead();
+  sayf("%s\n", batteryText().c_str());
+  showBattery(batteryFitted() ? batteryPercent() : 0);
+}
+
+// Console commands that stand in for the buttons, and show each display, for testing.
 void onConsole(const String& line) {
   if (line.startsWith("send ")) {
     const char* problem = messageQueue(line.substring(5));
@@ -101,6 +117,15 @@ void onConsole(const String& line) {
     inputSimulate(line.substring(6).toInt() == 2, line.substring(8));
   } else if (line.startsWith("boot ")) {
     inputBootButton(line.substring(5).toInt() == 2);
+  } else if (line == "battery") {
+    batteryTap();
+  } else if (line.startsWith("show ")) {
+    String what = line.substring(5);
+    if (what == "received") showReceived();
+    else if (what == "failed") showFailed();
+    else if (what == "waiting") showWaiting(outOwnRgb);
+    else if (what == "low") showLow();
+    else sayln("show received|failed|waiting|low");
   } else if (line == "awake") {
     powerHold(AWAKE_COMMAND_MS);
   } else if (line == "sleep") {
@@ -113,6 +138,8 @@ void onConsole(const String& line) {
 
 bool inboxRead = false;    // this wake: the inbox has been read (clear it to read again at once)
 bool tapWaiting = false;   // a tap found nothing stored: read the inbox, then play
+bool remindDue = false;    // show that a message is waiting: once at each wake, and after each later look at the inbox
+bool starting = false;     // just switched on, and joining Wi-Fi for the first time: the chase
 
 // One thing the user did with the buttons.
 void onInput(int event) {
@@ -135,19 +162,35 @@ void onInput(int event) {
       String text = pulseText(recorded);
       const char* problem = messageQueue(text);
       sayf("Recorded %s: %s\n", text.c_str(), problem ? problem : "queued");
+      if (problem) showFailed();
       inboxRead = false;   // the recording is done: look for a new message straight away
       break;
     }
-    case EV_BATTERY: sayln("Battery: not built yet"); break;
+    case EV_BATTERY: batteryTap(); break;
     case EV_SETUP:   // the same hold opens the setup page and closes it
+      showSetup(!portalOn);
       if (portalOn) stopPortal();
       else { wifiPause(); startPortal(); }
       break;
-    case EV_OFF:   // sleep with no timer: only a button brings it back
+    case EV_OFF:   // sleep with no timer: only a long hold of button 2 brings it back
       sayln("Off");
+      outputStop();
+      powerIsOff = true;
       powerSleep(0);
       break;
   }
+}
+
+// Quiet reminders, when nothing else is on the ring: a message is waiting (its sender's color, at the top), and
+// the battery is low (amber, at the bottom).
+void remind() {
+  if (inputBusy() || outputActive()) return;
+  if (remindDue) {
+    remindDue = false;
+    long rgb = messageWaitingColor();
+    if (rgb >= 0) { showWaiting(rgb); return; }
+  }
+  if (batteryLowDue()) showLow();
 }
 
 // True when nothing needs the device awake.
@@ -156,6 +199,7 @@ bool canSleep() {
   return false;
 #endif
   if (powerHeld() || portalOn || tapWaiting || inputBusy() || inputPending() || messagesAwaiting() || wantUpdate) return false;
+  if (outputActive()) return false;                         // let the ring and the motor finish
   if (!wifiSettled()) return false;                         // a scan or join is under way
   if (!wifiOnline()) return true;                           // nothing in range: sleep, and look again later
   return inboxRead && !messagesWaiting() && !notesWaiting();   // online: the inbox is read and nothing is left to post
@@ -165,7 +209,12 @@ void setup() {
   Serial.begin(115200);
   settingsBegin();
   powerBegin();
+  outputOnGate();   // a device that was off stays asleep unless button 2 is held
   inputBegin();
+  batteryBegin();   // before the radio starts
+  outputBegin();
+  remindDue = wakeReason == WAKE_TIMER;
+  starting = wakeReason == WAKE_COLD && savedCount() > 0;
   unsigned long setupMs = millis();
   if (wakeReason == WAKE_COLD) {
     sayf("\n== Pebble v%d ==\n", FW_VERSION);
@@ -186,6 +235,9 @@ void loop() {
   if (consoleRead(line)) { powerHold(60000); onConsole(line); }
 
   for (int event; (event = inputTick()) != EV_NONE;) onInput(event);
+  if (starting && (wifiOnline() || wifiSettled())) starting = false;
+  outputTick(starting);
+  remind();
 
   bool wasPortal = portalOn;
   if (portalTick()) wifiAdopt();                       // a network was joined through the setup page
@@ -208,6 +260,12 @@ void loop() {
         int fresh = ntfyPoll(onMessage);
         if (first && wakeReason == WAKE_TIMER) statPollMs += millis() - lastPoll;
         sayf("Inbox: %d new (%lu ms)\n", fresh, millis() - lastPoll);
+        if (tapWaiting) arrived = 0;                           // a tap is about to play what came in
+        if (!messagesAnnounce() && (!first || fresh > 0)) remindDue = true;   // a new message plays; otherwise show that one is waiting
+      }
+      if (batteryReportDue()) {
+        if (millis() > 60000) batteryRead();   // kept awake a long time: the reading from start-up is stale
+        ntfySay(batteryText());
       }
       if (wantUpdate || (!checked && updateDue())) {   // asked for, or the once-a-start / once-a-day check
         bool asked = wantUpdate;
@@ -227,6 +285,7 @@ void loop() {
   if (canSleep()) {
     unsigned long awake = millis() + WAKE_LEAD_MS;
     sayf("Sleep after %lu ms\n", awake);
+    outputStop();
     powerSleep(!wifiOnline() ? (savedCount() ? wifiRetryMs() : WIFI_RETRY_MAX_MS)
                : awake < CHECK_INTERVAL_MS - 1000 ? CHECK_INTERVAL_MS - awake : 1000);
   }

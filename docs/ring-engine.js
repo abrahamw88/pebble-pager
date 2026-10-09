@@ -7,12 +7,15 @@ const RING_STEP_S = RING_STEP_MS / 1000;
 
 const ringTune = {
   speed: 0.9, accel: 0.2, maxSpeed: 1.9, tail: 5.5, tailPower: 1.0, attackHz: 2.6, releaseHz: 1.5,
-  leap: 1.2, recoil: 1.0, bounceHz: 3.0, bounceDamp: 0.35, stretch: 1.0, pastel: 0.2, whiteGain: 1.0, peak: 1.4, budgetMa: 180.0
+  leap: 1.2, recoil: 1.0, bounceHz: 3.0, bounceDamp: 0.35, stretch: 1.0, pastel: 0.2, whiteGain: 1.0, peak: 1.4, budgetMa: 180.0, meter: 0.6
 };
 
 const ring = {
   down: false, level: 0, vel: 0, hop: 0, hopVel: 0, angle: 0, held: 0, speed: 0, color: [0, 0, 0, 0],
-  failT: -1, blipT: -1, blipColor: [0, 0, 0, 0], play: null, playCount: 0, playIndex: 0, playLeftMs: 0, clock: 0
+  failT: -1, blipT: -1, blipColor: [0, 0, 0, 0], blipAt: 0, sweepT: -1, sweepColor: [0, 0, 0, 0],
+  busy: false, busyLevel: 0, busyAngle: 0, busyColor: [0, 0, 0, 0],
+  meterFill: 0, meterTarget: 0, meterLevel: 0, meterColor: [0, 0, 0, 0], gaugeMs: -1, gaugePixels: 0,
+  play: null, playCount: 0, playIndex: 0, playLeftMs: 0, clock: 0
 };
 
 function ringSplit(rgb, out) {
@@ -40,10 +43,30 @@ function ringPlay(ms, count) {
 }
 
 function ringFail() { ring.failT = 0; }
-function ringBlip(rgb) { ringSplit(rgb, ring.blipColor); ring.blipT = 0; }
+function ringBlip(rgb, at = 0) { ringSplit(rgb, ring.blipColor); ring.blipAt = at; ring.blipT = 0; }
+function ringSweep(rgb) { ringSplit(rgb, ring.sweepColor); ring.sweepT = 0; }
+function ringBusy(rgb) { ringSplit(rgb, ring.busyColor); ring.busy = true; }
+function ringBusyStop() { ring.busy = false; }
+
+function ringMeter(rgb, fill, level) {
+  ringSplit(rgb, ring.meterColor);
+  ring.meterFill = fill; ring.meterTarget = level; ring.gaugeMs = -1;
+}
+function ringMeterStop() { ring.meterTarget = 0; ring.gaugeMs = -1; }
+function ringGauge(rgb, pixels) {
+  ringSplit(rgb, ring.meterColor);
+  ring.gaugePixels = pixels; ring.gaugeMs = 0; ring.meterFill = 0; ring.meterTarget = 1;
+}
 
 function ringActive() {
-  return ring.down || ring.level > 0 || ring.failT >= 0 || ring.blipT >= 0 || ring.play !== null;
+  return ring.down || ring.level > 0 || ring.failT >= 0 || ring.blipT >= 0 || ring.play !== null ||
+         ring.sweepT >= 0 || ring.busy || ring.busyLevel > 0 || ring.meterTarget > 0 || ring.meterLevel > 0;
+}
+
+function ringSmooth(a, b, x) {
+  let t = (x - a) / (b - a);
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  return t * t * (3 - 2 * t);
 }
 
 function ringStep() {
@@ -82,17 +105,24 @@ function ringStep() {
 
   if (ring.failT >= 0) { ring.failT += dt; if (ring.failT >= 1.35) ring.failT = -1; }
   if (ring.blipT >= 0) { ring.blipT += dt; if (ring.blipT >= 0.9) ring.blipT = -1; }
+  if (ring.sweepT >= 0) { ring.sweepT += dt; if (ring.sweepT >= 0.8) ring.sweepT = -1; }
+
+  ring.busyLevel += ((ring.busy ? 1.0 : 0.0) - ring.busyLevel) * 6.0 * dt;
+  if (!ring.busy && ring.busyLevel < 0.003) ring.busyLevel = 0;
+  if (ring.busyLevel > 0) { ring.busyAngle += 0.8 * dt; if (ring.busyAngle >= 1) ring.busyAngle -= 1; }
+
+  if (ring.gaugeMs >= 0) {
+    ring.gaugeMs += RING_STEP_MS;
+    ring.meterFill = ring.gaugePixels * ringSmooth(0.0, 500.0, ring.gaugeMs);
+    if (ring.gaugeMs >= 2500) { ring.gaugeMs = -1; ring.meterTarget = 0; }
+  }
+  ring.meterLevel += (ring.meterTarget - ring.meterLevel) * 8.0 * dt;
+  if (ring.meterTarget === 0 && ring.meterLevel < 0.003) ring.meterLevel = 0;
 }
 
 function ringAdvance(nowS) {
   if (nowS - ring.clock > 1.0) ring.clock = nowS - 1.0;
   while (ring.clock + RING_STEP_S <= nowS) ringStep();
-}
-
-function ringSmooth(a, b, x) {
-  let t = (x - a) / (b - a);
-  t = t < 0 ? 0 : t > 1 ? 1 : t;
-  return t * t * (3 - 2 * t);
 }
 
 function ringRender(out) {
@@ -132,9 +162,33 @@ function ringRender(out) {
   if (ring.blipT >= 0) {
     let breath = Math.sin(3.1415927 * ring.blipT / 0.9);
     breath = breath * breath * ringTune.peak * 0.8;
-    const at = [RING_PIXELS - 1, 0, 1], share = [0.25, 1.0, 0.25];
+    const at = [(ring.blipAt + RING_PIXELS - 1) % RING_PIXELS, ring.blipAt, (ring.blipAt + 1) % RING_PIXELS], share = [0.25, 1.0, 0.25];
     for (let k = 0; k < 3; k++)
       for (let c = 0; c < 4; c++) px[at[k]][c] += ring.blipColor[c] * breath * share[k];
+  }
+  if (ring.sweepT >= 0) {
+    const t = ring.sweepT / 0.8, at = t * RING_PIXELS, glow = Math.sin(3.1415927 * t);
+    for (let i = 0; i < RING_PIXELS; i++) {
+      let d = Math.abs(i - at);
+      if (d > RING_PIXELS / 2.0) d = RING_PIXELS - d;
+      if (d >= 2.5) continue;
+      for (let c = 0; c < 4; c++) px[i][c] += ring.sweepColor[c] * (1 - d / 2.5) * glow;
+    }
+  }
+  if (ring.busyLevel > 0) {
+    for (let i = 0; i < RING_PIXELS; i++) {
+      let d = Math.abs(i - ring.busyAngle * RING_PIXELS) % (RING_PIXELS / 2.0);
+      if (d > RING_PIXELS / 4.0) d = RING_PIXELS / 2.0 - d;
+      if (d >= 1.5) continue;
+      for (let c = 0; c < 4; c++) px[i][c] += ring.busyColor[c] * (1 - d / 1.5) * ring.busyLevel * 0.8;
+    }
+  }
+  if (ring.meterLevel > 0) {
+    for (let i = 0; i < RING_PIXELS; i++) {
+      let lit = ring.meterFill - i;
+      lit = lit < 0 ? 0 : lit > 1 ? 1 : lit;
+      for (let c = 0; c < 4; c++) px[i][c] += ring.meterColor[c] * lit * ring.meterLevel * ringTune.meter;
+    }
   }
 
   let sum = 0;

@@ -34,6 +34,11 @@ p { margin: 0; }
 .btn:focus-visible { outline: 3px solid #FFFFFF; outline-offset: 3px; }
 #b1 { left: 50%; top: 50%; width: 38%; height: 38%; transform: translate(-50%, -50%); }
 #b2 { left: 77%; top: 77%; width: 15%; height: 15%; transform: translate(-50%, -50%); background: rgba(255,255,255,0.10); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.16); }
+.ref { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.ref th { text-align: left; font-family: var(--display); font-weight: 600; padding: 12px 0 4px; font-size: 0.9rem; }
+.ref td { vertical-align: top; padding: 5px 0; border-top: 1px solid var(--line); }
+.ref td:first-child { width: 40%; padding-right: 10px; font-weight: 500; }
+.sw { display: inline-block; width: 0.8em; height: 0.8em; border-radius: 50%; margin-right: 0.3em; vertical-align: -0.05em; }
 .says { font-size: 0.9rem; min-height: 2.7em; }
 .says b { color: #FFFFFF; font-weight: 500; }
 .counts { display: flex; justify-content: space-between; gap: 12px; font-size: 0.82rem; font-variant-numeric: tabular-nums; }
@@ -81,11 +86,28 @@ details summary { cursor: pointer; font-family: var(--display); font-weight: 600
   </section>
 
   <section class="panel">
+    <details open>
+      <summary>Buttons and lights</summary>
+      <table class="ref">
+        <tr><td>Power on</td><td>Press and hold the small button for 5 seconds. A <span class="sw" style="background:#50E080"></span>green light fills the ring.</td></tr>
+        <tr><td>Power off</td><td>Hold the small button for 10 seconds. The ring fills <span class="sw" style="background:#9060F0"></span>purple, then <span class="sw" style="background:#F03030"></span>red counts down; let go when it is dark.</td></tr>
+        <tr><td>Send a message</td><td>Hold the big button, then tap and press a pattern of long and short presses. Each press lights a comet in your color. The ring is dark while it sends, then ends with one <span class="sw" style="background:#50E080"></span>green sweep: received.</td></tr>
+        <tr><td>Play a message</td><td>One pixel breathing at the top, in the sender's color, means a message is waiting. Tap the big button to play it; tap again to replay it. During a conversation it plays by itself.</td></tr>
+        <tr><td>Check the battery</td><td>Tap the small button. 1 to 12 <span class="sw" style="background:#50E080"></span>green pixels light up (a page has no battery, so it shows full).</td></tr>
+        <tr><td>Wi-Fi setup</td><td>Hold the small button for 5 seconds and let go when the ring is full <span class="sw" style="background:#9060F0"></span>purple. Do it again to close.</td></tr>
+        <tr><td>Something went wrong</td><td>Two <span class="sw" style="background:#F03030"></span>red pulses: the message could not be sent, or was not received.</td></tr>
+        <tr><td>Low battery</td><td>One <span class="sw" style="background:#FFA020"></span>amber pixel at the bottom, once a minute.</td></tr>
+      </table>
+      <p class="note">While it is off, the big button does nothing. On the real device the green sweep, red signal and each playing press also give a short, gentle buzz; a page can't buzz.</p>
+    </details>
+  </section>
+
+  <section class="panel">
     <details>
       <summary>What the pager says</summary>
       <pre id="log" aria-live="off"></pre>
     </details>
-    <p class="note">The small button is button 2: tap for battery, hold 5 seconds and release for setup, 10 seconds to turn off. Messages only arrive while this page is open on screen.</p>
+    <p class="note">The small button is button 2: tap for battery, hold 5 seconds and release for setup (the ring fills purple), 10 seconds to turn off (it counts down in red). There is no buzz on a page. Messages only arrive while this page is open on screen.</p>
     <button class="act" id="openSetup">Setup</button>
   </section>
 </div>
@@ -95,7 +117,8 @@ details summary { cursor: pointer; font-family: var(--display); font-weight: 600
 <script>
 // A pager in a web page. It follows the firmware in firmware/pebble-pager step for step: the same press rules
 // (input.h), message format (pulse.h), sending, receiving and receipts (messages.h), inbox reading (ntfy.h) and
-// ring animation (ring.h, through ring-engine.js). Setup, sleep and updates are the parts a page cannot copy.
+// ring animation (ring.h, through ring-engine.js) and what the ring shows when (output.h). Setup, sleep, updates,
+// the battery and the motor are the parts a page cannot copy.
 
 // ---- Values from config.h ----
 const SETUP_HOLD_MS = 5000, OFF_HOLD_MS = 10000, RECORD_HOLD_MS = 500, SEND_PAUSE_MS = 2000;
@@ -103,6 +126,8 @@ const CHECK_INTERVAL_MS = 30000, RECEIPT_POLL_MS = 5000, RECEIPT_WAIT_MS = 45000
 const MAX_PRESSES = 12, MAX_RECORD_MS = 15000, OUTBOX_MAX = 5, UNREAD_MAX = 3, NOTES_MAX = 5, NTFY_BATCH = 8;
 const QUEUE_MAX_AGE_MS = 24 * 60 * 60 * 1000, PULSE_MIN_MS = 20, PULSE_MAX_MS = 5000, PULSE_MAX_TIMES = 2 * MAX_PRESSES - 1;
 const NAME_MAX_LEN = 20, BASE_MAX_LEN = 40, NTFY_SERVER = "https://ntfy.sh/";
+const ON_HOLD_MS = 5000, CONVERSATION_MS = 120000, PLAY_GAP_MS = 250, HOLD_SHOW_MS = 400, SETUP_SHOWN_MS = 800, SETUP_GLOW = 0.4;
+const RGB_RECEIVED = 0x50E080, RGB_BATTERY = 0x50E080, RGB_SETUP = 0x9060F0, RGB_OFF = 0xF03030, RGB_ON = 0x50E080;
 const COLOR_NAMES = ["Pink", "Blue", "Green", "Purple", "Orange", "Teal", "Yellow", "Red"];
 const COLOR_RGB = [0xF29BB5, 0x7FB2F0, 0x6CC795, 0xA98BE0, 0xF08A4B, 0x5CC9C0, 0xF2D45C, 0xE8736B];
 const DIFFUSER = 0.6;   // how the ring is drawn; see ring-preview.html
@@ -207,6 +232,9 @@ function connect() {   // hold a live connection to this pager's own inbox
 
 // ---- Messages (messages.h) ----
 let awaited = [];   // [{id, at}] sent messages whose receipts have not come yet
+let lastSentAt = 0;      // when a message last went out from here
+let sendShown = false;   // a message recorded here is still in the outbox: if it can't go, the ring says so once
+function ringShow(what) { ringAdvance(ms() / 1000); what(); }
 function queueMessage(text) {   // returns null if accepted, otherwise a short reason
   if (!canSend()) return "set the topic base and partner's name in Setup first";
   const p = pulseParse(text);
@@ -214,6 +242,7 @@ function queueMessage(text) {   // returns null if accepted, otherwise a short r
   outbox.push({ at: Date.now(), text: pulseText(p) });
   if (outbox.length > OUTBOX_MAX) outbox.shift();
   sendRetryAt = Date.now();
+  sendShown = true;
   save();
   return null;
 }
@@ -221,8 +250,14 @@ function queueMessage(text) {   // returns null if accepted, otherwise a short r
 async function sendNext() {
   const text = outbox[0].text;
   const id = await publish(settings.partner, settings.name, text);
-  if (!id) { sendRetryAt = Date.now() + SEND_RETRY_MS; return; }
+  if (!id) {
+    sendRetryAt = Date.now() + SEND_RETRY_MS;
+    if (sendShown) { sendShown = false; ringShow(ringFail); show("Couldn't send. It is queued and will be tried again."); }
+    return;
+  }
   outbox.shift();
+  if (!outbox.length) sendShown = false;
+  lastSentAt = Date.now();
   save();
   await tell("sent " + text);
   awaited.push({ id, at: Date.now() });
@@ -235,6 +270,7 @@ function receipt(id) {
   if (i < 0) return;
   say("Delivered in " + (Date.now() - awaited[i].at) + " ms");
   awaited.splice(i, 1);
+  ringShow(() => ringSweep(RGB_RECEIVED));
   show("Received by " + settings.partner + ".");
 }
 
@@ -243,6 +279,7 @@ async function arrived(m, p) {
   const text = pulseText(p);
   unread.push({ at: Date.now(), from: fromPartner ? settings.partner : "phone", text });
   if (unread.length > UNREAD_MAX) unread.shift();
+  arrivedN++;
   save();
   if (fromPartner) await publish(settings.partner, settings.name, "received " + m.id);
   else await tell("received " + text);
@@ -341,7 +378,7 @@ function inputTick() {
 }
 
 // ---- The ring and playback ----
-let off = false, playing = false, armAfterPlay = false;
+let off = false, playing = false, armAfterPlay = false, arrivedN = 0;
 const playQueue = [];
 const wait = (t) => new Promise((r) => setTimeout(r, t));
 const ringIdle = () => new Promise((r) => { const look = () => (ring.play === null && !ring.down && ring.level === 0 ? r() : setTimeout(look, 30)); look(); });
@@ -367,7 +404,7 @@ async function playAll() {   // play what is queued, one after another, each in 
     ringSetColor(COLOR_RGB[p.color]);
     ringPlay(p.ms, p.ms.length);
     await ringIdle();
-    await wait(250);
+    await wait(PLAY_GAP_MS);
   }
   playing = false;
   recQuietUntil = 0;
@@ -401,11 +438,12 @@ function onInput(event) {
   if (event === EV_RECORD_DONE) {
     const text = settings.color.toLowerCase() + " " + recorded.join(" ");
     const problem = queueMessage(text);
+    if (problem) ringShow(ringFail);
     say("Recorded " + text + ": " + (problem || "queued"));
     show(problem ? "Not sent: " + problem + "." : "Recorded <b>" + text + "</b>. Sending.");
     lastCheck = 0;   // the recording is done: look for a new message straight away
   }
-  if (event === EV_BATTERY) { say("Battery: not built yet"); show("Battery level is not built yet."); }
+  if (event === EV_BATTERY) { say("battery: none, a web page is always full"); show("Battery level. A web page has none, so it shows full."); ringShow(() => ringGauge(RGB_BATTERY, RING_PIXELS)); }
   if (event === EV_SETUP) toggleSetup();
   if (event === EV_OFF) { say("Off"); turnOff(); }
 }
@@ -414,14 +452,21 @@ function turnOff() {
   off = true;
   if (stream) stream.close();
   stream = null; online = false;
-  ringAdvance(ms() / 1000); ringPress(false);
-  show("Off. Press either button to turn it on.");
+  ringAdvance(ms() / 1000); ringPress(false); ringBusyStop(); ringMeterStop();
+  show("Off. Hold the small button for 5 seconds to turn it on.");
 }
 function turnOn() { off = false; say("== Pebble virtual pager =="); show("On."); lastCheck = 0; connect(); }
 
+let onHoldAt = -1;   // off: when button 2 went down, or -1
 function wire(el, index) {
   const edge = (down) => {
-    if (off) { if (down) turnOn(); return; }
+    if (off) {   // only a 5 s hold of button 2 turns it on; button 1 does nothing
+      if (index === 1) {
+        if (down) { onHoldAt = ms(); ringAdvance(ms() / 1000); setTimeout(() => { if (off && onHoldAt >= 0 && ms() - onHoldAt >= ON_HOLD_MS - 50) { onHoldAt = -1; ringMeterStop(); turnOn(); } }, ON_HOLD_MS); }
+        else { onHoldAt = -1; ringAdvance(ms() / 1000); ringMeterStop(); }
+      }
+      return;
+    }
     edges.push({ button: index, down, at: ms() });
     if (index === 0) pressRing(down);
   };
@@ -446,6 +491,15 @@ async function check() {   // what the device does each time it wakes: read the 
     marks.seen = marks.seen.slice(-40);
     save();   // before handling, as the device does
     await handle(m);
+  }
+  const fresh = Math.min(arrivedN, unread.length);   // a message waits for a tap, unless one was sent from here a moment ago
+  arrivedN = 0;
+  if (tapWaiting) return;                            // a tap is about to play it
+  if (fresh && lastSentAt && Date.now() - lastSentAt < CONVERSATION_MS) {   // a conversation is going on: play at once
+    while (unread.length) { lastPlayed = unread.shift(); say("Play from " + lastPlayed.from + ": " + lastPlayed.text + " (" + unread.length + " unread left)"); playQueue.push(lastPlayed); }
+    save();
+    playAll();
+    return;
   }
   if (unread.length && !playing && !ringActive() && !inputBusy()) {
     const p = pulseParse(unread[0].text);
@@ -472,6 +526,7 @@ async function loop() {
       const every = settings.live ? 0 : awaited.length ? RECEIPT_POLL_MS : CHECK_INTERVAL_MS;
       if (ready() && (settings.live ? inbox.length > 0 || now - lastCheck >= CHECK_INTERVAL_MS : now - lastCheck >= every)) await check();
       if (tapWaiting) playOne();   // the tap's answer, now the inbox is read (or can't be)
+      if (sendShown && outbox.length && !online) { sendShown = false; say("Can't send now: queued"); show("Couldn't send. It is queued and will be tried again."); ringShow(ringFail); }
       if (online && canSend() && outbox.length && now >= sendRetryAt) await sendNext();
       if (online && notes.length && now >= notesRetryAt) {
         if ((await publish("phone", "Pebble", notes[0].line)).length) { notes.shift(); save(); } else notesRetryAt = now + SEND_RETRY_MS;
@@ -490,10 +545,28 @@ async function loop() {
 
 // ---- Drawing ----
 const frame = Array.from({ length: RING_PIXELS }, () => [0, 0, 0, 0]);
+let holdShown = false;
+function showState() {   // output.h's outputTick(): button 2's hold on the meter
+  if (off) {   // output.h's outputOnGate(): the ring fills green while button 2 is held
+    const held = onHoldAt >= 0 ? ms() - onHoldAt : 0;
+    if (held >= HOLD_SHOW_MS) ringMeter(RGB_ON, RING_PIXELS * Math.min(held / ON_HOLD_MS, 1), 1);
+    return;
+  }
+  const held = button[1].down ? ms() - button[1].at : 0, redFrom = SETUP_HOLD_MS + SETUP_SHOWN_MS;
+  const setupOpen = !$("setup").hidden && !off, gauge = ring.gaugeMs >= 0;
+  if (held >= OFF_HOLD_MS) ringMeterStop();
+  else if (held >= redFrom) ringMeter(RGB_OFF, RING_PIXELS * (OFF_HOLD_MS - held) / (OFF_HOLD_MS - redFrom), 1);
+  else if (held >= SETUP_HOLD_MS) ringMeter(RGB_SETUP, RING_PIXELS, 1);
+  else if (held >= HOLD_SHOW_MS) ringMeter(RGB_SETUP, RING_PIXELS * held / SETUP_HOLD_MS, 1);
+  else if (setupOpen && !gauge) ringMeter(RGB_SETUP, RING_PIXELS, SETUP_GLOW);
+  else if (holdShown && !gauge) ringMeterStop();
+  holdShown = held >= HOLD_SHOW_MS || setupOpen;
+}
 function draw() {
   ringAdvance(ms() / 1000);
+  showState();
   ringRender(frame);
-  if (off) frame.forEach((p) => p.fill(0));
+  if (off && onHoldAt < 0) frame.forEach((p) => p.fill(0));
   ringDraw($("view"), frame, ownRgb(), DIFFUSER);
   requestAnimationFrame(draw);
 }

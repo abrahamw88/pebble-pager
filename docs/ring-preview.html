@@ -76,7 +76,19 @@ button.act:focus-visible, .swatch:focus-visible, input:focus-visible { outline: 
           <button class="act" id="fail">Not received</button>
           <button class="act" id="blip">Message waiting</button>
         </div>
-        <p class="note">Recording and playback use the same press times, so both devices show the same motion. "Message waiting" is in the color of whoever sent it. "Not received" is the only other color: a red pulse when no receipt comes back.</p>
+        <p class="note">Recording and playback use the same press times, so both devices show the same motion. "Message waiting" is in the color of whoever sent it. "Not received" is a red pulse when a message can't be sent or no receipt comes back.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Status lights</h2>
+        <div class="row">
+          <button class="act" id="working">Sending (toggle)</button>
+          <button class="act" id="sent">Received</button>
+          <button class="act" id="battery">Battery 7 of 12</button>
+          <button class="act" id="low">Battery low</button>
+          <button class="act" id="hold2">Button 2 held 10 s</button>
+        </div>
+        <p class="note">These are the device's own colors and a plainer motion, so they are never mistaken for a message: a cyan chase while joining Wi-Fi, a green sweep when the message is received, the battery level, and button 2's hold, which fills purple to 5 seconds (release for setup) and then counts down in red to 10 (release to turn off).</p>
       </section>
 
       <section class="panel">
@@ -126,6 +138,7 @@ const TUNING = [
   ["pastel", "White in the head", "0 is the pure color; 1 is the full pastel", 0, 1, 0.05],
   ["whiteGain", "White tail brightness", "against the colored head", 0.2, 1.2, 0.05],
   ["peak", "Brightness", "above 1 the head is already at full, so more of the comet reaches full", 0.1, 2.5, 0.05],
+  ["meter", "Status brightness", "the battery level and button 2's hold, next to the comet", 0.2, 1, 0.05],
   ["budgetMa", "Power budget", "mA the ring may draw", 60, 400, 10]
 ];
 const DEFAULTS = Object.assign({}, ringTune);
@@ -216,11 +229,27 @@ $("playSample").onclick = () => play([900, 300, 180, 220, 180]);
 $("fail").onclick = () => { ringAdvance(now()); ringFail(); say("Not received: no receipt came back in time."); };
 $("blip").onclick = () => { ringAdvance(now()); ringBlip(COLORS.find((c) => c[0] === colorName)[1]); say("A message from the " + colorName.toLowerCase() + " device is waiting (shown briefly at each wake)."); };
 
+let holdAt = -1;
+$("working").onclick = () => { ringAdvance(now()); if (ring.busy) ringBusyStop(); else ringBusy(0x40D8E8); say("Joining Wi-Fi after switching on."); };
+$("sent").onclick = () => { ringAdvance(now()); ringSweep(0x50E080); say("Received: the one green sweep that ends a send, with a short buzz."); };
+$("battery").onclick = () => { ringAdvance(now()); ringGauge(0x50E080, 7); say("Battery level after a tap of button 2: 7 of 12 pixels."); };
+$("low").onclick = () => { ringAdvance(now()); ringBlip(0xFFA020, 6); say("Battery under 20%: an amber blink at the bottom, once a minute."); };
+$("hold2").onclick = () => { holdAt = performance.now(); say("Button 2 held: purple fills to 5 s, then red counts down to 10 s."); };
+function showHold() {   // the same steps as the firmware's outputTick()
+  if (holdAt < 0) return;
+  const held = performance.now() - holdAt, redFrom = 5800;
+  if (held >= 10000) { ringMeterStop(); holdAt = -1; }
+  else if (held >= redFrom) ringMeter(0xF03030, RING_PIXELS * (10000 - held) / (10000 - redFrom), 1);
+  else if (held >= 5000) ringMeter(0x9060F0, RING_PIXELS, 1);
+  else if (held >= 400) ringMeter(0x9060F0, RING_PIXELS * held / 5000, 1);
+}
+
 // ---- Drawing (ring-view.js does the work) ----
 const view = $("view");
 const frame = Array.from({ length: RING_PIXELS }, () => [0, 0, 0, 0]);
 function draw() {
   ringAdvance(now());
+  showHold();
   const mA = ringRender(frame);
   const lit = ringDraw(view, frame, COLORS.find((x) => x[0] === colorName)[1], +$("diffuse").value);
   $("ma").textContent = ringActive() ? Math.round(mA) : 0;   // dark: the ring's power is switched off

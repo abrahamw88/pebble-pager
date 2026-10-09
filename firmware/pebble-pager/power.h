@@ -16,6 +16,7 @@ volatile bool stallAllowed = false; // a long job (a firmware download) is runni
 // Counts kept through sleep, for the "status" report.
 RTC_DATA_ATTR unsigned long statChecks = 0, statCheckMs = 0, statMaxCheckMs = 0;   // timer wakes: how many, total and longest time awake
 RTC_DATA_ATTR unsigned long statButtonWakes = 0, statStalls = 0;
+RTC_DATA_ATTR bool powerIsOff = false;   // switched off from button 2: only a long hold of button 2 turns it on
 RTC_DATA_ATTR unsigned long statStartMs = 0, statJoinMs = 0, statPollMs = 0;   // totals over timer wakes: start-up, fast join, inbox read
 
 void powerSleep(unsigned long ms);
@@ -31,6 +32,7 @@ void powerBegin() {
   esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
   wakeReason = cause == ESP_SLEEP_WAKEUP_TIMER ? WAKE_TIMER : cause == ESP_SLEEP_WAKEUP_GPIO ? WAKE_BUTTON : WAKE_COLD;
   if (wakeReason == WAKE_BUTTON) statButtonWakes++;
+  else powerIsOff = false;   // power-on, a restart or a timer: not the button wake of a device that was off
   if (wakeReason == WAKE_COLD) awakeUntil = COLD_AWAKE_MS;   // after power-on or a restart, give the user time to press something
   loopAt = millis();
   esp_timer_create_args_t args = {};
@@ -48,7 +50,7 @@ void powerHold(unsigned long ms) {                                      // stay 
 void powerRelease() { awakeUntil = millis(); }                          // drop any hold
 bool powerHeld() { return (long)(awakeUntil - millis()) > 0; }
 
-// Deep sleep for `ms` (0 = until a button is pressed). Either real button wakes the device at once.
+// Deep sleep for `ms` (0 = until a button is pressed). Either real button wakes the device at once, unless it is off.
 void powerSleep(unsigned long ms) {
   if (wakeReason == WAKE_TIMER) {   // an ordinary check: this is the number that decides battery life
     unsigned long awake = millis() + WAKE_LEAD_MS;
@@ -57,7 +59,8 @@ void powerSleep(unsigned long ms) {
     if (awake > statMaxCheckMs) statMaxCheckMs = awake;
   }
   if (Serial) Serial.flush();   // only when a computer is listening
-  esp_deep_sleep_enable_gpio_wakeup((1ULL << BTN1) | (1ULL << BTN2), ESP_GPIO_WAKEUP_GPIO_LOW);
+  // Off: only button 2 wakes the chip (and the firmware then insists on a long hold). Otherwise either button does.
+  esp_deep_sleep_enable_gpio_wakeup(powerIsOff ? (1ULL << BTN2) : (1ULL << BTN1) | (1ULL << BTN2), ESP_GPIO_WAKEUP_GPIO_LOW);
   if (ms) esp_sleep_enable_timer_wakeup(ms * 1000ULL);
   esp_deep_sleep_start();
 }

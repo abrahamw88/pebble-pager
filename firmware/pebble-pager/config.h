@@ -21,6 +21,7 @@ const int BOOT_BTN = 9;    // onboard button: acts as button 2 (or button 1, con
 // ---- Values to tune ----
 const unsigned long SETUP_HOLD_MS = 5000;        // hold, then release: open (or close) the setup page
 const unsigned long OFF_HOLD_MS = 10000;         // hold, then release: turn the device off
+const unsigned long ON_HOLD_MS = 5000;           // a device that is off turns on only when button 2 is held this long
 const unsigned long DEBOUNCE_MS = 25;            // a button must stay changed this long to count
 const unsigned long RECORD_HOLD_MS = 500;        // hold button 1 this long to start recording
 const unsigned long WAKE_LEAD_MS = 300;          // a press that wakes the device began about this long before start-up (estimate)
@@ -42,6 +43,21 @@ const int NOTES_MAX = 5;                         // reports for the phone waitin
 #ifndef QUEUE_MAX_AGE_S                          // anything waiting longer is deleted; override for testing
 #define QUEUE_MAX_AGE_S (24UL * 60 * 60)
 #endif
+const unsigned long CONVERSATION_S = 120;        // a message that arrives this soon after one was sent from here plays at once: a conversation is going on
+const unsigned long PLAY_GAP_MS = 250;           // dark pause after a message has played
+const unsigned long HOLD_SHOW_MS = 400;          // button 2 held this long: the ring starts to show the hold (a tap shows nothing)
+const unsigned long SETUP_SHOWN_MS = 800;        // at 5 s the ring stays full purple this long before the red count-down to "off" begins
+const float SETUP_GLOW = 0.4f;                   // brightness of the purple ring while the setup page is open
+const unsigned long BUZZ_SHORT_MS = 120;         // with the green sweep and the red pulses
+const int MOTOR_STRENGTH = 100;                  // of 255: how hard the motor runs. Low on purpose; too low and it will not start turning
+const int MOTOR_PWM_HZ = 20000;                  // above hearing, so the motor does not whine
+const unsigned long FRAME_MS = 16;               // the ring is redrawn this often while it is lit
+const unsigned long RING_POWER_MS = 3;           // after switching the ring's power on, wait this long before sending data
+const int BATT_SAMPLES = 16;                     // readings averaged, as Seeed's battery guide does
+const int BATT_MISSING_MV = 2500;                // a reading below this is not a battery: nothing is wired to the sensor pin
+const int BATT_LOW_PERCENT = 20;                 // below this the ring blinks amber...
+const unsigned long BATT_LOW_BLINK_S = 60;       // ...this often
+const unsigned long BATT_REPORT_S = 3600;        // how often the battery is reported to the phone, when that is switched on
 const int MAX_NETWORKS = 10;
 const int NAME_MAX_LEN = 20;
 const int BASE_MAX_LEN = 40;
@@ -54,6 +70,15 @@ const char* DEFAULT_COLOR = "Pink";
 const int COLOR_COUNT = 8;   // dropdown order on the setup page; the RGB values are for the ring
 const char* COLOR_NAMES[COLOR_COUNT] = {"Pink", "Blue", "Green", "Purple", "Orange", "Teal", "Yellow", "Red"};
 const uint32_t COLOR_RGB[COLOR_COUNT] = {0xF29BB5, 0x7FB2F0, 0x6CC795, 0xA98BE0, 0xF08A4B, 0x5CC9C0, 0xF2D45C, 0xE8736B};
+
+// The ring's status colors. Messages use the sender's color; these belong to the device itself.
+const uint32_t RGB_WORKING = 0x40D8E8;   // cyan chase: joining Wi-Fi after switching on
+const uint32_t RGB_RECEIVED = 0x50E080;  // green sweep: the partner received the message
+const uint32_t RGB_BATTERY = 0x50E080;   // green: battery level
+const uint32_t RGB_LOW = 0xFFA020;       // amber: battery low
+const uint32_t RGB_SETUP = 0x9060F0;     // purple: holding for setup, setup page open
+const uint32_t RGB_OFF = 0xF03030;       // red: holding on towards "off"
+const uint32_t RGB_ON = 0x50E080;        // green: holding to turn on a device that is off
 
 Preferences prefs;
 String deviceName = DEFAULT_NAME;   // also this device's inbox: <base>-<name>
@@ -135,11 +160,12 @@ int listCount(const SavedList& l) { return prefs.getInt((String(l.key) + "n").c_
 void listSetCount(const SavedList& l, int n) { prefs.putInt((String(l.key) + "n").c_str(), n); }
 String listRaw(const SavedList& l, int i) { return prefs.getString(listKey(l, i).c_str(), ""); }   // "<stamp> <text>"
 
-String listPeek(const SavedList& l) {   // the oldest item's text, or "" if the list is empty
-  if (listCount(l) == 0) return "";
-  String raw = listRaw(l, 0);
+String listText(const SavedList& l, int i) {   // item i's text (0 = oldest), or "" if there is no such item
+  if (i < 0 || i >= listCount(l)) return "";
+  String raw = listRaw(l, i);
   return raw.substring(raw.indexOf(' ') + 1);
 }
+String listPeek(const SavedList& l) { return listText(l, 0); }   // the oldest item's text
 
 void listPop(const SavedList& l) {   // remove the oldest item
   int n = listCount(l);
@@ -183,7 +209,7 @@ void sayln(const char* msg) { sayf("%s\n", msg); }
 // ---- USB serial console, for setup and testing without a phone ----
 //   show                                   current settings (the base is not printed)
 //   set name|color|partner|base <value>    change one setting
-// The main tab adds: send <message>, play, press <1|2> <times>, boot <1|2>.
+// The main tab adds: send <message>, play, press <1|2> <times>, boot <1|2>, battery, show <display>.
 bool consoleRead(String& line) {   // true when a whole line has been typed
   static String typed;
   while (Serial.available()) {
