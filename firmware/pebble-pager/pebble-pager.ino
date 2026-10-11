@@ -148,12 +148,22 @@ void onInput(int event) {
   wifiKick();              // any press: if offline, look for a network now
   powerHold(LINGER_MS);    // ...and stay awake a little, in case more follows
   switch (event) {
+    case EV_PRESS_PLAY:   // a press with messages waiting: play the oldest at once, in its sender's color
+      messagePlay();
+      if (inputHeldPlayed && !button[0].down) {   // it was a hold, and is over: play the rest, then a fresh recording
+        inputHeldPlayed = false;
+        while (listCount(UNREAD) > 0) messagePlay();
+        inputArm();
+        sayln("Recording");
+      }
+      break;
     case EV_PLAY:   // nothing stored: a message may have arrived since the last check, so look before answering
       if (listCount(UNREAD) > 0) messagePlay();
       else { tapWaiting = true; inboxRead = false; }
       break;
     case EV_RECORD_START:
-      if (listCount(UNREAD) > 0) {   // unread messages come first: play them all, then record from scratch
+      if (listCount(UNREAD) > 0 || inputHeldPlayed) {   // unread messages come first: play them all, then record from scratch
+        inputHeldPlayed = false;
         while (listCount(UNREAD) > 0) messagePlay();
         inputArm();
       }
@@ -237,6 +247,9 @@ void loop() {
   String line;
   if (consoleRead(line)) { powerHold(60000); onConsole(line); }
 
+  bool waiting = listCount(UNREAD) > 0 && !portalOn;   // a press plays a waiting message at once
+  inputPlayOnPress = waiting;
+  outPlayPending = waiting;
   for (int event; (event = inputTick()) != EV_NONE;) onInput(event);
   if (starting && (wifiOnline() || wifiSettled())) starting = false;
   outputTick(starting);

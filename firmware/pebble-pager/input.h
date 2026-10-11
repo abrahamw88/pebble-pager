@@ -10,7 +10,10 @@
 #include "config.h"
 #include "pulse.h"
 
-enum { EV_NONE, EV_PLAY, EV_RECORD_START, EV_RECORD_DONE, EV_RECORD_CANCEL, EV_BATTERY, EV_SETUP, EV_OFF };
+enum { EV_NONE, EV_PLAY, EV_PRESS_PLAY, EV_RECORD_START, EV_RECORD_DONE, EV_RECORD_CANCEL, EV_BATTERY, EV_SETUP, EV_OFF };
+// EV_PRESS_PLAY: button 1 went down while unread messages are waiting (inputPlayOnPress): play the oldest at once,
+// without waiting for the release. The same press then still means what it always did: a tap is over (it already
+// played), and a hold plays the rest and starts a fresh recording.
 Pulse recorded;   // the message, when inputTick() returns EV_RECORD_DONE
 
 struct Edge { uint8_t button; bool down; unsigned long at; };   // button 0 or 1 went down or up at this time
@@ -39,6 +42,9 @@ struct Button { bool down; unsigned long at; };   // the settled state, and when
 Button button[2];
 enum { R_IDLE, R_PRESSED, R_ARMED, R_WAIT, R_DOWN };   // button 1: first press, not yet a hold / armed, waiting for release / between presses / in a press
 int recState = R_IDLE, recPresses = 0, holdTold = EV_NONE;
+bool inputPlayOnPress = false;   // set by the main tab each loop: unread messages are waiting, so a press plays at once
+bool inputPressPlayed = false;   // the press now down started a message playing
+bool inputHeldPlayed = false;    // ...and it turned out to be a hold: after the message, play the rest and record fresh
 unsigned long recStart = 0, recLastUp = 0, recQuietUntil = 0;
 
 // A button already down at start-up is the press that woke the device: it began before the chip was running,
@@ -107,7 +113,7 @@ unsigned long pulseClamp(unsigned long ms) { return ms < PULSE_MIN_MS ? PULSE_MI
 // so the presses that spill over are not taken as taps.
 int recordFinish(unsigned long at, bool cutOff) {
   recState = R_IDLE;
-  if (cutOff) recQuietUntil = (at + SEND_PAUSE_MS) | 1;
+  if (cutOff) recQuietUntil = (at + CUTOFF_QUIET_MS) | 1;
   if (recPresses == 0) return EV_RECORD_CANCEL;
   int color = colorIndex(deviceColor);
   recorded.color = color < 0 ? 0 : color;
@@ -138,8 +144,10 @@ int onEdge(const Edge& e) {
   if (recQuietUntil && (long)(e.at - recQuietUntil) < 0) return EV_NONE;
   recQuietUntil = 0;
   if (e.down) {
-    if (recState == R_IDLE) recState = R_PRESSED;
-    else if (recState == R_WAIT) {
+    if (recState == R_IDLE) {
+      recState = R_PRESSED;
+      if (inputPlayOnPress) { inputPressPlayed = true; return EV_PRESS_PLAY; }
+    } else if (recState == R_WAIT) {
       if (recPresses == 0) recStart = e.at;
       else recorded.ms[2 * recPresses - 1] = pulseClamp(e.at - recLastUp);   // the gap since the last press
       recState = R_DOWN;
@@ -148,7 +156,11 @@ int onEdge(const Edge& e) {
   }
   switch (recState) {
     case R_PRESSED:   // released before loop() noticed the hold: decide by how long it was down
-      if (held < RECORD_HOLD_MS) { recState = R_IDLE; return EV_PLAY; }
+      if (inputPressPlayed) {   // this press already started a message
+        inputPressPlayed = false;
+        if (held < RECORD_HOLD_MS) { recState = R_IDLE; return EV_NONE; }   // a tap: it has played
+        inputHeldPlayed = true;                                              // a hold: the rest, then a fresh recording
+      } else if (held < RECORD_HOLD_MS) { recState = R_IDLE; return EV_PLAY; }
       recPresses = 0; recStart = e.at - held;
       recordPressEnd(e.at, held);   // the hold is the first press
       return EV_RECORD_START;
@@ -166,9 +178,20 @@ void inputArm() {
 }
 
 // A message has just played, and nothing pressed meanwhile is part of anything: take the buttons as they are now.
+// The one exception is the release of the press that started it (inputPressPlayed): that says tap or hold.
 void inputSkip() {
   Edge e;
-  while (nextEdge(e)) button[e.button] = {e.down, e.at};
+  while (nextEdge(e)) {
+    if (e.button == 0 && inputPressPlayed && button[0].down && !e.down) {
+      bool hold = e.at - button[0].at >= RECORD_HOLD_MS;
+      button[0] = {false, e.at};
+      recState = R_IDLE;
+      inputPressPlayed = false;
+      if (hold) inputHeldPlayed = true;
+      continue;
+    }
+    button[e.button] = {e.down, e.at};
+  }
 }
 
 // Call every loop() until it returns EV_NONE. Returns one thing the user did.
@@ -183,6 +206,7 @@ int inputTick() {
       if (pinsDown(i) != button[i].down && now - button[i].at >= DEBOUNCE_MS) return onEdge({(uint8_t)i, !button[i].down, now});
 
   if (recState == R_PRESSED && now - button[0].at >= RECORD_HOLD_MS) {   // a hold: recording, and this press is its first
+    if (inputPressPlayed) { inputPressPlayed = false; inputHeldPlayed = true; }   // it already played a message
     recPresses = 0; recStart = button[0].at; recState = R_DOWN;
     return EV_RECORD_START;
   }

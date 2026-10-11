@@ -79,7 +79,6 @@ void messageReceipt(const String& id) {
 }
 
 // ---- Receiving ----
-RTC_DATA_ATTR char lastPlayed[96] = "";   // "<sender>\t<text>", kept for a replay (through sleep)
 int arrived = 0;                          // messages that came in and have not been announced yet
 
 // A valid pulse message arrived. Keep it for playing and answer it straight away.
@@ -111,14 +110,13 @@ void messageShow(const char* what, const String& item) {
   if (!pulseParse(text, p)) showPlay(p);
 }
 
-// Play the oldest unread message, or replay the last one played. Returns false if there is nothing to play.
+// Play the oldest unread message. Returns false if there is none. A message plays once: there is no replay.
 // Nothing is posted: the sender already has its receipt, and the phone saw the message when it was sent.
 bool messagePlay() {
   String item = listPeek(UNREAD);
-  bool fresh = item.length() > 0;
-  if (fresh) { listPop(UNREAD); item.toCharArray(lastPlayed, sizeof(lastPlayed)); }
-  if (!lastPlayed[0]) return false;
-  messageShow(fresh ? "Play" : "Replay", lastPlayed);
+  if (item.length() == 0) return false;
+  listPop(UNREAD);
+  messageShow("Play", item);
   return true;
 }
 

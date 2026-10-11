@@ -19,6 +19,7 @@
 SemaphoreHandle_t outLock = nullptr;
 Adafruit_NeoPixel* pixels = nullptr;    // exists only while the ring has power
 volatile bool outPlaying = false;       // a message is playing: the comet is not following button 1
+volatile bool outPlayPending = false;   // unread messages are waiting: a press plays one in its sender's color, not a comet of ours
 volatile unsigned long buzzUntil = 0;   // the motor runs until this millis()
 bool motorOn = false;
 uint32_t outOwnRgb = COLOR_RGB[0];      // this device's color
@@ -64,7 +65,7 @@ void outputFollow() {
   if (raw == last) steady = raw;
   last = raw;
   bool down = steady || simHeld;
-  if (outPlaying || down == outPressShown) return;
+  if (outPlaying || outPlayPending || down == outPressShown) return;
   if (down) ringSetColor(outOwnRgb);
   ringPress(down);
   outPressShown = down;

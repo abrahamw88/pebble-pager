@@ -92,7 +92,7 @@ details summary { cursor: pointer; font-family: var(--display); font-weight: 600
         <tr><td>Power on</td><td>Press and hold the small button for 5 seconds. A <span class="sw" style="background:#50E080"></span>green light fills the ring.</td></tr>
         <tr><td>Power off</td><td>Hold the small button for 10 seconds. The ring fills <span class="sw" style="background:#9060F0"></span>purple, then <span class="sw" style="background:#F03030"></span>red counts down; let go when it is dark.</td></tr>
         <tr><td>Send a message</td><td>Hold the big button, then tap and press a pattern of long and short presses. Each press lights a comet in your color. The ring is dark while it sends, then ends with one <span class="sw" style="background:#50E080"></span>green flash at the bottom: received.</td></tr>
-        <tr><td>Play a message</td><td>One pixel breathing at the top, in the sender's color, means a message is waiting. Tap the big button to play it; tap again to replay it. During a conversation it plays by itself.</td></tr>
+        <tr><td>Play a message</td><td>One pixel breathing at the top, in the sender's color, means a message is waiting. Press the big button and it plays at once, in the sender's color. During a conversation it plays by itself.</td></tr>
         <tr><td>Check the battery</td><td>Tap the small button. 1 to 12 <span class="sw" style="background:#50E080"></span>green pixels light up (a page has no battery, so it shows full).</td></tr>
         <tr><td>Wi-Fi setup</td><td>Hold the small button for 5 seconds and let go when the ring is full <span class="sw" style="background:#9060F0"></span>purple. Do it again to close.</td></tr>
         <tr><td>Something went wrong</td><td>Two <span class="sw" style="background:#F03030"></span>red pulses: the message could not be sent, or was not received.</td></tr>
@@ -121,7 +121,7 @@ details summary { cursor: pointer; font-family: var(--display); font-weight: 600
 // the battery and the motor are the parts a page cannot copy.
 
 // ---- Values from config.h ----
-const SETUP_HOLD_MS = 5000, OFF_HOLD_MS = 10000, RECORD_HOLD_MS = 500, SEND_PAUSE_MS = 2000;
+const SETUP_HOLD_MS = 5000, OFF_HOLD_MS = 10000, RECORD_HOLD_MS = 500, SEND_PAUSE_MS = 1000, CUTOFF_QUIET_MS = 2000;
 const CHECK_INTERVAL_MS = 30000, CONVERSATION_POLL_MS = 3000, RECEIPT_POLL_MS = 5000, RECEIPT_WAIT_MS = 45000, SEND_RETRY_MS = 10000;
 const MAX_PRESSES = 12, MAX_RECORD_MS = 15000, OUTBOX_MAX = 5, UNREAD_MAX = 3, NOTES_MAX = 5, NTFY_BATCH = 8;
 const QUEUE_MAX_AGE_MS = 24 * 60 * 60 * 1000, PULSE_MIN_MS = 20, PULSE_MAX_MS = 5000, PULSE_MAX_TIMES = 2 * MAX_PRESSES - 1;
@@ -154,8 +154,7 @@ let outbox = store.get("outbox", []);     // [{at, text}] recorded, waiting to b
 let unread = store.get("unread", []);     // [{at, from, text}] received, waiting to be played
 let notes = store.get("notes", []);       // [{at, line}] reports for the phone that could not be posted yet
 let marks = store.get("marks", { time: 0, seen: [] });   // inbox position: newest message time, and recent ids
-let lastPlayed = store.get("lastPlayed", null);
-const save = () => { store.set("outbox", outbox); store.set("unread", unread); store.set("notes", notes); store.set("marks", marks); store.set("lastPlayed", lastPlayed); };
+const save = () => { store.set("outbox", outbox); store.set("unread", unread); store.set("notes", notes); store.set("marks", marks); };
 const ready = () => settings.base.length > 0;
 const canSend = () => ready() && settings.partner.length > 0;
 const ownRgb = () => COLOR_RGB[Math.max(0, colorIndex(settings.color))];
@@ -310,7 +309,7 @@ const pulseClamp = (v) => Math.round(v < PULSE_MIN_MS ? PULSE_MIN_MS : v > PULSE
 
 function recordFinish(at, cutOff) {
   recState = R_IDLE;
-  if (cutOff) recQuietUntil = at + SEND_PAUSE_MS;
+  if (cutOff) recQuietUntil = at + CUTOFF_QUIET_MS;
   if (recPresses === 0) return EV_RECORD_CANCEL;
   recorded = recMs.slice(0, 2 * recPresses - 1);
   return EV_RECORD_DONE;
@@ -408,31 +407,59 @@ async function playAll() {   // play what is queued, one after another, each in 
   }
   playing = false;
   recQuietUntil = 0;
-  if (armAfterPlay) { armAfterPlay = false; inputArm(); if (button[0].down) { ringSetColor(ownRgb()); } show("Now recording: press your message."); say("Recording"); }
+  if (armAfterPlay) { armAfterPlay = false; inputArm(); if (button[0].down) { ringSetColor(ownRgb()); ringAdvance(ms() / 1000); ringPress(true); } show("Now recording: press your message."); say("Recording"); }
 }
 
-function playOne() {   // a tap: the oldest unread message; with none stored, read the inbox first, then the new one or the last again
+function playOne() {   // a tap with nothing stored: read the inbox first, then play what arrived (there is no replay)
   if (!unread.length && !tapWaiting) { tapWaiting = true; lastCheck = 0; return; }
   tapWaiting = false;
-  const fresh = unread.length > 0;
-  if (fresh) { lastPlayed = unread.shift(); save(); }
-  if (!lastPlayed) { say("Nothing to play"); show("Nothing to play."); return; }
-  say((fresh ? "Play" : "Replay") + " from " + lastPlayed.from + ": " + lastPlayed.text + " (" + unread.length + " unread left)");
-  playQueue.push(lastPlayed);
+  if (!unread.length) { say("Nothing to play"); show("Nothing to play."); return; }
+  const item = unread.shift();
+  save();
+  say("Play from " + item.from + ": " + item.text + " (" + unread.length + " unread left)");
+  playQueue.push(item);
   playAll();
+}
+
+// A press with messages waiting plays the oldest at once, in its sender's color, without waiting for the release
+// (input.h's EV_PRESS_PLAY). The same press then still means tap (done) or hold (the rest, then a fresh recording).
+let pressPlayed = null;   // {at, hold} while that press is down
+function holdAfterPlay() {
+  pressPlayed.hold = true;
+  while (unread.length) { const item = unread.shift(); say("Play from " + item.from + ": " + item.text + " (" + unread.length + " unread left)"); playQueue.push(item); }
+  save();
+  armAfterPlay = true;
+  recState = R_ARMED;   // not recording yet: nothing counts until playback has finished
+  recPresses = 0;
+  playAll();
+}
+function startPressPlay() {
+  const t0 = ms(), item = unread.shift();
+  save();
+  pressPlayed = { at: t0, hold: false };
+  button[0].down = true; button[0].at = t0;
+  say("Play from " + item.from + ": " + item.text + " (" + unread.length + " unread left)");
+  playQueue.push(item);
+  playAll();
+  setTimeout(() => { if (pressPlayed && pressPlayed.at === t0) holdAfterPlay(); }, RECORD_HOLD_MS);
+}
+function endPressPlay() {
+  pressPlayed = null;
+  button[0].down = false; button[0].at = ms();
+  if (recState === R_ARMED) { recLastUp = ms(); recState = R_WAIT; }   // released after the message: now recording
 }
 
 function onInput(event) {
   if (event === EV_PLAY) playOne();
   if (event === EV_RECORD_START) {
     if (unread.length) {   // unread messages come first: play them all, then record from scratch
-      while (unread.length) { lastPlayed = unread.shift(); say("Play from " + lastPlayed.from + ": " + lastPlayed.text + " (" + unread.length + " unread left)"); playQueue.push(lastPlayed); }
+      while (unread.length) { const item = unread.shift(); say("Play from " + item.from + ": " + item.text + " (" + unread.length + " unread left)"); playQueue.push(item); }
       save();
       armAfterPlay = true;
       recState = R_ARMED;   // not recording yet: nothing counts, and nothing times out, until playback has finished
       recPresses = 0;
       playAll();
-    } else { say("Recording"); show("Recording. It sends 2 seconds after your last press."); }
+    } else { say("Recording"); show("Recording. It sends 1 second after your last press."); }
   }
   if (event === EV_RECORD_CANCEL) { say("Recording cancelled"); show("Nothing recorded."); }
   if (event === EV_RECORD_DONE) {
@@ -460,6 +487,10 @@ function turnOn() { off = false; say("== Pebble virtual pager =="); show("On.");
 let onHoldAt = -1;   // off: when button 2 went down, or -1
 function wire(el, index) {
   const edge = (down) => {
+    if (!off && index === 0) {
+      if (down && unread.length && recState === R_IDLE && !playing && !tapWaiting) { startPressPlay(); return; }
+      if (!down && pressPlayed) { endPressPlay(); return; }
+    }
     if (off) {   // only a 5 s hold of button 2 turns it on; button 1 does nothing
       if (index === 1) {
         if (down) { onHoldAt = ms(); ringAdvance(ms() / 1000); setTimeout(() => { if (off && onHoldAt >= 0 && ms() - onHoldAt >= ON_HOLD_MS - 50) { onHoldAt = -1; ringMeterStop(); turnOn(); } }, ON_HOLD_MS); }
@@ -496,7 +527,7 @@ async function check() {   // what the device does each time it wakes: read the 
   arrivedN = 0;
   if (tapWaiting) return;                            // a tap is about to play it
   if (fresh && lastSentAt && Date.now() - lastSentAt < CONVERSATION_MS) {   // a conversation is going on: play at once
-    while (unread.length) { lastPlayed = unread.shift(); say("Play from " + lastPlayed.from + ": " + lastPlayed.text + " (" + unread.length + " unread left)"); playQueue.push(lastPlayed); }
+    while (unread.length) { const item = unread.shift(); say("Play from " + item.from + ": " + item.text + " (" + unread.length + " unread left)"); playQueue.push(item); }
     save();
     playAll();
     return;
