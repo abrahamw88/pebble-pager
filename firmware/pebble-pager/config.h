@@ -48,7 +48,7 @@ const unsigned long PLAY_GAP_MS = 250;           // dark pause after a message h
 const unsigned long HOLD_SHOW_MS = 400;          // button 2 held this long: the ring starts to show the hold (a tap shows nothing)
 const unsigned long SETUP_SHOWN_MS = 800;        // at 5 s the ring stays full purple this long before the red count-down to "off" begins
 const float SETUP_GLOW = 0.4f;                   // brightness of the purple ring while the setup page is open
-const unsigned long BUZZ_SHORT_MS = 120;         // with the green sweep and the red pulses
+const unsigned long BUZZ_SHORT_MS = 120;         // with the green flash and the red pulses
 const int MOTOR_STRENGTH = 100;                  // of 255: how hard the motor runs. Low on purpose; too low and it will not start turning
 const int MOTOR_PWM_HZ = 20000;                  // above hearing, so the motor does not whine
 const unsigned long FRAME_MS = 16;               // the ring is redrawn this often while it is lit
@@ -69,11 +69,11 @@ const char* DEFAULT_NAME = "Eliana";
 const char* DEFAULT_COLOR = "Pink";
 const int COLOR_COUNT = 8;   // dropdown order on the setup page; the RGB values are for the ring
 const char* COLOR_NAMES[COLOR_COUNT] = {"Pink", "Blue", "Green", "Purple", "Orange", "Teal", "Yellow", "Red"};
-const uint32_t COLOR_RGB[COLOR_COUNT] = {0xF29BB5, 0x7FB2F0, 0x6CC795, 0xA98BE0, 0xF08A4B, 0x5CC9C0, 0xF2D45C, 0xE8736B};
+const uint32_t COLOR_RGB[COLOR_COUNT] = {0xF26C94, 0x599DF0, 0x4CC783, 0x8E61E0, 0xF07C35, 0x40C9BE, 0xF2CE40, 0xE8554B};
 
 // The ring's status colors. Messages use the sender's color; these belong to the device itself.
 const uint32_t RGB_WORKING = 0x40D8E8;   // cyan chase: joining Wi-Fi after switching on
-const uint32_t RGB_RECEIVED = 0x50E080;  // green sweep: the partner received the message
+const uint32_t RGB_RECEIVED = 0x50E080;  // green flash at the bottom: the partner received the message
 const uint32_t RGB_BATTERY = 0x50E080;   // green: battery level
 const uint32_t RGB_LOW = 0xFFA020;       // amber: battery low
 const uint32_t RGB_SETUP = 0x9060F0;     // purple: holding for setup, setup page open

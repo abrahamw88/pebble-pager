@@ -88,7 +88,7 @@ button.act:focus-visible, .swatch:focus-visible, input:focus-visible { outline: 
           <button class="act" id="low">Battery low</button>
           <button class="act" id="hold2">Button 2 held 10 s</button>
         </div>
-        <p class="note">These are the device's own colors and a plainer motion, so they are never mistaken for a message: a cyan chase while joining Wi-Fi, a green sweep when the message is received, the battery level, and button 2's hold, which fills purple to 5 seconds (release for setup) and then counts down in red to 10 (release to turn off).</p>
+        <p class="note">These are the device's own colors and a plainer motion, so they are never mistaken for a message: a cyan chase while joining Wi-Fi, one green pixel flashing at the bottom when the message is received, the battery level, and button 2's hold, which fills purple to 5 seconds (release for setup) and then counts down in red to 10 (release to turn off).</p>
       </section>
 
       <section class="panel">
@@ -120,7 +120,7 @@ button.act:focus-visible, .swatch:focus-visible, input:focus-visible { outline: 
 
 <script>
 // ---- The page around the engine: the button, the drawing and the tuning sliders ----
-const COLORS = [["Pink", 0xF29BB5], ["Blue", 0x7FB2F0], ["Green", 0x6CC795], ["Purple", 0xA98BE0], ["Orange", 0xF08A4B], ["Teal", 0x5CC9C0], ["Yellow", 0xF2D45C], ["Red", 0xE8736B]];
+const COLORS = [["Pink", 0xF26C94], ["Blue", 0x599DF0], ["Green", 0x4CC783], ["Purple", 0x8E61E0], ["Orange", 0xF07C35], ["Teal", 0x40C9BE], ["Yellow", 0xF2CE40], ["Red", 0xE8554B]];
 const RECORD_HOLD_MS = 500, SEND_PAUSE_MS = 2000, MAX_PRESSES = 12;
 const TUNING = [
   ["speed", "Starting speed", "laps per second when a press begins", 0.3, 2.5, 0.05],
@@ -231,7 +231,7 @@ $("blip").onclick = () => { ringAdvance(now()); ringBlip(COLORS.find((c) => c[0]
 
 let holdAt = -1;
 $("working").onclick = () => { ringAdvance(now()); if (ring.busy) ringBusyStop(); else ringBusy(0x40D8E8); say("Joining Wi-Fi after switching on."); };
-$("sent").onclick = () => { ringAdvance(now()); ringSweep(0x50E080); say("Received: the one green sweep that ends a send, with a short buzz."); };
+$("sent").onclick = () => { ringAdvance(now()); ringBlip(0x50E080, 6); say("Received: one green pixel flashes at the bottom, with a short buzz."); };
 $("battery").onclick = () => { ringAdvance(now()); ringGauge(0x50E080, 7); say("Battery level after a tap of button 2: 7 of 12 pixels."); };
 $("low").onclick = () => { ringAdvance(now()); ringBlip(0xFFA020, 6); say("Battery under 20%: an amber blink at the bottom, once a minute."); };
 $("hold2").onclick = () => { holdAt = performance.now(); say("Button 2 held: purple fills to 5 s, then red counts down to 10 s."); };

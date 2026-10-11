@@ -36,13 +36,13 @@ Button 1 is large and does the everyday things: view and send. Button 2 is small
 
 ### Quick reference
 
-The same list is on the virtual pager page (`docs/virtual-pager.html`). A short, gentle buzz goes with every sweep, red signal and playing press.
+The same list is on the virtual pager page (`docs/virtual-pager.html`). A short, gentle buzz goes with every green flash, red signal and playing press.
 
 | Function | How, and what you see |
 |---|---|
 | Power on | Press and hold button 2 for 5 seconds. A green light fills the ring. |
 | Power off | Press and hold button 2 for 10 seconds. The ring fills purple, then red counts down; let go when it is dark. |
-| Send a message | Hold button 1, then tap and press a pattern of long and short presses. Each press lights a comet in your color. The ring is dark while it sends (it is assumed to be sending) and ends with one green sweep: sent and received. |
+| Send a message | Hold button 1, then tap and press a pattern of long and short presses. Each press lights a comet in your color. The ring is dark while it sends (it is assumed to be sending) and ends with one green pixel flashing at the bottom: sent and received. |
 | Play a message | One pixel breathing at the top, in the sender's color, means a message is waiting. Tap button 1 to play it; tap again to replay it. During a conversation it plays by itself. |
 | Check the battery | Tap button 2. 1 to 12 green pixels light up (amber under 20%). |
 | Wi-Fi setup | Hold button 2 for 5 seconds and let go when the ring is full purple. Do it again to close. |
@@ -66,7 +66,7 @@ A recording starts with a hold of half a second or longer, and that hold is the 
 
 A message waits for a tap: when it arrives, the ring only shows that it is waiting, at every check, until button 1 plays it. The exception is a conversation. If this device sent a message in the last 2 minutes (`CONVERSATION_S`), a message that arrives plays at once, light and buzz, and counts as played. Nothing pressed while a message plays counts for anything.
 
-The motor runs gently (`MOTOR_STRENGTH`, 100 of 255 to start) and never for long: with each press of a message being played, and for a short buzz with every green sweep and every red signal.
+The motor runs gently (`MOTOR_STRENGTH`, 100 of 255 to start) and never for long: with each press of a message being played, and for a short buzz with every green flash and every red signal.
 
 Presses and releases are caught by interrupts and time-stamped, so the recorded lengths are exact even while the device is busy with the network, and no network work starts while a button is in use.
 
@@ -76,7 +76,7 @@ Presses and releases are caught by interrupts and time-stamped, so the recorded 
 | One pixel at the top breathing once in the sender's color | A message is waiting to be viewed (at each 30 s check) |
 | A comet in the device's own color while button 1 is held | Recording |
 | Cyan chase (two dots circling) | Joining Wi-Fi after switching on |
-| One green sweep with a short buzz | Message status: sent and received |
+| One green pixel flashing at the bottom, with a short buzz | Message status: sent and received |
 | Two red pulses with a short buzz | Couldn't send (queued to retry), or sent but no receipt came back in 45 s |
 | 1 to 12 pixels lit for 2 s, green (amber under 20%) | Battery level, after a button 2 tap |
 | Amber blink at the bottom every 60 s | Battery under 20% |
@@ -88,11 +88,11 @@ Presses and releases are caught by interrupts and time-stamped, so the recorded 
 The ring is the device's face, so its motion is designed to be smooth and a little playful. `firmware/pebble-pager/ring.h` is the engine, and `docs/ring-preview.html` runs a copy of the same math (`docs/ring-engine.js`) in a browser for tuning.
 
 - **The comet.** A head in the sender's color with a tail that melts into white, gliding between pixels so it never jumps. It is the only message animation: recording and playback are computed from the same press times, so both devices show the same thing.
-- **A press is a key on a synth.** Button down fades the comet in over about half a second; it orbits for as long as the button is held, starting at 0.9 laps per second and gaining 0.2 each second up to 1.9; release fades it out towards white as it coasts. It carries on from where it stopped, so a long message travels round the ring.
+- **A press is a key on a synth.** Button down fades the comet in over about half a second, and it is orbiting, tail and all, from the first instant (the tail is full length by a third of the way through the fade, so the chase never waits for the light); it orbits for as long as the button is held, starting at 0.9 laps per second and gaining 0.2 each second up to 1.9; release fades it out towards white as it coasts. It carries on from where it stopped, so a long message travels round the ring.
 - **The playfulness is in the motion, not the brightness.** On a press the head leaps about a pixel ahead and springs back, stretching the tail; on a release it kicks back and the tail squashes. Brightness only fades smoothly, because the head is already at full and an overshoot there would not show.
 - **Not received.** Two soft red pulses with a short buzz: when a message just recorded can't be sent (no network, or ntfy refused it; it stays queued and later tries are silent), and when no receipt comes back in the 45 s window.
 - **Message waiting.** One pixel at the top breathes once at each wake, in the color of whoever sent the waiting message (the oldest one, if several are waiting), not the device's own color. It starts as the device wakes, alongside the Wi-Fi join, so it adds no time awake.
-- **Status lights.** Everything else uses the device's own fixed colors and a plainer motion, so it is never mistaken for a message. A message has one status, shown once: green (one sweep and a short buzz) means it was sent and received; red (two pulses and a short buzz) means it failed to send or was not received. Nothing shows while a message is on its way: it is assumed to be sending, and the ring is dark until that status appears. A *chase* is two cyan dots circling while the device joins Wi-Fi after being switched on. A *meter* lights pixels from the top, clockwise, the last one partly so it glides: the battery level (it fills, holds 2 s and fades), and button 2's hold. The low-battery blink is the waiting light's twin, amber and at the bottom.
+- **Status lights.** Everything else uses the device's own fixed colors and a plainer motion, so it is never mistaken for a message. A message has one status, shown once: green (one pixel flashing at the bottom, and a short buzz) means it was sent and received; red (two pulses and a short buzz) means it failed to send or was not received. Nothing shows while a message is on its way: it is assumed to be sending, and the ring is dark until that status appears. A *chase* is two cyan dots circling while the device joins Wi-Fi after being switched on. A *meter* lights pixels from the top, clockwise, the last one partly so it glides: the battery level (it fills, holds 2 s and fades), and button 2's hold. The low-battery blink is the waiting light's twin, amber and at the bottom, and the green received flash is a third: the same single-pixel breath, told apart by its color, its place and the buzz (the waiting light has none). The device's colors are fairly saturated on purpose, so they read at a glance through the diffuser: the eight sender colors have little white in them, and the ring's white LED only adds a share of it (`pastel` in `ring.h`).
 - **Button 2's hold.** (While the device is off, holding it fills the same meter in green for 5 s, which turns the device on.) Nothing shows for the first 0.4 s, so a tap stays dark until the battery level appears. Then the ring fills purple, reaching full at 5 s; it stays full for 0.8 s, then turns red and counts down to dark at 10 s. Releasing anywhere from full purple to the last red pixel opens setup; releasing after it is dark turns the device off. While the setup page is open the whole ring glows dim purple.
 - **Brightness and power.** There is no fixed brightness cap. Each frame's current is added up and the frame is dimmed as a whole only if it would pass the budget (180 mA to start), so a few lit pixels can be bright and fades have the full range of steps. The comet draws about 75 to 100 mA at its brightest; only the full-ring red pulse reaches the budget.
 - **On the hardware.** `output.h` drives the pixels and the motor from a small task that runs about 60 times a second, so the light keeps moving while the main loop waits on a network request. The comet follows button 1 straight from the pin. The motor runs with each press of a message being played, and for the short buzzes, at part power: its pin is switched at 20 kHz. The ring's power (D5) is on only while something is lit, and the device does not sleep until the ring is dark and the motor still.

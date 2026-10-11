@@ -167,7 +167,7 @@ void outputTick(bool working) {
 }
 
 // ---- What the device shows. Each returns at once, except showPlay(). ----
-void showReceived() { { RingTurn turn; ringSweep(RGB_RECEIVED); } buzz(BUZZ_SHORT_MS); }   // green, with a short buzz
+void showReceived() { { RingTurn turn; ringBlip(RGB_RECEIVED, RING_PIXELS / 2); } buzz(BUZZ_SHORT_MS); }   // one green pixel at the bottom, with a short buzz
 void showFailed() { { RingTurn turn; ringFail(); } buzz(BUZZ_SHORT_MS); }               // red, with a short buzz
 void showWaiting(uint32_t rgb) { RingTurn turn; ringBlip(rgb, 0); }                 // a message is waiting: its sender's color, at the top
 void showLow() { RingTurn turn; ringBlip(RGB_LOW, RING_PIXELS / 2); }               // battery low: amber, at the bottom

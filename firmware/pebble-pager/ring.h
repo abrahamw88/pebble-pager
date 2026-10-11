@@ -8,9 +8,10 @@
 // while the button is held, picking up speed; a release makes it recoil, coast and fade out towards white. The
 // brightness itself only fades smoothly: the playfulness is all in the motion. It carries on from where it stopped.
 //
-// The status lights are plainer on purpose, so they are never mistaken for a message: a sweep (one soft lap:
-// message sent and received), a chase (two dots circling: working), and a meter (pixels lit from the top, clockwise: battery level,
-// and button 2's holds). They are added on top of the comet, and all share the power budget.
+// The status lights are plainer on purpose, so they are never mistaken for a message: a blip (one pixel breathing
+// once: a message waiting, received, or the battery low, told apart by color and place), a chase (two dots
+// circling: working), and a meter (pixels lit from the top, clockwise: battery level, and button 2's holds). They
+// are added on top of the comet, and all share the power budget.
 #ifndef PEBBLE_RING_H
 #define PEBBLE_RING_H
 #include <math.h>
@@ -52,8 +53,6 @@ struct RingState {
   float blipT = -1;              // seconds into the "message waiting" blip, or -1
   float blipColor[4] = {0, 0, 0, 0};   // the color of that blip: the waiting message's sender, not this device
   int blipAt = 0;                // the pixel it breathes on
-  float sweepT = -1;             // seconds into a sweep, or -1
-  float sweepColor[4] = {0, 0, 0, 0};
   bool busy = false;             // the chase is wanted
   float busyLevel = 0, busyAngle = 0;   // its brightness, 0 to 1, and how far round it is, 0 to 1
   float busyColor[4] = {0, 0, 0, 0};
@@ -98,7 +97,6 @@ void ringPlay(const uint16_t* ms, int count) {   // play a message: the times al
 
 void ringFail() { ring.failT = 0; }   // red pulse: the message was not received
 void ringBlip(uint32_t rgb, int at = 0) { ringSplit(rgb, ring.blipColor); ring.blipAt = at; ring.blipT = 0; }   // one soft pixel breathes once
-void ringSweep(uint32_t rgb) { ringSplit(rgb, ring.sweepColor); ring.sweepT = 0; }   // one soft lap of light
 void ringBusy(uint32_t rgb) { ringSplit(rgb, ring.busyColor); ring.busy = true; }    // the chase, until ringBusyStop()
 void ringBusyStop() { ring.busy = false; }
 
@@ -115,7 +113,7 @@ void ringGauge(uint32_t rgb, int pixels) {   // the meter fills to `pixels`, hol
 
 bool ringActive() {   // false when everything is dark: the ring's power can be switched off
   return ring.down || ring.level > 0 || ring.failT >= 0 || ring.blipT >= 0 || ring.play ||
-         ring.sweepT >= 0 || ring.busy || ring.busyLevel > 0 || ring.meterTarget > 0 || ring.meterLevel > 0;
+         ring.busy || ring.busyLevel > 0 || ring.meterTarget > 0 || ring.meterLevel > 0;
 }
 
 float ringSmooth(float a, float b, float x) {   // 0 below a, 1 above b, an S-curve between
@@ -163,7 +161,6 @@ void ringStep() {   // advance the simulation by RING_STEP_S
 
   if (ring.failT >= 0) { ring.failT += dt; if (ring.failT >= 1.35f) ring.failT = -1; }
   if (ring.blipT >= 0) { ring.blipT += dt; if (ring.blipT >= 0.9f) ring.blipT = -1; }
-  if (ring.sweepT >= 0) { ring.sweepT += dt; if (ring.sweepT >= 0.8f) ring.sweepT = -1; }
 
   // The chase fades in and out, and circles while it shows.
   ring.busyLevel += ((ring.busy ? 1.0f : 0.0f) - ring.busyLevel) * 6.0f * dt;
@@ -193,7 +190,7 @@ float ringRender(uint8_t out[RING_PIXELS][4]) {
   float head = (ring.angle - floorf(ring.angle)) * RING_PIXELS + ring.hop;   // where the head is, in pixels
   while (head < 0) head += RING_PIXELS;
   while (head >= RING_PIXELS) head -= RING_PIXELS;
-  float tail = ringTune.tail * (0.35f + 0.65f * level) + ringTune.stretch * ring.hop;   // grows as it brightens; stretches with a leap
+  float tail = ringTune.tail * (0.35f + 0.65f * fminf(1.0f, level * 3.0f)) + ringTune.stretch * ring.hop;   // full length by a third of the fade-in, so the chase starts with the light; stretches with a leap
   if (tail < 1) tail = 1;
   float fading = ring.down ? 0 : 1 - fminf(level, 1.0f);             // 0 while held, towards 1 as it fades out
   for (int i = 0; i < RING_PIXELS; i++) {
@@ -227,15 +224,6 @@ float ringRender(uint8_t out[RING_PIXELS][4]) {
     const float share[3] = {0.25f, 1.0f, 0.25f};
     for (int k = 0; k < 3; k++)
       for (int c = 0; c < 4; c++) px[at[k]][c] += ring.blipColor[c] * breath * share[k];
-  }
-  if (ring.sweepT >= 0) {   // a soft band leaves the top, goes once round and fades as it comes back
-    float t = ring.sweepT / 0.8f, at = t * RING_PIXELS, glow = sinf(3.1415927f * t);
-    for (int i = 0; i < RING_PIXELS; i++) {
-      float d = fabsf(i - at);
-      if (d > RING_PIXELS / 2.0f) d = RING_PIXELS - d;
-      if (d >= 2.5f) continue;
-      for (int c = 0; c < 4; c++) px[i][c] += ring.sweepColor[c] * (1 - d / 2.5f) * glow;
-    }
   }
   if (ring.busyLevel > 0) {   // two soft dots, opposite each other, circling
     for (int i = 0; i < RING_PIXELS; i++) {

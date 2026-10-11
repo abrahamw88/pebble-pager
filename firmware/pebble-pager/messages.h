@@ -7,7 +7,7 @@
 // Both lists are saved in settings, so they survive sleep, restarts and power cuts. Reports to the phone
 // ("sent ...") go through ntfySay, which keeps them until they can be posted.
 //   On the ring: nothing while a message is on its way (it is assumed to be sending), then its one status: a green
-//           sweep when the partner's receipt comes, or two red pulses if it can't go now (it stays queued) or if no
+//           flash of the green pixel at the bottom when the partner's receipt comes, or two red pulses if it can't go now (it stays queued) or if no
 //           receipt comes. Each comes with a short buzz.
 #ifndef PEBBLE_MESSAGES_H
 #define PEBBLE_MESSAGES_H
