@@ -113,7 +113,8 @@ A breadboard prototype of both devices, batteries included, costs about $87 in p
 | PN2222A transistor | 4 | about $2 total, est. | Steps 4 and 5 |
 | [Vibrating mini motor disc](https://www.adafruit.com/product/1201) | 2 | $1.95 each | Step 5 |
 | 1N4148 diode | 2 | under $1, est. | Step 5 |
-| Resistor assortment with 330 Ω, 1 kΩ, 10 kΩ and 220 kΩ | 1 | about $6, est. | Steps 4, 5 and 8 |
+| Resistor assortment with 330 Ω, 470 Ω, 1 kΩ, 10 kΩ and 220 kΩ | 1 | about $6, est. | Steps 4, 5 and 8 |
+| 0.1 µF ceramic capacitor (optional) | 2 | under $1, est. | Step 8 |
 | [LiPo 3.7 V 2,000 mAh](https://www.adafruit.com/product/2011) | 2 | $12.50 each | Step 8 |
 | JST-PH 2-pin socket cable | 2 | about $1 each, est. | Step 8 |
 | Enclosure, 3D printed | 2 | $3–5 each, est. | Final build |
@@ -131,7 +132,7 @@ Both buttons sit on GPIO0–5, which can wake the chip from deep sleep. Boot-mod
 | Button 1, large: view and send | D2 | 4 | Button to GND, internal pull-up |
 | Button 2, small: battery, setup, off | D3 | 5 | Button to GND, internal pull-up |
 | Vibration motor | D4 | 6 | 1 kΩ to a PN2222A base, 10 kΩ from base to GND |
-| Ring power switch | D5 | 7 | 1 kΩ to a second PN2222A base, 10 kΩ from base to GND |
+| Ring power switch | D5 | 7 | 470 Ω to a second PN2222A base, 10 kΩ from base to GND |
 | Ring data | D10 | 10 | Through 330 Ω to DIN |
 | Ring +, motor + | 3V3 | — | The + power rail |
 | Battery | BAT+ / BAT− pads underneath | — | Through the JST socket |
@@ -141,8 +142,10 @@ Both buttons sit on GPIO0–5, which can wake the chip from deep sleep. Boot-mod
 - D0 (GPIO2) is a boot-mode pin that must be high at startup; a button holding it low could stop the board from starting.
 - D3 (GPIO5) can't take reliable analog readings but works as a button input.
 - A 10 kΩ from each transistor base to ground keeps the motor and ring off while the chip sleeps or starts.
+- The ring's transistor has a 470 Ω base resistor and the motor's a 1 kΩ. A PN2222A is only sure to switch fully on when its base gets a fair share of the current it carries; the ring can draw up to 180 mA and the motor 60 mA, so the ring's base needs about twice the drive (5.5 mA against 2.6 mA).
+- The battery sensor's two 220 kΩ resistors are a weak source for the chip's analog input. The firmware averages 16 readings, as Seeed's guide does; an optional 0.1 µF capacitor from D1 to ground steadies it further.
 - The ring's SK6812 RGBW pixels are rated 5 V but run from 3V3 here, matching the XIAO's 3.3 V data signal. Colors may look dimmer or shifted; if so, power the ring from battery + instead.
-- A full ring could draw over 800 mA (12 pixels × 4 LEDs × about 18 mA), but the 3V3 pin is rated 700 mA, with Wi-Fi peaking at 335 mA and the motor at 60 mA. The firmware keeps every frame inside a 180 mA budget (see "The ring's animation"); the hardware checks use a fixed brightness of 30 of 255.
+- A full ring could draw over 800 mA (12 pixels × 4 LEDs × about 18 mA), but the 3V3 pin is rated 700 mA in one place on Seeed's page and 500 mA in its specification table, with Wi-Fi peaking at 335 mA and the motor at 60 mA. Wi-Fi, a ring at its budget and the motor together come to about 575 mA, over the lower figure if all three peak at once: lower `budgetMa` in `ring.h` if the board resets or the ring flickers while it is lit. The firmware keeps every frame inside a 180 mA budget (see "The ring's animation"); the hardware checks use a fixed brightness of 30 of 255.
 - The ring's transistor switches its ground side. While the ring is off, a data pin held low would give the pixels a path to ground through the 330 Ω resistor, so the firmware releases the data pin whenever it cuts the ring's power. To confirm on the breadboard: with the ring dark, no pixel glows and the ring's ground wire carries no current.
 - The ring pixel type must be four-channel GRBW, or colors come out scrambled.
 

@@ -32,6 +32,7 @@ Spec and breadboard build are written. The firmware runs on the bare board with 
 ```
 README.md                      spec: behavior, parts, pins, power, ntfy, risks
 docs/build-steps.md            breadboard wiring and test steps
+docs/img/                      the build steps' diagrams, one SVG per step (fixed colors on a white card, so they read in light and dark)
 docs/concept.html              visual concept sheet (open in a browser): look, colorways, every ring state
 docs/virtual-pager.html        a second pager in a browser, live on ntfy; a JavaScript port of the firmware's message and button logic
 docs/ring-preview.html         the ring animation in a browser, for tuning

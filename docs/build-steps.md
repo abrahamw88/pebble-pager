@@ -17,11 +17,15 @@ These steps build both devices on breadboards so you can test the buttons, ring,
 
 ## How a breadboard connects
 
+![Holes connect in columns of five; the two rails run the length of the board](img/breadboard.svg)
+
 The diagrams below draw the board this way: the + rail is 3V3 power and the − rail is ground. Unplug USB before moving any wire, and check each connection against the step before plugging back in.
 
 ## Step 1: Set up the computer
 
 The goal is a computer that can upload code to the XIAO and read what it prints. Do this on the bare board, before it goes in the breadboard.
+
+![One USB-C data cable powers and programs the XIAO](img/step1-usb.svg)
 
 1. Install Arduino IDE 2 from arduino.cc.
 2. In File → Preferences, add this board manager URL: `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`
@@ -38,7 +42,9 @@ The goal is a computer that can upload code to the XIAO and read what it prints.
 
 These two short wires give every later part 3V3 power and ground. Unplug USB first.
 
-1. Press the XIAO into the breadboard across the center gap, USB end toward the left. Press evenly on both edges until the pins are fully seated.
+![The XIAO across the center gap, with GND wired to the minus rail and 3V3 to the plus rail](img/step2-rails.svg)
+
+1. Press the XIAO into the breadboard across the center gap, USB end toward the left. Its two rows of pins are 0.6 inch apart, so it cannot sit evenly: leave two free holes above each top pin and three below each bottom pin (or the other way round). Press evenly on both edges until the pins are fully seated. With the USB end to the left, the top row reads 5V, GND, 3V3, D10, D9, D8, D7 and the bottom row D0 to D6.
 2. Run a short wire from a free hole in the GND pin's column to the − rail.
 3. Run a short wire from a free hole in the 3V3 pin's column to the + rail.
 
@@ -49,6 +55,8 @@ Everything in this build runs on 3V3. Nothing connects to the 5V pin.
 ## Step 3: Add the two buttons
 
 Each button connects its pin to ground when pressed. The firmware turns on the pin's internal pull-up, so no resistors are needed. Button 1 becomes the large send button and button 2 the small recessed one; on the breadboard they are the same part.
+
+![Each button across the center gap: one leg to its pin, the diagonally opposite leg to the minus rail](img/step3-buttons.svg)
 
 1. Press button 1 across the center gap a few columns right of the XIAO.
 2. Press button 2 across the gap a few columns further right.
@@ -61,20 +69,24 @@ The buttons get tested in step 6. D0 stays empty on purpose: it is one of the pi
 
 The ring is the pager's display: it plays messages and shows sending, Wi-Fi and battery status. It has 12 pixels, each with red, green, blue and a natural-white LED. A transistor on the ring's ground wire lets the firmware cut its power completely, because NeoPixels draw current even when dark. This is the first step that needs soldering.
 
+![Ring wiring map: data from D10 through 330 ohms, power from the plus rail, ground through a PN2222A switched by D5 through 470 ohms, and a 1000 microfarad capacitor across the rails](img/step4-ring.svg)
+
 1. In Arduino IDE, open Tools → Manage Libraries, search "Adafruit NeoPixel" and install it.
 2. Find three pads on the back of the ring: power (marked 5V or PWR), ground (GND) and data input (IN). Solder a wire about 10 cm long to each. Leave the data output pad empty.
 3. Unplug USB. Wire the ring's power pad to the + rail. It runs on 3V3 in this build, not 5 V.
-4. Data: a 330 Ω resistor from D10's column to a free column, then a jumper from there to the ring's data input wire.
+4. Data: a jumper from D10's column to a free column, a 330 Ω resistor from there to another free column, and the ring's data input wire into that one. Keep the resistor at the ring's end of the wire, as Adafruit advises.
 5. Seat a PN2222A with each leg in its own column. With the flat face toward you and legs down, the legs are usually E, B, C from left to right. Some versions, like the P2N2222A, swap the outer two, so check your part's datasheet.
 6. Collector: the ring's GND wire. Emitter: a jumper to the − rail.
-7. Base: a 1 kΩ resistor from the middle leg's column to a free column, then a jumper from there to D5. Add a 10 kΩ resistor from the base's column to the − rail.
+7. Base: a 470 Ω resistor from the middle leg's column to a free column, then a jumper from there to D5. Add a 10 kΩ resistor from the base's column to the − rail. (The ring can draw three times what the motor does, so its transistor gets a smaller base resistor than the motor's 1 kΩ, to switch fully on. With no 470 Ω to hand, a 330 Ω works too.)
 8. Put the 1000 µF capacitor across the + and − rails, with its striped leg (−) in the − rail.
 
 The 10 kΩ resistor keeps the ring switched off while the chip is asleep or starting up. The ring gets tested in step 6.
 
 ## Step 5: Add the vibration motor
 
-A pin can't drive the motor directly, so a second transistor switches it. When D4 goes high, current flows from the + rail through the motor and the transistor to ground. The diode catches the voltage spike the motor makes when it stops.
+A pin can't drive the motor directly, so a second transistor switches it. When D4 goes high, current flows from the + rail through the motor and the transistor to ground. The diode catches the voltage spike the motor makes when it stops. The firmware runs the motor gently by switching D4 on and off very fast, so the motor stops and starts thousands of times a second and the diode is doing real work: do not leave it out.
+
+![Motor wiring map: D4 through 1 kilohm to a PN2222A base, the motor between the plus rail and the collector, and a 1N4148 diode across the motor with its stripe toward plus](img/step5-motor.svg)
 
 1. Seat a second PN2222A to the right of the first, with each leg in its own column. The leg order is the same as in step 4.
 2. Base: a 1 kΩ resistor from the middle leg's column to a free column, then a jumper from there to D4. Add a 10 kΩ resistor from the base's column to the − rail.
@@ -92,11 +104,13 @@ Test 2 checks every part wired so far. It isn't the pager firmware; it just ligh
 2. Open the Serial Monitor at 115200 baud.
 3. Watch for the blue sweep and the white flash, then try each button and compare with the picture.
 
+![What the test build does: a blue sweep then white at start, all pink with a buzz while button 1 is held, nine green pixels with a short buzz for button 2](img/step6-check.svg)
+
 **Check:** all three rows match the picture.
 
 If something's off:
 
-- **The ring stays dark:** check that the ring's power wire reaches the + rail, that the data wire is on the input pad and not the output pad, and that the 1 kΩ from D5 goes to the transistor's middle leg. If you're unsure of the transistor's pinout, swap its outer two legs.
+- **The ring stays dark:** check that the ring's power wire reaches the + rail, that the data wire is on the input pad and not the output pad, and that the 470 Ω from D5 goes to the transistor's middle leg. If you're unsure of the transistor's pinout, swap its outer two legs.
 - **Colors are scrambled or shift around the ring:** the sketch's pixel type is wrong. It must be four-channel GRBW for this ring.
 - **Colors flicker or look dim:** recheck the data wire and its 330 Ω resistor. If they're fine, the ring may not like 3.3 V; the wiring notes above give the fallback.
 - **A button does nothing:** check that both of its wires reach the button's columns and that the button is pressed fully into the board.
@@ -108,6 +122,8 @@ One more check while the ring is dark, between presses: no pixel should glow, ev
 ## Step 7: Set up ntfy and send a test message
 
 ntfy needs no account to start. On the free tier the topic name works as the password, so pick a long random one and don't post it anywhere.
+
+![The computer posts to ntfy; ntfy pushes to the phone; the device reads its inbox topic and answers on the phone topic](img/step7-ntfy.svg)
 
 1. Snap the small antenna that came with the XIAO onto its connector, pressing straight down until it clicks. Without it, Wi-Fi barely reaches across a room.
 2. Pick a base name: `pebble-` plus at least seven random letters and digits, like `pebble-7qk2x9m`. Your three topics are that name plus `-a`, `-b` and `-phone`.
@@ -147,11 +163,13 @@ If something's off:
 
 With a battery on its BAT pads, the XIAO runs without USB and charges the battery whenever USB is plugged in. The resistor pair lets D1 measure the battery, since the board can't report its own level. This step means soldering tiny pads next to a LiPo, so go slowly.
 
+![Battery wiring: the cell to the BAT pads under the XIAO, and two 220 kilohm resistors from battery plus to ground with their midpoint on D1](img/step8-battery.svg)
+
 1. Check polarity before soldering anything. Plug the battery into the JST socket cable and set the multimeter to DC volts, red probe on the cable's red wire and black probe on its black wire. About 3.7 to 4.2 V means the colors are right. A minus sign means they're swapped, so treat the black wire as + from here on. Unplug the battery.
-2. Take the XIAO out of the breadboard and tin the BAT+ and BAT− pads underneath with a little solder.
+2. Take the XIAO out of the breadboard and tin the BAT+ and BAT− pads underneath with a little solder. Go by the labels printed next to the pads, not by their position in the picture.
 3. Solder the cable's + wire to BAT+ and its − wire to BAT−. On the BAT+ pad, also solder one end of a short jumper wire; it carries battery + up to the breadboard for the sensor.
 4. Reseat the XIAO with the wires led out the side, and plug the jumper's free end into an empty column. That column is now battery +.
-5. Divider: a 220 kΩ resistor from the battery + column to a free column, a second 220 kΩ from that column to the − rail, and a jumper from the middle column to D1.
+5. Divider: a 220 kΩ resistor from the battery + column to a free column, a second 220 kΩ from that column to the − rail, and a jumper from the middle column to D1. Optional, for a steadier reading: a 0.1 µF capacitor from that middle column to the − rail.
 6. Plug the battery in, connect USB, and upload the firmware with `-DTEST=4`.
 
 **Check:** with USB in, the Serial Monitor shows about 3.7–4.2 V and a percentage, creeping up as the battery charges. Unplug USB and the first pixel keeps blinking green, which means the board is running on the battery. If the reading is more than about 0.1 V off from the multimeter across the battery, note the difference for each board; the firmware has no correction yet and would need one.
