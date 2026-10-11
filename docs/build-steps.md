@@ -214,16 +214,16 @@ Once the breadboard passes step 9, the same circuit goes onto a piece of perfboa
 
 The board is 16 by 18 holes (40.6 × 45.7 mm), with holes counted from the top left as column, row. It needs pads on both sides (plated-through holes), because parts are soldered from both sides. Rows 1 to 3 are empty and can be cut off; they are kept so button 1 sits in the middle, under the ring's center hole.
 
-- **Underneath:** the XIAO, face down with its USB end at the bottom edge, button 2, and the capacitor. The capacitor is the biggest part, so it lies flat beside the XIAO, under columns 14 to 16, where it is about as deep as the XIAO on its headers (8 mm against about 7.5 mm) and adds nothing on top. Bend its leads at a right angle. Seen from above, the XIAO's pin order is mirrored, as the picture shows.
-- **On top:** everything else. Resistors and the diode lie flat. Most resistors span five holes (10.2 mm between leads); the 470 Ω, the 330 Ω and the 220 kΩ on row 17 inside the XIAO's outline span four (7.6 mm), so bend their leads close to the body.
+- **Underneath:** the XIAO, face down with its USB end at the bottom edge, button 2, the capacitor and both transistors. There is about 7.5 mm of depth beside the XIAO, and a transistor stands 5 to 6 mm, so they fit there upright. A part put in from below is mirrored: the picture and the table give each transistor's flat side as it must face on this board, which is the opposite way from a top-side part. The capacitor is the biggest part, so it lies flat beside the XIAO, under columns 14 to 16, where it is about as deep as the XIAO on its headers (8 mm against about 7.5 mm) and adds nothing on top. Bend its leads at a right angle. Seen from above, the XIAO's pin order is mirrored, as the picture shows.
+- **On top:** button 1, the resistors and the diode. Everything but the button lies flat, 2.4 mm high or less, so the ring can sit right down around the button. Most resistors span five holes (10.2 mm between leads); the 470 Ω, the 330 Ω and the 220 kΩ on row 17 inside the XIAO's outline span four (7.6 mm), so bend their leads close to the body.
 - **Links** are bare wire or solder bridges from hole to hole, and each color in the picture is one connection. Two links must be insulated jumpers on the top side, because they cross other wiring: D2 to button 1, and D4 to the 1 kΩ.
 - **Wires off the board:** the ring's three wires, the motor's two, and one wire from the XIAO's BAT+ pad for the battery sensor. The battery itself solders to the XIAO's BAT pads, as in step 8.
 
 Solder in this order, so nothing is trapped:
 
-1. The links, then the flat parts on top (resistors, diode), then the transistors and button 1. Trim every lead flush underneath, above all in the area the XIAO will cover.
+1. The links, then the flat parts on top (resistors, diode), then button 1. Trim every lead flush underneath, above all in the area the XIAO will cover.
 2. The battery wires and the sensor wire onto the XIAO's BAT pads, since those pads face the board afterwards. Feed the sensor wire up through hole 10, 16.
-3. Button 2, the capacitor and the XIAO from underneath, soldered on the top side. Put a strip of insulating tape on the XIAO's underside first, and another under the capacitor, which lies over trimmed leads and bare links.
+3. Button 2, the two transistors, the capacitor and the XIAO from underneath, soldered on the top side. Check each transistor's flat side against the picture before soldering. Put a strip of insulating tape on the XIAO's underside first, and another under the capacitor, which lies over trimmed leads and bare links.
 4. The two jumpers, then the ring and motor wires.
 
 Watch these neighbours, where a stray blob of solder would matter:
@@ -240,8 +240,8 @@ Before powering up, check with a multimeter that 3V3 and ground are not shorted,
 | XIAO ESP32-C3 (underneath) | Left pins in column 6, rows 12 to 18: D6, D5, D4, D3, D2, D1, D0. Right pins in column 12, rows 12 to 18: D7, D8, D9, D10, 3V3, GND, 5V. USB end at the bottom edge |
 | Button 1 (top) | 7, 8 and 10, 8 (ground side); 7, 10 and 10, 10 (D2 side) |
 | Button 2 (underneath) | 2, 16 and 5, 16 (D3 side); 2, 18 and 5, 18 (ground side) |
-| Q1, ring switch | Emitter 1, 12; base 2, 12; collector 3, 12. Flat side toward row 13 |
-| Q2, motor switch | Collector 14, 9; base 15, 9; emitter 16, 9. Flat side toward row 8 |
+| Q1, ring switch (underneath) | Emitter 1, 12; base 2, 12; collector 3, 12. Flat side toward row 11 |
+| Q2, motor switch (underneath) | Collector 14, 9; base 15, 9; emitter 16, 9. Flat side toward row 10 |
 | 470 Ω, D5 to Q1 base | 5, 13 to 2, 13 |
 | 10 kΩ, Q1 base to ground | 2, 11 to 2, 7 |
 | 1 kΩ, D4 to Q2 base | 15, 10 to 15, 14 |

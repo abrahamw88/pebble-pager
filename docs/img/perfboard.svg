@@ -380,12 +380,12 @@
 <line x1='644' y1='390' x2='644' y2='492' stroke='#9A9CA1' stroke-width='2'/>
 <g transform='translate(644.0 441.0) rotate(90.0)'><rect x='-26.1' y='-12.7' width='52.2' height='25.4' rx='8.5' fill='#F2B8A0' stroke='#1F2124' stroke-width='1.2'/><rect x='16.1' y='-12.7' width='6' height='25.4' fill='#1F2124'/></g>
 <text x='631.0' y='444.0' font-size='8.5' font-weight='600' text-anchor='middle' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' transform='rotate(-90 631 444.0)' fill='#1F2124'>1N4148</text>
-<path d='M239.2 509.0 L239.2 485.2 Q239.2 470.9 270.0 470.9 Q300.8 470.9 300.8 485.2 L300.8 509.0 Z' fill='#3A3B3F' fill-opacity='0.88' stroke='#1F2124' stroke-width='1'/>
-<line x1='239.2' y1='509.0' x2='300.8' y2='509.0' stroke='#FFFFFF' stroke-width='2.5'/>
-<text x='270.0' y='484.8' font-size='8.5' font-weight='600' text-anchor='middle' fill='#FFFFFF'>Q1</text>
-<path d='M681.2 373.0 L681.2 396.8 Q681.2 411.1 712.0 411.1 Q742.8 411.1 742.8 396.8 L742.8 373.0 Z' fill='#3A3B3F' fill-opacity='0.88' stroke='#1F2124' stroke-width='1'/>
-<line x1='681.2' y1='373.0' x2='742.8' y2='373.0' stroke='#FFFFFF' stroke-width='2.5'/>
-<text x='712.0' y='403.2' font-size='8.5' font-weight='600' text-anchor='middle' fill='#FFFFFF'>Q2</text>
+<path d='M239.2 475.0 L239.2 498.8 Q239.2 513.1 270.0 513.1 Q300.8 513.1 300.8 498.8 L300.8 475.0' fill='#3A3B3F' fill-opacity='0.10' stroke='#3A3B3F' stroke-width='1.5' stroke-dasharray='5 3'/>
+<line x1='239.2' y1='475.0' x2='300.8' y2='475.0' stroke='#3A3B3F' stroke-width='3'/>
+<text x='270.0' y='470.0' font-size='7.5' font-weight='600' text-anchor='middle' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#1F2124'>flat</text>
+<path d='M681.2 407.0 L681.2 383.2 Q681.2 368.9 712.0 368.9 Q742.8 368.9 742.8 383.2 L742.8 407.0' fill='#3A3B3F' fill-opacity='0.10' stroke='#3A3B3F' stroke-width='1.5' stroke-dasharray='5 3'/>
+<line x1='681.2' y1='407.0' x2='742.8' y2='407.0' stroke='#3A3B3F' stroke-width='3'/>
+<text x='712.0' y='418.0' font-size='7.5' font-weight='600' text-anchor='middle' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#1F2124'>flat</text>
 <rect x='450.8' y='349.8' width='80.3' height='80.3' rx='5' fill='#3A3B3F' fill-opacity='0.88' stroke='#1F2124' stroke-width='1.2'/><circle cx='491.0' cy='390' r='23.4' fill='#6B6E73' stroke='#FFFFFF' stroke-width='1.5'/>
 <line x1='440' y1='356' x2='452.8' y2='362' stroke='#9A9CA1' stroke-width='3'/>
 <line x1='542' y1='356' x2='529.2' y2='362' stroke='#9A9CA1' stroke-width='3'/>
@@ -415,12 +415,12 @@
 <rect x='366.5' y='622.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
 <rect x='264.5' y='690.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
 <rect x='366.5' y='690.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
-<circle cx='236' cy='492' r='4.2' fill='#D0D2D6' stroke='#1F2124' stroke-width='1'/>
-<circle cx='270' cy='492' r='4.2' fill='#D0D2D6' stroke='#1F2124' stroke-width='1'/>
-<circle cx='304' cy='492' r='4.2' fill='#D0D2D6' stroke='#1F2124' stroke-width='1'/>
-<circle cx='746' cy='390' r='4.2' fill='#D0D2D6' stroke='#1F2124' stroke-width='1'/>
-<circle cx='712' cy='390' r='4.2' fill='#D0D2D6' stroke='#1F2124' stroke-width='1'/>
-<circle cx='678' cy='390' r='4.2' fill='#D0D2D6' stroke='#1F2124' stroke-width='1'/>
+<rect x='230.5' y='486.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
+<rect x='264.5' y='486.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
+<rect x='298.5' y='486.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
+<rect x='740.5' y='384.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
+<rect x='706.5' y='384.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
+<rect x='672.5' y='384.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
 <circle cx='372' cy='526' r='4.2' fill='#D0D2D6' stroke='#1F2124' stroke-width='1'/>
 <circle cx='270' cy='526' r='4.2' fill='#D0D2D6' stroke='#1F2124' stroke-width='1'/>
 <circle cx='270' cy='458' r='4.2' fill='#D0D2D6' stroke='#1F2124' stroke-width='1'/>
@@ -471,7 +471,7 @@
 <text x='189.0' y='448.8' font-size='10' text-anchor='end' fill='#5F6267'>hole 4, 12</text>
 <path d='M270 492 L195.0 502.20000000000005' fill='none' stroke='#8A8D93' stroke-width='1' stroke-dasharray='3 3'/>
 <text x='189.0' y='506.2' font-size='11' font-weight='600' text-anchor='end' fill='#1F2124'>Q1 PN2222A</text>
-<text x='189.0' y='520.2' font-size='10' text-anchor='end' fill='#5F6267'>ring switch, flat side down</text>
+<text x='189.0' y='520.2' font-size='10' text-anchor='end' fill='#5F6267'>underneath, flat toward row 11</text>
 <path d='M270 322 L195.0 342.4' fill='none' stroke='#8A8D93' stroke-width='1' stroke-dasharray='3 3'/>
 <text x='189.0' y='346.4' font-size='11' font-weight='600' text-anchor='end' fill='#1F2124'>10 kΩ, 470 Ω</text>
 <text x='189.0' y='360.4' font-size='10' text-anchor='end' fill='#5F6267'>for Q1</text>
@@ -492,7 +492,7 @@
 <text x='777.0' y='557.6' font-size='10' text-anchor='start' fill='#5F6267'>hole 14, 14</text>
 <path d='M712 390 L771.0 376.4' fill='none' stroke='#8A8D93' stroke-width='1' stroke-dasharray='3 3'/>
 <text x='777.0' y='380.4' font-size='11' font-weight='600' text-anchor='start' fill='#1F2124'>Q2 PN2222A</text>
-<text x='777.0' y='394.4' font-size='10' text-anchor='start' fill='#5F6267'>motor switch, flat side up</text>
+<text x='777.0' y='394.4' font-size='10' text-anchor='start' fill='#5F6267'>underneath, flat toward row 10</text>
 <path d='M712 288 L771.0 274.4' fill='none' stroke='#8A8D93' stroke-width='1' stroke-dasharray='3 3'/>
 <text x='777.0' y='278.4' font-size='11' font-weight='600' text-anchor='start' fill='#1F2124'>10 kΩ, 1 kΩ</text>
 <text x='777.0' y='292.4' font-size='10' text-anchor='start' fill='#5F6267'>for Q2</text>
@@ -512,11 +512,11 @@
 <line x1='24' y1='791.0' x2='50' y2='791.0' stroke='#8E5BD0' stroke-width='5' stroke-linecap='round' stroke-dasharray='10 5'/>
 <text x='60.0' y='795.0' font-size='11' fill='#1F2124'>Insulated jumper wire on the top side (two of them).</text>
 <rect x='32' y='805.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124'/>
-<text x='60.0' y='815.0' font-size='11' fill='#1F2124'>Pin or lead of a part underneath (XIAO, button 2, capacitor), coming up through the board.</text>
+<text x='60.0' y='815.0' font-size='11' fill='#1F2124'>Pin or lead of a part underneath (XIAO, button 2, capacitor, Q1, Q2), coming up through the board.</text>
 <circle cx='37' cy='831.0' r='4.2' fill='#D0D2D6' stroke='#1F2124'/>
 <text x='60.0' y='835.0' font-size='11' fill='#1F2124'>Lead of a part on the top side.</text>
 <circle cx='37' cy='851.0' r='6.5' fill='#FFFFFF' stroke='#1F2124' stroke-width='2.2'/><circle cx='37' cy='851.0' r='2.2' fill='#1F2124'/>
 <text x='60.0' y='855.0' font-size='11' fill='#1F2124'>Hole for a wire to the ring, the motor or the battery.</text>
 <text x='520.0' y='775.0' font-size='11' fill='#5F6267'>Pink dotted circles: where the ring sits above the board.</text>
-<text x='520.0' y='795.0' font-size='11' fill='#5F6267'>Q1 and Q2 may need bending over to clear the ring. Rows 1 to 3 are empty.</text>
+<text x='520.0' y='795.0' font-size='11' fill='#5F6267'>Everything on top is flat except button 1, so the ring can sit low. Rows 1 to 3 are empty.</text>
 </svg>
