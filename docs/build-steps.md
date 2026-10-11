@@ -185,12 +185,12 @@ Repeat steps 2 to 8 on the second XIAO and breadboard, then run `-DTEST=2` and t
 Then work through this list with both boards running the firmware. Each line comes from the Behavior section of the README, and the diagram in its Overview shows the paths they cover. With only one board built, `docs/virtual-pager.html` can stand in for the other.
 
 - Press RESET on each device: it shows a cyan chase while it joins the saved Wi-Fi.
-- Hold button 1 on A, then press a long-short-short pattern: a comet in A's color lights with each press, and the message sends 1 s after the last one.
+- Press button 1 on A (a tap is enough), then a long-short-short pattern: a comet in A's color lights with each press, and the message sends 1 s after the last one.
 - A's ring stays dark after it finishes recording, then flashes one green pixel at the bottom, with a short buzz, when B confirms receipt: sent and received.
 - Within 30 s the phone shows the message, and B breathes one pixel in A's color at each 30 s check until button 1 is tapped. The press plays the same pattern as a comet in A's color the moment the button goes down, with a buzz for each press. There is no replay.
 - Reply from B within 2 minutes: A plays the reply within about 3 s, with no tap, because A has just sent and stays awake and connected, reading its inbox every 3 s. Wait more than 2 minutes and send from B again: A is back to its 30 s checks and this time only shows the waiting light.
 - With a message waiting on B, hold button 1 on B: the message plays first, then a fresh recording starts.
-- A single short tap on button 1 never sends anything.
+- With nothing waiting, a single short tap on button 1 sends a one-press message, and a tap with a message waiting only plays it.
 - Tap button 2: the ring shows the battery level for 2 s.
 - Hold button 2 for 5 s and release: the ring fills purple, the `pebblepager` network appears, the ring stays dim purple while the setup page is open, and a new network can be added from the phone.
 - Hold button 2 for 10 s: after full purple the ring turns red and counts down to dark. Release and the device turns off. Press button 1: nothing happens. Tap button 2: nothing visible, and the device goes back to sleep. Hold button 2: the ring fills green, and at 5 s the device turns on.

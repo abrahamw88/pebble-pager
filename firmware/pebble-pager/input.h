@@ -1,7 +1,7 @@
-// Buttons. Button 1 (large): a tap plays the next message; a hold of half a second starts a recording and is its
-// first press, and the message is sent 2 s after the last press. (If unread messages are waiting, the main tab
-// plays them first and calls inputArm(): the recording then starts fresh, without that hold.) Button 2 (small): a tap shows the battery, a 5 s hold
-// opens or closes the setup page, a 10 s hold turns the device off; holds act on release.
+// Buttons. Button 1 (large): with messages waiting, a press plays the next one at once (a tap), and a hold of half a
+// second plays them all and then starts a fresh recording. With none waiting, any press, short or long, is the first
+// press of a message, and the message is sent 1 s after the last press. Button 2 (small): a tap shows the battery,
+// a 5 s hold opens or closes the setup page, a 10 s hold turns the device off; holds act on release.
 //
 // Every press and release is caught by an interrupt and stamped with the time, so press lengths stay exact even
 // while loop() is busy with a network request. All the logic works from those stamps.
@@ -160,9 +160,10 @@ int onEdge(const Edge& e) {
         inputPressPlayed = false;
         if (held < RECORD_HOLD_MS) { recState = R_IDLE; return EV_NONE; }   // a tap: it has played
         inputHeldPlayed = true;                                              // a hold: the rest, then a fresh recording
-      } else if (held < RECORD_HOLD_MS) { recState = R_IDLE; return EV_PLAY; }
+      } else if (held < RECORD_HOLD_MS && inputPlayOnPress) { recState = R_IDLE; return EV_PLAY; }   // a tap with messages waiting
+      // anything else is the first press of a message: a hold, or a tap with nothing waiting
       recPresses = 0; recStart = e.at - held;
-      recordPressEnd(e.at, held);   // the hold is the first press
+      recordPressEnd(e.at, held);
       return EV_RECORD_START;
     case R_ARMED: recLastUp = e.at; recState = R_WAIT; return EV_NONE;
     case R_DOWN: return recordPressEnd(e.at, held);

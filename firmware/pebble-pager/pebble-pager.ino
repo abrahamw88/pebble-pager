@@ -139,7 +139,6 @@ void onConsole(const String& line) {
 }
 
 bool inboxRead = false;    // this wake: the inbox has been read (clear it to read again at once)
-bool tapWaiting = false;   // a tap found nothing stored: read the inbox, then play
 bool remindDue = false;    // show that a message is waiting: once at each wake, and after each later look at the inbox
 bool starting = false;     // just switched on, and joining Wi-Fi for the first time: the chase
 
@@ -157,9 +156,8 @@ void onInput(int event) {
         sayln("Recording");
       }
       break;
-    case EV_PLAY:   // nothing stored: a message may have arrived since the last check, so look before answering
-      if (listCount(UNREAD) > 0) messagePlay();
-      else { tapWaiting = true; inboxRead = false; }
+    case EV_PLAY:   // a tap with messages waiting (the press that woke the device): play the oldest
+      messagePlay();
       break;
     case EV_RECORD_START:
       if (listCount(UNREAD) > 0 || inputHeldPlayed) {   // unread messages come first: play them all, then record from scratch
@@ -210,7 +208,7 @@ bool canSleep() {
 #ifdef NO_SLEEP
   return false;
 #endif
-  if (powerHeld() || portalOn || tapWaiting || inputBusy() || inputPending() || messagesAwaiting() || wantUpdate) return false;
+  if (powerHeld() || portalOn || inputBusy() || inputPending() || messagesAwaiting() || wantUpdate) return false;
   if (outputActive()) return false;                         // let the ring and the motor finish
   if (messagesConversing()) return false;                   // a conversation is going on: stay awake and connected
   if (!wifiSettled()) return false;                         // a scan or join is under way
@@ -277,7 +275,6 @@ void loop() {
         int fresh = ntfyPoll(onMessage);
         if (first && wakeReason == WAKE_TIMER) statPollMs += millis() - lastPoll;
         sayf("Inbox: %d new (%lu ms)\n", fresh, millis() - lastPoll);
-        if (tapWaiting) arrived = 0;                           // a tap is about to play what came in
         // a new message plays; otherwise show that one is waiting (not at every quick look in a conversation)
         if (!messagesAnnounce() && ((!first && !messagesConversing()) || fresh > 0)) remindDue = true;
       }
@@ -291,10 +288,6 @@ void loop() {
         checked = true;
         updateCheck(asked);
       }
-    }
-    if (tapWaiting && (inboxRead || (wifiSettled() && !wifiOnline()))) {   // the tap's answer, now the inbox is read (or can't be)
-      tapWaiting = false;
-      if (!messagePlay()) sayln("Nothing to play");
     }
     messagesTick();
     ntfyFlush();

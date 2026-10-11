@@ -32,7 +32,7 @@ Out of scope: emergency alerts, location tracking, cellular, networks with login
 
 ## Behavior
 
-Button 1 is large and does the everyday things: view and send. Button 2 is small and recessed, for the occasional ones. A single short tap never sends anything.
+Button 1 is large and does the everyday things: view and send. Button 2 is small and recessed, for the occasional ones. With nothing waiting, any press of button 1 is the start of a message, so a stray press in a bag sends a stray one-press message (see Risks).
 
 ### Quick reference
 
@@ -42,7 +42,7 @@ The same list is on the virtual pager page (`docs/virtual-pager.html`). A short,
 |---|---|
 | Power on | Press and hold button 2 for 5 seconds. A green light fills the ring. |
 | Power off | Press and hold button 2 for 10 seconds. The ring fills purple, then red counts down; let go when it is dark. |
-| Send a message | Hold button 1, then tap and press a pattern of long and short presses. Each press lights a comet in your color. The ring is dark while it sends (it is assumed to be sending) and ends with one green pixel flashing at the bottom: sent and received. |
+| Send a message | Press button 1 (a tap or a hold) and keep going with a pattern of long and short presses. Each press lights a comet in your color. The ring is dark while it sends (it is assumed to be sending) and ends with one green pixel flashing at the bottom: sent and received. |
 | Play a message | One pixel breathing at the top, in the sender's color, means a message is waiting. Press button 1 and it plays at once, in the sender's color. During a conversation it plays by itself. A message plays once: there is no replay. |
 | Check the battery | Tap button 2. 1 to 12 green pixels light up (amber under 20%). |
 | Wi-Fi setup | Hold button 2 for 5 seconds and let go when the ring is full purple. Do it again to close. |
@@ -55,14 +55,15 @@ Colors: the sender's color is one of Pink, Blue, Green, Purple, Orange, Teal, Ye
 
 | Button | Press | What happens |
 |---|---|---|
-| 1, large | Tap | Wakes the device and plays the waiting message the moment the button goes down, in the sender's color. With none waiting it checks for a new one first, and plays it if one has arrived. There is no replay. |
-| 1, large | Hold | Starts a recording. Each further press within 1 s adds a pulse, and it sends 1 s after the last one. |
+| 1, large | Tap, a message waiting | Wakes the device and plays the waiting message the moment the button goes down, in the sender's color. There is no replay. |
+| 1, large | Tap or hold, nothing waiting | The first press of a message. Each further press within 1 s adds a pulse, and it sends 1 s after the last one. A single tap is a one-press message. |
+| 1, large | Hold, messages waiting | Plays them all, then starts a fresh recording. |
 | 2, small | Tap | Shows the battery level on the ring. |
 | 2, small | Hold 5 s | The ring fills purple. Release to open Wi-Fi setup. |
 | 2, small | Keep holding to 10 s | The ring turns red and counts down until it is dark. Release then to turn the device off. |
 | 2, small | Hold 5 s, while off | Turns the device on. The ring fills green, the same meter as the other holds, and a shorter press does nothing. Button 1 does nothing while it is off. |
 
-A recording starts with a hold of half a second or longer, and that hold is the first press of the message, even when it is the press that wakes the device from sleep. Further presses, short or long, add to it, and it is sent 1 second after the last one, so a pause of a second or more ends the message; a single hold on its own is a one-press message. The one exception: if unread messages are waiting, the hold plays them all first and then starts a fresh recording, so that hold is not part of the message (and if nothing is pressed in the next second, nothing is sent). A press with unread messages waiting plays the oldest at once, in its sender's color, without waiting for the release: a tap is then over, and a hold carries on to play the rest and start a fresh recording. A message plays once and is gone, so there is no replay. With none waiting, a tap reads the inbox first, without waiting for the 30-second check, and plays what arrived. The inbox is never read during a recording, so press timing stays exact, but it is read as soon as the recording ends. A message is at most 12 presses or 15 seconds, and a press counts as at most 5 seconds; at either limit it is sent at once, the press in progress is cut short, and the button is ignored for 2 seconds so spill-over presses are not taken as taps. A second 5-second hold on button 2 closes the setup page. These values are starting points to tune.
+With nothing waiting, a recording starts with any press of button 1, short or long, and that press is the first press of the message, even when it is the press that wakes the device from sleep. Further presses, short or long, add to it, and it is sent 1 second after the last one, so a pause of a second or more ends the message; a single hold on its own is a one-press message. The one exception: if unread messages are waiting, the hold plays them all first and then starts a fresh recording, so that hold is not part of the message (and if nothing is pressed in the next second, nothing is sent). A press with unread messages waiting plays the oldest at once, in its sender's color, without waiting for the release: a tap is then over, and a hold carries on to play the rest and start a fresh recording. A message plays once and is gone, so there is no replay. A tap with nothing waiting no longer checks the inbox: it is the start of a message, and the inbox is read right after it is sent. The inbox is never read during a recording, so press timing stays exact, but it is read as soon as the recording ends. A message is at most 12 presses or 15 seconds, and a press counts as at most 5 seconds; at either limit it is sent at once, the press in progress is cut short, and the button is ignored for 2 seconds so spill-over presses are not taken as taps. A second 5-second hold on button 2 closes the setup page. These values are starting points to tune.
 
 A message waits for a tap: when it arrives, the ring only shows that it is waiting, at every check, until button 1 plays it. The exception is a conversation. If this device sent a message in the last 2 minutes (`CONVERSATION_S`, counted from the moment the message was posted), a message that arrives plays at once, light and buzz, and counts as played. For that time the device also stays awake and connected to Wi-Fi and reads its inbox every 3 s (`CONVERSATION_POLL_MS`), so a reply is played within a few seconds instead of at the next 30 s check; each message sent from here starts the 2 minutes again, and when they are up it goes back to sleeping between checks. Nothing pressed while a message plays counts for anything.
 
@@ -223,7 +224,7 @@ Battery life is the biggest unknown, so measure it on the prototype before desig
 | Battery under a week | Plan B has little margin if Wi-Fi joins are slow | Shorten each check, move to plan A's toolchain, or fit a larger cell and a deeper case |
 | ntfy is down or slow | Every message depends on one free service | Paid ntfy plan, or self-host ntfy later on an always-on computer |
 | Messages missed while offline | ntfy keeps messages only for a limited time | The phone still gets every message; the ring shows when a send is queued |
-| Accidental presses in a bag | A held button 1 sends a stray message; a held button 2 can turn the device off | A stray message is harmless. Recess button 2; any press turns the device back on |
+| Accidental presses in a bag | Any press of button 1 with nothing waiting sends a one-press message (the phone sees it too); a held button 2 can turn the device off | A stray message is harmless, and a long gap between messages is the common case. Recess button 2; a 5 s hold of button 2 turns the device back on |
 | Ring colors look wrong | The ring runs on 3.3 V, below its rated voltage | Power it from battery + instead, as the wiring notes describe |
 | School Wi-Fi blocks the device | Login pages, 5 GHz-only coverage or site filtering | Run Test sketch 3 on site; ask the school, or use a phone hotspot |
 | LiPo in a kid's bag | Crushing or puncturing a LiPo is dangerous | Protected cell, padded case, no unattended charging |

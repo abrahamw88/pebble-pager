@@ -69,7 +69,7 @@ details summary { cursor: pointer; font-family: var(--display); font-weight: 600
       <button class="btn" id="b1" aria-label="Button 1: tap to play a message, hold to record one"></button>
       <button class="btn" id="b2" aria-label="Button 2: tap for battery, hold 5 seconds for setup, 10 seconds to turn off"></button>
     </div>
-    <div class="says" id="says">Hold the middle button to record a message. Tap it to play one.</div>
+    <div class="says" id="says">Press the middle button to start a message, or to play one that is waiting.</div>
     <div class="counts"><span>Unread <b id="unreadN">0</b> of 3</span><span>Waiting to send <b id="outboxN">0</b></span><span id="next"></span></div>
   </section>
 
@@ -91,7 +91,7 @@ details summary { cursor: pointer; font-family: var(--display); font-weight: 600
       <table class="ref">
         <tr><td>Power on</td><td>Press and hold the small button for 5 seconds. A <span class="sw" style="background:#50E080"></span>green light fills the ring.</td></tr>
         <tr><td>Power off</td><td>Hold the small button for 10 seconds. The ring fills <span class="sw" style="background:#9060F0"></span>purple, then <span class="sw" style="background:#F03030"></span>red counts down; let go when it is dark.</td></tr>
-        <tr><td>Send a message</td><td>Hold the big button, then tap and press a pattern of long and short presses. Each press lights a comet in your color. The ring is dark while it sends, then ends with one <span class="sw" style="background:#50E080"></span>green flash at the bottom: received.</td></tr>
+        <tr><td>Send a message</td><td>Press the big button (a tap is enough) and keep going with a pattern of long and short presses. Each press lights a comet in your color. The ring is dark while it sends, then ends with one <span class="sw" style="background:#50E080"></span>green flash at the bottom: received.</td></tr>
         <tr><td>Play a message</td><td>One pixel breathing at the top, in the sender's color, means a message is waiting. Press the big button and it plays at once, in the sender's color. During a conversation it plays by itself.</td></tr>
         <tr><td>Check the battery</td><td>Tap the small button. 1 to 12 <span class="sw" style="background:#50E080"></span>green pixels light up (a page has no battery, so it shows full).</td></tr>
         <tr><td>Wi-Fi setup</td><td>Hold the small button for 5 seconds and let go when the ring is full <span class="sw" style="background:#9060F0"></span>purple. Do it again to close.</td></tr>
@@ -343,8 +343,8 @@ function onEdge(e) {
     return EV_NONE;
   }
   if (recState === R_PRESSED) {
-    if (held < RECORD_HOLD_MS) { recState = R_IDLE; return EV_PLAY; }
-    recPresses = 0; recStart = e.at - held;
+    if (held < RECORD_HOLD_MS && unread.length) { recState = R_IDLE; return EV_PLAY; }   // a tap with messages waiting
+    recPresses = 0; recStart = e.at - held;   // anything else is the first press of a message
     recordPressEnd(e.at, held);
     return EV_RECORD_START;
   }
@@ -410,9 +410,7 @@ async function playAll() {   // play what is queued, one after another, each in 
   if (armAfterPlay) { armAfterPlay = false; inputArm(); if (button[0].down) { ringSetColor(ownRgb()); ringAdvance(ms() / 1000); ringPress(true); } show("Now recording: press your message."); say("Recording"); }
 }
 
-function playOne() {   // a tap with nothing stored: read the inbox first, then play what arrived (there is no replay)
-  if (!unread.length && !tapWaiting) { tapWaiting = true; lastCheck = 0; return; }
-  tapWaiting = false;
+function playOne() {   // a tap with messages waiting plays the oldest (there is no replay)
   if (!unread.length) { say("Nothing to play"); show("Nothing to play."); return; }
   const item = unread.shift();
   save();
@@ -488,7 +486,7 @@ let onHoldAt = -1;   // off: when button 2 went down, or -1
 function wire(el, index) {
   const edge = (down) => {
     if (!off && index === 0) {
-      if (down && unread.length && recState === R_IDLE && !playing && !tapWaiting) { startPressPlay(); return; }
+      if (down && unread.length && recState === R_IDLE && !playing) { startPressPlay(); return; }
       if (!down && pressPlayed) { endPressPlay(); return; }
     }
     if (off) {   // only a 5 s hold of button 2 turns it on; button 1 does nothing
@@ -512,7 +510,7 @@ wire($("b1"), 0);
 wire($("b2"), 1);
 
 // ---- The main loop: read the inbox on the device's schedule, post what is waiting, time out receipts ----
-let lastCheck = 0, working = false, tapWaiting = false;
+let lastCheck = 0, working = false;
 async function check() {   // what the device does each time it wakes: read the inbox, then show if a message is waiting
   lastCheck = Date.now();
   const batch = inbox.splice(0, NTFY_BATCH);
@@ -525,7 +523,6 @@ async function check() {   // what the device does each time it wakes: read the 
   }
   const fresh = Math.min(arrivedN, unread.length);   // a message waits for a tap, unless one was sent from here a moment ago
   arrivedN = 0;
-  if (tapWaiting) return;                            // a tap is about to play it
   if (fresh && lastSentAt && Date.now() - lastSentAt < CONVERSATION_MS) {   // a conversation is going on: play at once
     while (unread.length) { const item = unread.shift(); say("Play from " + item.from + ": " + item.text + " (" + unread.length + " unread left)"); playQueue.push(item); }
     save();
@@ -557,7 +554,6 @@ async function loop() {
       const talking = lastSentAt && now - lastSentAt < CONVERSATION_MS;   // a conversation: look often, like the device
       const every = settings.live ? 0 : talking ? CONVERSATION_POLL_MS : awaited.length ? RECEIPT_POLL_MS : CHECK_INTERVAL_MS;
       if (ready() && (settings.live ? inbox.length > 0 || now - lastCheck >= CHECK_INTERVAL_MS : now - lastCheck >= every)) await check();
-      if (tapWaiting) playOne();   // the tap's answer, now the inbox is read (or can't be)
       if (sendShown && outbox.length && !online) { sendShown = false; say("Can't send now: queued"); show("Couldn't send. It is queued and will be tried again."); ringShow(ringFail); }
       if (online && canSend() && outbox.length && now >= sendRetryAt) await sendNext();
       if (online && notes.length && now >= notesRetryAt) {
