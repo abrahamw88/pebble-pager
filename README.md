@@ -4,7 +4,7 @@ A pair of palm-size pagers for kids on the Seeed XIAO ESP32-C3. This file is the
 
 ## Overview
 
-Two matching palm-size devices, each built on a Seeed XIAO ESP32-C3, swap pulse messages over Wi-Fi through ntfy, a push notification service. A pulse message is a pattern of long and short button presses that plays back on the other device as light and buzz. The same service sends every message to a parent's iPhone and lets the phone send messages back. Parts run about $40 per device, or roughly $87 for the pair with breadboards and wire.
+Two matching palm-size devices, each built on a Seeed XIAO ESP32-C3, swap pulse messages over Wi-Fi through ntfy, a push notification service. A pulse message is a pattern of long and short button presses that plays back on the other device as light and buzz. The same service sends every message to a parent's iPhone and lets the phone send messages back. Parts run about $36 per device, or roughly $79 for the pair with breadboards and wire.
 
 How one message travels:
 
@@ -100,7 +100,7 @@ The ring is the device's face, so its motion is designed to be smooth and a litt
 
 ## Parts list
 
-A breadboard prototype of both devices, batteries included, costs about $87 in parts. The final-build extras add about $10. Prices marked "est." are estimates; the rest were checked on the seller's page.
+A breadboard prototype of both devices, batteries included, costs about $79 in parts. The final-build extras add about $10. Prices marked "est." are estimates; the rest were checked on the seller's page.
 
 | Part | Qty for the pair | Price | Used in |
 |---|---|---|---|
@@ -115,12 +115,12 @@ A breadboard prototype of both devices, batteries included, costs about $87 in p
 | 1N4148 diode | 2 | under $1, est. | Step 5 |
 | Resistor assortment with 330 Ω, 470 Ω, 1 kΩ, 10 kΩ and 220 kΩ | 1 | about $6, est. | Steps 4, 5 and 8 |
 | 0.1 µF ceramic capacitor (optional) | 2 | under $1, est. | Step 8 |
-| [LiPo 3.7 V 2,000 mAh](https://www.adafruit.com/product/2011) | 2 | $12.50 each | Step 8 |
+| [LiPo 3.7 V 2,000 mAh, JLJLUP, with protection circuit and PH 2.0 plug](https://www.amazon.com/dp/B0FH7H4Z7W) | 2 | $9.99 each, or $16.99 for two | Step 8 |
 | JST-PH 2-pin socket cable | 2 | about $1 each, est. | Step 8 |
 | Enclosure, 3D printed | 2 | $3–5 each, est. | Final build |
 | Thin silicone wire and perfboard | 1 set | about $2, est. | Final build |
 
-Adafruit showed one 2,000 mAh battery in stock when checked; DigiKey also carries it, or the 2,500 mAh flat cell ($14.95) works with a slightly bigger case. The ring is 36.8 mm across and 3.25 mm thick, with a 23.3 mm center hole for the send button, so the same part serves the prototype and the final build. There is no power switch: the device turns off from button 2, and the case should leave a pinhole over the XIAO's RESET button.
+The battery measures 53 × 34 × 10 mm (its listing says 52 × 34 × 10), has a built-in protection circuit, and comes with a PH 2.0 plug on a 70 mm lead. Its seller warns that the plug's polarity is not standard, so check it as step 8 describes before connecting anything. The case is sized around this cell: a different one needs the case checked again. The ring is 36.8 mm across and 3.25 mm thick, with a 23.3 mm center hole for the send button, so the same part serves the prototype and the final build. There is no power switch: the device turns off from button 2, and the case should leave a pinhole over the XIAO's RESET button.
 
 ## Wiring and pin plan
 
@@ -169,7 +169,7 @@ A week on 2,000 mAh means averaging under about 9.5 mA (80% usable: 1,600 mAh ov
 - Sending, buzzing and lighting add little: the motor draws 60 mA and the ring is capped near the same, each for a second or two.
 - Deep sleep measured 41.6 µA on a XIAO ESP32-C3 (Seeed lists 43 µA). The battery sensor adds about 10 µA.
 - Measure on battery with USB unplugged; USB keeps the chip awake and inflates every reading.
-- Charging: the XIAO's charger is listed at about 370 mA (Seeed doesn't state it), roughly 6 hours for 2,000 mAh, within the 500 mA Adafruit recommends for this cell.
+- Charging: the XIAO's charger is listed at about 370 mA (Seeed doesn't state it), roughly 6 hours for 2,000 mAh. That is under a fifth of the cell's capacity per hour, a gentle rate; the listing gives no charge limit.
 - NeoPixels draw current even when dark (up to about 1 mA per pixel, no datasheet figure), so the D5 transistor cuts ring power whenever it isn't showing something.
 - To verify, post `battery on` to each device's inbox: it then reports its battery voltage to the phone every hour. Run it from full and count the days. `battery off` stops the reports.
 - **Battery level.** D1 is read at every wake, before the radio starts (Wi-Fi pulls the voltage down while it transmits), averaged over 16 readings and doubled. The percentage comes from a table of a resting lithium cell's voltage (3.30 V empty, 3.84 V half, 4.20 V full), so it is only a guide under load, and reads high while charging. A reading under 2.5 V means no sensor is wired, and the device says "battery not connected" instead of a level. There is no per-device correction yet.
@@ -220,12 +220,12 @@ Battery life is the biggest unknown, so measure it on the prototype before desig
 
 | Risk | Why it matters | Fallback |
 |---|---|---|
-| Battery under a week | Plan B has little margin if Wi-Fi joins are slow | Shorten each check, move to plan A's toolchain, or fit the 2,500 mAh cell |
+| Battery under a week | Plan B has little margin if Wi-Fi joins are slow | Shorten each check, move to plan A's toolchain, or fit a larger cell and a deeper case |
 | ntfy is down or slow | Every message depends on one free service | Paid ntfy plan, or self-host ntfy later on an always-on computer |
 | Messages missed while offline | ntfy keeps messages only for a limited time | The phone still gets every message; the ring shows when a send is queued |
 | Accidental presses in a bag | A held button 1 sends a stray message; a held button 2 can turn the device off | A stray message is harmless. Recess button 2; any press turns the device back on |
 | Ring colors look wrong | The ring runs on 3.3 V, below its rated voltage | Power it from battery + instead, as the wiring notes describe |
 | School Wi-Fi blocks the device | Login pages, 5 GHz-only coverage or site filtering | Run Test sketch 3 on site; ask the school, or use a phone hotspot |
-| LiPo in a kid's bag | Crushing or puncturing a LiPo is dangerous | Protected cell, padded case, no unattended charging, as Adafruit advises |
+| LiPo in a kid's bag | Crushing or puncturing a LiPo is dangerous | Protected cell, padded case, no unattended charging |
 
 This device supplements a phone. It isn't for emergencies, and it doesn't share location or call 911.

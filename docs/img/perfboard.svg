@@ -47,8 +47,10 @@
 <rect x='388.9' y='589.4' width='238.3' height='280.6' rx='5' fill='#3B7DD8' fill-opacity='0.06' stroke='#3B7DD8' stroke-width='1.5' stroke-dasharray='6 4'/>
 <rect x='448.2' y='861.0' width='119.7' height='16' rx='3' fill='#FFFFFF' stroke='#3B7DD8' stroke-width='1.5' stroke-dasharray='6 4'/>
 <rect x='280.8' y='757.8' width='80.3' height='80.3' rx='4' fill='#3B7DD8' fill-opacity='0.06' stroke='#3B7DD8' stroke-width='1.5' stroke-dasharray='6 4'/>
-<rect x='256.1' y='529.2' width='61.6' height='61.6' rx='8' fill='#3A3B3F' fill-opacity='0.1' stroke='#3A3B3F' stroke-width='1.5' stroke-dasharray='6 4'/>
-<rect x='677.2' y='580.3' width='61.6' height='61.6' rx='8' fill='#3A3B3F' fill-opacity='0.1' stroke='#3A3B3F' stroke-width='1.5' stroke-dasharray='6 4'/>
+<rect x='208.8' y='594.0' width='54.4' height='68.0' rx='6' fill='#3A3B3F' fill-opacity='0.1' stroke='#3A3B3F' stroke-width='1.5' stroke-dasharray='6 4'/>
+<rect x='678.0' y='634.8' width='68.0' height='54.4' rx='6' fill='#3A3B3F' fill-opacity='0.1' stroke='#3A3B3F' stroke-width='1.5' stroke-dasharray='6 4'/>
+<line x1='263.4' y1='582.8' x2='718.6' y2='582.8' stroke='#6B6E73' stroke-width='1.2' stroke-dasharray='8 4'/>
+<text x='714.6' y='577.8' font-size='8.5' text-anchor='end' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#5F6267'>battery on the back, from here up</text>
 <circle cx='236' cy='118' r='3' fill='#FFFFFF' stroke='#C4C6CB' stroke-width='1'/>
 <circle cx='236' cy='152' r='3' fill='#FFFFFF' stroke='#C4C6CB' stroke-width='1'/>
 <circle cx='236' cy='186' r='3' fill='#FFFFFF' stroke='#C4C6CB' stroke-width='1'/>
@@ -401,9 +403,9 @@
 <circle cx='746' cy='764' r='3' fill='#FFFFFF' stroke='#C4C6CB' stroke-width='1'/>
 <circle cx='746' cy='798' r='3' fill='#FFFFFF' stroke='#C4C6CB' stroke-width='1'/>
 <circle cx='746' cy='832' r='3' fill='#FFFFFF' stroke='#C4C6CB' stroke-width='1'/>
-<path d='M236 526 L236 492' fill='none' stroke='#6C7A89' stroke-width='5' stroke-linecap='round' stroke-linejoin='round' opacity='0.9'/>
-<path d='M236 560 L270 560 L270 594 L270 628 L270 662 L270 696 L304 696 L338 696 L338 730' fill='none' stroke='#3B7DD8' stroke-width='5' stroke-linecap='round' stroke-linejoin='round' opacity='0.9'/>
-<path d='M236 594 L236 628 L236 662 L236 696 L236 730 L236 764 L236 798 L236 832 L270 832' fill='none' stroke='#1F2124' stroke-width='5' stroke-linecap='round' stroke-linejoin='round' opacity='0.9'/>
+<path d='M236 594 L236 560' fill='none' stroke='#6C7A89' stroke-width='5' stroke-linecap='round' stroke-linejoin='round' opacity='0.9'/>
+<path d='M236 628 L270 628 L270 662 L270 696 L304 696 L338 696 L338 730' fill='none' stroke='#3B7DD8' stroke-width='5' stroke-linecap='round' stroke-linejoin='round' opacity='0.9'/>
+<path d='M236 662 L236 696 L236 730 L236 764 L236 798 L236 832 L270 832' fill='none' stroke='#1F2124' stroke-width='5' stroke-linecap='round' stroke-linejoin='round' opacity='0.9'/>
 <path d='M406 662 L372 662' fill='none' stroke='#3B7DD8' stroke-width='5' stroke-linecap='round' stroke-linejoin='round' opacity='0.9'/>
 <path d='M406 730 L372 730 L372 764' fill='none' stroke='#2F9E6E' stroke-width='5' stroke-linecap='round' stroke-linejoin='round' opacity='0.9'/>
 <path d='M406 696 L440 696' fill='none' stroke='#8E5BD0' stroke-width='5' stroke-linecap='round' stroke-linejoin='round' opacity='0.9'/>
@@ -454,7 +456,7 @@
 <line x1='542' y1='424' x2='529.2' y2='418.0' stroke='#9A9CA1' stroke-width='3'/>
 <path d='M440 764 L440 458' fill='none' stroke='#FFFFFF' stroke-width='8' stroke-linecap='round'/><path d='M440 764 L440 458' fill='none' stroke='#6B6E73' stroke-width='5' stroke-linecap='round' stroke-dasharray='3 5'/>
 <path d='M678 730 L661 709.6 L661 475 L576 356' fill='none' stroke='#FFFFFF' stroke-width='8' stroke-linecap='round'/><path d='M678 730 L661 709.6 L661 475 L576 356' fill='none' stroke='#6B6E73' stroke-width='5' stroke-linecap='round' stroke-dasharray='3 5'/>
-<path d='M576 322 L576 274.4 L355 274.4 L355 604.2 L276.8 641.6 L236 628' fill='none' stroke='#FFFFFF' stroke-width='8' stroke-linecap='round'/><path d='M576 322 L576 274.4 L355 274.4 L355 604.2 L276.8 641.6 L236 628' fill='none' stroke='#6B6E73' stroke-width='5' stroke-linecap='round' stroke-dasharray='3 5'/>
+<path d='M576 322 L576 274.4 L321 274.4 L321 546.4 L290.4 716.4 L236 696' fill='none' stroke='#FFFFFF' stroke-width='8' stroke-linecap='round'/><path d='M576 322 L576 274.4 L321 274.4 L321 546.4 L290.4 716.4 L236 696' fill='none' stroke='#6B6E73' stroke-width='5' stroke-linecap='round' stroke-dasharray='3 5'/>
 <path d='M576 696 Q661 722 746 696' fill='none' stroke='#FFFFFF' stroke-width='8' stroke-linecap='round'/><path d='M576 696 Q661 722 746 696' fill='none' stroke='#8E5BD0' stroke-width='5' stroke-linecap='round' stroke-dasharray='10 5'/>
 <rect x='400.5' y='622.5' width='11' height='11' rx='2' fill='#FFFFFF' stroke='#1F2124' stroke-width='1'/>
 <rect x='604.5' y='622.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
@@ -478,9 +480,9 @@
 <rect x='366.5' y='758.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
 <rect x='264.5' y='826.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
 <rect x='366.5' y='826.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
-<rect x='230.5' y='520.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
-<rect x='230.5' y='554.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
 <rect x='230.5' y='588.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
+<rect x='230.5' y='622.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
+<rect x='230.5' y='656.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
 <rect x='672.5' y='656.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
 <rect x='706.5' y='656.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
 <rect x='740.5' y='656.5' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
@@ -500,8 +502,8 @@
 <circle cx='270' cy='798' r='4.2' fill='#D0D2D6' stroke='#1F2124' stroke-width='1'/>
 <circle cx='746' cy='628' r='4.2' fill='#D0D2D6' stroke='#1F2124' stroke-width='1'/>
 <circle cx='644' cy='628' r='4.2' fill='#D0D2D6' stroke='#1F2124' stroke-width='1'/>
-<circle cx='236' cy='492' r='7.5' fill='#FFFFFF' stroke='#1F2124' stroke-width='2'/>
-<text x='236.0' y='495.3' font-size='9.5' font-weight='700' text-anchor='middle' fill='#1F2124'>1</text>
+<circle cx='236' cy='560' r='7.5' fill='#FFFFFF' stroke='#1F2124' stroke-width='2'/>
+<text x='236.0' y='563.3' font-size='9.5' font-weight='700' text-anchor='middle' fill='#1F2124'>1</text>
 <circle cx='644' cy='730' r='7.5' fill='#FFFFFF' stroke='#1F2124' stroke-width='2'/>
 <text x='644.0' y='733.3' font-size='9.5' font-weight='700' text-anchor='middle' fill='#1F2124'>2</text>
 <circle cx='440' cy='730' r='7.5' fill='#FFFFFF' stroke='#1F2124' stroke-width='2'/>
@@ -521,7 +523,7 @@
 <circle cx='678' cy='730' r='6.5' fill='#FFFFFF' stroke='#1F2124' stroke-width='2.2'/><circle cx='678' cy='730' r='2.2' fill='#1F2124'/>
 <circle cx='576' cy='356' r='6.5' fill='#FFFFFF' stroke='#1F2124' stroke-width='2.2'/><circle cx='576' cy='356' r='2.2' fill='#1F2124'/>
 <circle cx='576' cy='322' r='6.5' fill='#FFFFFF' stroke='#1F2124' stroke-width='2.2'/><circle cx='576' cy='322' r='2.2' fill='#1F2124'/>
-<circle cx='236' cy='628' r='6.5' fill='#FFFFFF' stroke='#1F2124' stroke-width='2.2'/><circle cx='236' cy='628' r='2.2' fill='#1F2124'/>
+<circle cx='236' cy='696' r='6.5' fill='#FFFFFF' stroke='#1F2124' stroke-width='2.2'/><circle cx='236' cy='696' r='2.2' fill='#1F2124'/>
 <circle cx='576' cy='696' r='6.5' fill='#FFFFFF' stroke='#1F2124' stroke-width='2.2'/><circle cx='576' cy='696' r='2.2' fill='#1F2124'/>
 <circle cx='746' cy='696' r='6.5' fill='#FFFFFF' stroke='#1F2124' stroke-width='2.2'/><circle cx='746' cy='696' r='2.2' fill='#1F2124'/>
 <circle cx='270' cy='152' r='26.8' fill='none' stroke='#1A9E96' stroke-width='1.5' stroke-dasharray='3 2'/>
@@ -542,9 +544,9 @@
 <text x='619.0' y='790.0' font-size='8' font-weight='600' text-anchor='start' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#1F2124'>GND</text>
 <text x='397.0' y='824.0' font-size='8' text-anchor='end' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#9A9CA1'>D0</text>
 <text x='619.0' y='824.0' font-size='8' text-anchor='start' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#9A9CA1'>5V</text>
-<text x='225.0' y='529.0' font-size='8' font-weight='700' text-anchor='middle' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#1F2124'>C</text>
-<text x='225.0' y='563.0' font-size='8' font-weight='700' text-anchor='middle' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#1F2124'>B</text>
-<text x='225.0' y='597.0' font-size='8' font-weight='700' text-anchor='middle' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#1F2124'>E</text>
+<text x='225.0' y='597.0' font-size='8' font-weight='700' text-anchor='middle' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#1F2124'>C</text>
+<text x='225.0' y='631.0' font-size='8' font-weight='700' text-anchor='middle' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#1F2124'>B</text>
+<text x='225.0' y='665.0' font-size='8' font-weight='700' text-anchor='middle' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#1F2124'>E</text>
 <text x='678.0' y='678.0' font-size='8' font-weight='700' text-anchor='middle' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#1F2124'>E</text>
 <text x='712.0' y='678.0' font-size='8' font-weight='700' text-anchor='middle' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#1F2124'>B</text>
 <text x='746.0' y='678.0' font-size='8' font-weight='700' text-anchor='middle' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#1F2124'>C</text>
@@ -558,9 +560,9 @@
 <path d='M461.0 390.0 L195.0 326.0' fill='none' stroke='#8A8D93' stroke-width='1' stroke-dasharray='3 3'/>
 <text x='189.0' y='330.0' font-size='11' font-weight='600' text-anchor='end' fill='#1F2124'>Button 1</text>
 <text x='189.0' y='344.0' font-size='10' text-anchor='end' fill='#5F6267'>on the front, in the middle of the ring</text>
-<path d='M276.2 560.0 L195.0 494.0' fill='none' stroke='#8A8D93' stroke-width='1' stroke-dasharray='3 3'/>
+<path d='M240.0 586.0 L195.0 494.0' fill='none' stroke='#8A8D93' stroke-width='1' stroke-dasharray='3 3'/>
 <text x='189.0' y='498.0' font-size='11' font-weight='600' text-anchor='end' fill='#1F2124'>Q1 PN2222A, ring switch</text>
-<text x='189.0' y='512.0' font-size='10' text-anchor='end' fill='#5F6267'>on the back, lying flat</text>
+<text x='189.0' y='512.0' font-size='10' text-anchor='end' fill='#5F6267'>on the back, standing</text>
 <path d='M321.0 672.0 L195.0 682.0' fill='none' stroke='#8A8D93' stroke-width='1' stroke-dasharray='3 3'/>
 <text x='189.0' y='686.0' font-size='11' font-weight='600' text-anchor='end' fill='#1F2124'>R1 470 Ω, R2 10 kΩ</text>
 <text x='189.0' y='700.0' font-size='10' text-anchor='end' fill='#5F6267'>for Q1</text>
@@ -570,9 +572,9 @@
 <path d='M311.0 846.0 L195.0 858.0' fill='none' stroke='#8A8D93' stroke-width='1' stroke-dasharray='3 3'/>
 <text x='189.0' y='862.0' font-size='11' font-weight='600' text-anchor='end' fill='#1F2124'>Button 2</text>
 <text x='189.0' y='876.0' font-size='10' text-anchor='end' fill='#5F6267'>on the back</text>
-<path d='M724.0 604.2 L771.0 526.0' fill='none' stroke='#8A8D93' stroke-width='1' stroke-dasharray='3 3'/>
+<path d='M752.0 652.0 L771.0 526.0' fill='none' stroke='#8A8D93' stroke-width='1' stroke-dasharray='3 3'/>
 <text x='777.0' y='530.0' font-size='11' font-weight='600' text-anchor='start' fill='#1F2124'>Q2 PN2222A, motor switch</text>
-<text x='777.0' y='544.0' font-size='10' text-anchor='start' fill='#5F6267'>on the back, lying flat</text>
+<text x='777.0' y='544.0' font-size='10' text-anchor='start' fill='#5F6267'>on the back, standing</text>
 <path d='M712.0 622.0 L771.0 626.0' fill='none' stroke='#8A8D93' stroke-width='1' stroke-dasharray='3 3'/>
 <text x='777.0' y='630.0' font-size='11' font-weight='600' text-anchor='start' fill='#1F2124'>Diode 1N4148</text>
 <text x='777.0' y='644.0' font-size='10' text-anchor='start' fill='#5F6267'>stripe toward column 13</text>
@@ -585,7 +587,7 @@
 <text x='24.0' y='911.0' font-size='12' font-weight='600' fill='#1F2124'>Wire holes</text>
 <circle cx='32' cy='929' r='7.5' fill='#FFFFFF' stroke='#1F2124' stroke-width='2'/>
 <text x='32.0' y='932.3' font-size='9.5' font-weight='700' text-anchor='middle' fill='#1F2124'>1</text>
-<text x='46.0' y='933.0' font-size='11' fill='#1F2124'>Ring GND · 1, 12</text>
+<text x='46.0' y='933.0' font-size='11' fill='#1F2124'>Ring GND · 1, 14</text>
 <circle cx='268' cy='929' r='7.5' fill='#FFFFFF' stroke='#1F2124' stroke-width='2'/>
 <text x='268.0' y='932.3' font-size='9.5' font-weight='700' text-anchor='middle' fill='#1F2124'>2</text>
 <text x='282.0' y='933.0' font-size='11' fill='#1F2124'>Ring 5V/PWR · 13, 19</text>
@@ -612,7 +614,7 @@
 <line x1='24' y1='1009' x2='50' y2='1009' stroke='#1F2124' stroke-width='5' stroke-linecap='round'/><line x1='24' y1='1009' x2='50' y2='1009' stroke='#FFFFFF' stroke-width='2' stroke-linecap='round'/>
 <text x='60.0' y='1013.0' font-size='11' fill='#1F2124'>The same, on the back (the two by button 1).</text>
 <line x1='24' y1='1029' x2='50' y2='1029' stroke='#6B6E73' stroke-width='5' stroke-linecap='round' stroke-dasharray='3 5'/>
-<text x='60.0' y='1033.0' font-size='11' fill='#1F2124'>Insulated wire on the back: wires A, B and C.</text>
+<text x='60.0' y='1033.0' font-size='11' fill='#1F2124'>Thin insulated wire on the back, under the battery: wires A, B and C. Keep them from crossing.</text>
 <line x1='24' y1='1049' x2='50' y2='1049' stroke='#8E5BD0' stroke-width='5' stroke-linecap='round' stroke-dasharray='10 5'/>
 <text x='60.0' y='1053.0' font-size='11' fill='#1F2124'>Insulated jumper on the front (one).</text>
 <rect x='32' y='1069' width='11' height='11' rx='2' fill='#D9B45A' stroke='#1F2124' transform='translate(0 -5.5)'/>
@@ -621,5 +623,5 @@
 <text x='60.0' y='1093.0' font-size='11' fill='#1F2124'>Lead of a part on the front, soldered on the back.</text>
 <circle cx='37' cy='1109' r='6.5' fill='#FFFFFF' stroke='#1F2124' stroke-width='2.2'/><circle cx='37' cy='1109' r='2.2' fill='#1F2124'/>
 <text x='60.0' y='1113.0' font-size='11' fill='#1F2124'>End of wire A, B or C or the jumper. Numbered circles are holes for wires that leave the board.</text>
-<text x='24.0' y='1135.0' font-size='11' fill='#5F6267'>Pink dotted circles: where the ring sits, flat on the board. Nothing is soldered on the front under it.</text>
+<text x='24.0' y='1135.0' font-size='11' fill='#5F6267'>Pink dotted circles: where the ring sits. No part or link goes under it on the front; only its own three wires run there.</text>
 </svg>
