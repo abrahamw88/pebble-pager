@@ -121,7 +121,7 @@ details summary { cursor: pointer; font-family: var(--display); font-weight: 600
 // the battery and the motor are the parts a page cannot copy.
 
 // ---- Values from config.h ----
-const SETUP_HOLD_MS = 5000, OFF_HOLD_MS = 10000, RECORD_HOLD_MS = 500, SEND_PAUSE_MS = 1000, CUTOFF_QUIET_MS = 2000;
+const SETUP_HOLD_MS = 5000, OFF_HOLD_MS = 10000, RECORD_HOLD_MS = 500, MIN_PRESS_MS = 75, SEND_PAUSE_MS = 1000, CUTOFF_QUIET_MS = 2000;
 const CHECK_INTERVAL_MS = 30000, CONVERSATION_POLL_MS = 3000, RECEIPT_POLL_MS = 5000, RECEIPT_WAIT_MS = 45000, SEND_RETRY_MS = 10000;
 const MAX_PRESSES = 12, MAX_RECORD_MS = 15000, OUTBOX_MAX = 5, UNREAD_MAX = 3, NOTES_MAX = 5, NTFY_BATCH = 8;
 const QUEUE_MAX_AGE_MS = 24 * 60 * 60 * 1000, PULSE_MIN_MS = 20, PULSE_MAX_MS = 5000, PULSE_MAX_TIMES = 2 * MAX_PRESSES - 1;
@@ -342,6 +342,10 @@ function onEdge(e) {
     }
     return EV_NONE;
   }
+  if (held < MIN_PRESS_MS && (recState === R_PRESSED || recState === R_DOWN)) {   // too light to be a press: a bump
+    recState = recState === R_PRESSED ? R_IDLE : R_WAIT;
+    return EV_NONE;
+  }
   if (recState === R_PRESSED) {
     if (held < RECORD_HOLD_MS && unread.length) { recState = R_IDLE; return EV_PLAY; }   // a tap with messages waiting
     recPresses = 0; recStart = e.at - held;   // anything else is the first press of a message
@@ -431,15 +435,16 @@ function holdAfterPlay() {
   recPresses = 0;
   playAll();
 }
-function startPressPlay() {
-  const t0 = ms(), item = unread.shift();
+let pressCandidate = null;   // a press with messages waiting that has not yet lasted MIN_PRESS_MS
+function startPressPlay(t0) {
+  const item = unread.shift();
   save();
   pressPlayed = { at: t0, hold: false };
   button[0].down = true; button[0].at = t0;
   say("Play from " + item.from + ": " + item.text + " (" + unread.length + " unread left)");
   playQueue.push(item);
   playAll();
-  setTimeout(() => { if (pressPlayed && pressPlayed.at === t0) holdAfterPlay(); }, RECORD_HOLD_MS);
+  setTimeout(() => { if (pressPlayed && pressPlayed.at === t0) holdAfterPlay(); }, RECORD_HOLD_MS - MIN_PRESS_MS);   // from the press
 }
 function endPressPlay() {
   pressPlayed = null;
@@ -486,7 +491,12 @@ let onHoldAt = -1;   // off: when button 2 went down, or -1
 function wire(el, index) {
   const edge = (down) => {
     if (!off && index === 0) {
-      if (down && unread.length && recState === R_IDLE && !playing) { startPressPlay(); return; }
+      if (down && unread.length && recState === R_IDLE && !playing) {   // plays once it has lasted MIN_PRESS_MS: a bump does not
+        const t0 = ms();
+        pressCandidate = { at: t0, timer: setTimeout(() => { pressCandidate = null; startPressPlay(t0); }, MIN_PRESS_MS) };
+        return;
+      }
+      if (!down && pressCandidate) { clearTimeout(pressCandidate.timer); pressCandidate = null; return; }   // too light
       if (!down && pressPlayed) { endPressPlay(); return; }
     }
     if (off) {   // only a 5 s hold of button 2 turns it on; button 1 does nothing

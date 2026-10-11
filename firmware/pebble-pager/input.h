@@ -11,8 +11,8 @@
 #include "pulse.h"
 
 enum { EV_NONE, EV_PLAY, EV_PRESS_PLAY, EV_RECORD_START, EV_RECORD_DONE, EV_RECORD_CANCEL, EV_BATTERY, EV_SETUP, EV_OFF };
-// EV_PRESS_PLAY: button 1 went down while unread messages are waiting (inputPlayOnPress): play the oldest at once,
-// without waiting for the release. The same press then still means what it always did: a tap is over (it already
+// EV_PRESS_PLAY: button 1 has been down for MIN_PRESS_MS while unread messages are waiting (inputPlayOnPress): play the
+// oldest at once, without waiting for the release. The same press then still means what it always did: a tap is over (it already
 // played), and a hold plays the rest and starts a fresh recording.
 Pulse recorded;   // the message, when inputTick() returns EV_RECORD_DONE
 
@@ -144,14 +144,16 @@ int onEdge(const Edge& e) {
   if (recQuietUntil && (long)(e.at - recQuietUntil) < 0) return EV_NONE;
   recQuietUntil = 0;
   if (e.down) {
-    if (recState == R_IDLE) {
-      recState = R_PRESSED;
-      if (inputPlayOnPress) { inputPressPlayed = true; return EV_PRESS_PLAY; }
-    } else if (recState == R_WAIT) {
+    if (recState == R_IDLE) recState = R_PRESSED;
+    else if (recState == R_WAIT) {
       if (recPresses == 0) recStart = e.at;
       else recorded.ms[2 * recPresses - 1] = pulseClamp(e.at - recLastUp);   // the gap since the last press
       recState = R_DOWN;
     }
+    return EV_NONE;
+  }
+  if (held < MIN_PRESS_MS && (recState == R_PRESSED || recState == R_DOWN)) {   // too light to be a press: a bump
+    recState = recState == R_PRESSED ? R_IDLE : R_WAIT;   // as if it never happened (a recording's send timer carries on)
     return EV_NONE;
   }
   switch (recState) {
@@ -206,6 +208,11 @@ int inputTick() {
     for (int i = 0; i < 2; i++)
       if (pinsDown(i) != button[i].down && now - button[i].at >= DEBOUNCE_MS) return onEdge({(uint8_t)i, !button[i].down, now});
 
+  if (recState == R_PRESSED && inputPlayOnPress && !inputPressPlayed && now - button[0].at >= MIN_PRESS_MS &&
+      now - button[0].at < RECORD_HOLD_MS) {   // a real press with messages waiting: play the oldest now, before the release
+    inputPressPlayed = true;
+    return EV_PRESS_PLAY;
+  }
   if (recState == R_PRESSED && now - button[0].at >= RECORD_HOLD_MS) {   // a hold: recording, and this press is its first
     if (inputPressPlayed) { inputPressPlayed = false; inputHeldPlayed = true; }   // it already played a message
     recPresses = 0; recStart = button[0].at; recState = R_DOWN;
