@@ -220,7 +220,6 @@ The board is 16 by 22 holes (40.6 × 55.9 mm), with holes counted from the top l
 - **Links** are solder bridges or bare wire from hole to hole, and each color in the picture is one connection. All but two are on the front; the two by button 1 are on the back, because the ring covers the front there.
 - **Insulated wires:** three run across the back, in the gap under the battery (A carries D2 to button 1; B and C carry ground to button 1 and on to the left side). One short jumper crosses the front, from R3 to Q2's base.
 - **The ring's wires:** take each of the ring's three wires down through the hole under its pad and along the back to its numbered hole, so nothing lifts the ring.
-- **The bottom right corner is notched** (holes 16, 21, 16, 22 and 15, 22 are cut away) around the case's lanyard hole. File a 3 mm radius there.
 - **D6 is cut off.** The XIAO's D6 pin (6, 16) is unused and its joint would sit under the ring's edge, so clip that pin flush before mounting the XIAO.
 
 Solder in this order, so nothing is trapped:
