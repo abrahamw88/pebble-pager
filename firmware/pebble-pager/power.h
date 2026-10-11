@@ -58,7 +58,9 @@ void powerSleep(unsigned long ms) {
     statCheckMs += awake;
     if (awake > statMaxCheckMs) statMaxCheckMs = awake;
   }
+#if SERIAL_OUT
   if (Serial) Serial.flush();   // only when a computer is listening
+#endif
   // Off: only button 2 wakes the chip (and the firmware then insists on a long hold). Otherwise either button does.
   esp_deep_sleep_enable_gpio_wakeup(powerIsOff ? (1ULL << BTN2) : (1ULL << BTN1) | (1ULL << BTN2), ESP_GPIO_WAKEUP_GPIO_LOW);
   if (ms) esp_sleep_enable_timer_wakeup(ms * 1000ULL);

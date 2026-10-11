@@ -129,13 +129,13 @@ ntfy needs no account to start. On the free tier the topic name works as the pas
 2. Pick a base name: `pebble-` plus at least seven random letters and digits, like `pebble-7qk2x9m`. Your three topics are that name plus `-a`, `-b` and `-phone`.
 3. On the iPhone, install ntfy from the App Store and allow notifications when it asks. Tap +, enter your `-phone` topic, and keep the default server, ntfy.sh.
 4. Test 1, from the computer: in a terminal, open ntfy.sh/app in a browser, subscribe to your -phone topic and publish a message from there. The phone should show it within a few seconds.
-5. Test 2, from the board: upload the firmware (no test flag) and open the Serial Monitor at 115200 baud.
+5. Test 2, from the board: upload the firmware (no test flag). It prints nothing to the Serial Monitor; the phone is where it answers.
 6. Hold the small BOOT button for 5 s and release, join the `pebblepager` network on your phone (password `pebblepager`), and fill in the page: the device's name, its partner's name, the topic base, and your Wi-Fi (2.4 GHz only).
 7. From the ntfy web app, post `update` to the device's inbox, `<base>-<name>` in lower case.
 
-**Check:** the Serial Monitor shows "Wi-Fi online" and "Image valid", and the phone shows "Eliana checking for update" followed by an answer.
+**Check:** the phone shows "Eliana checking for update" followed by an answer, such as "Eliana up to date (v1)". For the serial output while developing, build with `-DDEBUG_SERIAL`.
 
-Now the ring and motor under the firmware. The device sleeps between checks, so first type `awake` in the Serial Monitor (10 minutes awake), or upload a build with `-DNO_SLEEP`. Then type each line and compare:
+Now the ring and motor under the firmware. The device sleeps between checks, so first post `awake` to its inbox (10 minutes awake), or upload a build with `-DNO_SLEEP`. Then type each line into the Serial Monitor (the device reads it but prints nothing back) and compare the ring and motor:
 
 | Type | The ring and motor should |
 |---|---|
@@ -220,6 +220,7 @@ The board is 16 by 22 holes (40.6 × 55.9 mm), with holes counted from the top l
 - **Links** are solder bridges or bare wire from hole to hole, and each color in the picture is one connection. All but two are on the front; the two by button 1 are on the back, because the ring covers the front there.
 - **Insulated wires:** three run across the back, in the 1.5 mm gap under the battery (A carries D2 to button 1; B and C carry ground to button 1 and on to the left side). Use thin wire, 30 AWG or so, and lay them so they do not cross. One short jumper crosses the front, from R3 to Q2's base.
 - **The ring's wires:** run each of the ring's three wires under the ring, on the front, out to its numbered hole.
+- **Both bottom corners are cut off.** Cut a triangle off each bottom corner of the board, 2.5 mm along each edge, so the board clears the case's rounded corners. The cut takes the corner holes 1, 22 and 16, 22, which nothing uses.
 - **D6 is cut off.** The XIAO's D6 pin (6, 16) is unused and its joint would sit under the ring's edge, so clip that pin flush before mounting the XIAO.
 
 Solder in this order, so nothing is trapped:
@@ -272,7 +273,7 @@ Before powering up, check with a multimeter that 3V3 and ground are not shorted,
 
 | Link | Side | Runs through (column, row), corner to corner |
 |---|---|---|
-| Ground | front | 1, 17 → 1, 22 → 2, 22; 2, 21 → 2, 22; 12, 21 → 14, 21 → 14, 17; 14, 21 → 15, 21 |
+| Ground | front | 1, 17 → 1, 21 → 2, 21; 2, 21 → 2, 22; 12, 21 → 14, 21 → 14, 17; 14, 21 → 15, 21 |
 | Ground | back | 10, 8 → 11, 8 → 11, 7 |
 | 3V3 | front | 12, 20 → 13, 20 → 13, 16 |
 | D5 to R1 | front | 6, 17 → 5, 17 |

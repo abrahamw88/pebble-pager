@@ -193,6 +193,22 @@ void listExpire(const SavedList& l) {
 }
 
 // ---- Serial output with the device name in front: "Eliana: ...". Indented lines and dots stay plain. ----
+// The real firmware prints nothing: serial output belongs to the hardware checks (-DTEST=n). Build with
+// -DDEBUG_SERIAL to get it back while developing. The console still reads commands either way.
+// Printing must never stop the program. On USB, when a computer has opened the port but nobody is reading it (no
+// serial monitor), the library waits up to 2 s for every print, which freezes the buttons. So the wait is turned
+// off and the buffer made big enough for a burst of lines: text is dropped when nobody listens, nothing else is.
+#if TEST || defined(DEBUG_SERIAL)
+#define SERIAL_OUT 1
+#else
+#define SERIAL_OUT 0
+#endif
+void serialBegin() {
+  Serial.setTxBufferSize(2048);   // before begin()
+  Serial.begin(115200);
+  Serial.setTxTimeoutMs(0);
+}
+#if SERIAL_OUT
 void sayf(const char* fmt, ...) {
   char buf[256];
   va_list ap;
@@ -204,6 +220,9 @@ void sayf(const char* fmt, ...) {
   if (*m != ' ' && *m != '.' && *m != 0) Serial.printf("%s: ", deviceName.c_str());
   Serial.print(m);
 }
+#else
+inline void sayf(const char*, ...) {}
+#endif
 void sayln(const char* msg) { sayf("%s\n", msg); }
 
 // ---- USB serial console, for setup and testing without a phone ----

@@ -3,14 +3,16 @@
 //   1  Board check, no wiring: chip, MAC, internal temperature, Wi-Fi scan.
 //   2  Buttons, light ring and motor: every part wired so far works.
 //   4  Battery voltage on D1: Serial prints volts and percent, pixel 0 blinks green.
-// Tests 2 and 4 drive the pixels directly, at a fixed low brightness, so a wiring fault is easy to see.
+//   5  Button stress: like test 2, but never waits on a button or the serial port, a heartbeat pixel shows the
+//      program is still running, and every 2 s it prints the reset reason, press counts and the raw pin levels.
+// Tests 2, 4 and 5 drive the pixels directly, at a fixed low brightness, so a wiring fault is easy to see.
 #ifndef PEBBLE_TESTS_H
 #define PEBBLE_TESTS_H
 
 #if TEST == 1
 
 void setup() {
-  Serial.begin(115200);
+  serialBegin();
   settingsBegin();
   for (unsigned long t0 = millis(); !Serial && millis() - t0 < 3000;) delay(10);   // wait for the serial monitor
   sayln("\n== board check ==");
@@ -43,7 +45,7 @@ void light(int count, uint32_t color) {   // light the first `count` pixels in o
 }
 
 void setup() {
-  Serial.begin(115200);
+  serialBegin();
   settingsBegin();
   pinMode(BTN1, INPUT_PULLUP);
   pinMode(BTN2, INPUT_PULLUP);
@@ -87,7 +89,7 @@ void loop() {
 Adafruit_NeoPixel strip(12, RING_DATA, NEO_GRBW + NEO_KHZ800);
 
 void setup() {
-  Serial.begin(115200);
+  serialBegin();
   settingsBegin();
   pinMode(RING_PWR, OUTPUT);
   digitalWrite(RING_PWR, HIGH);
@@ -107,8 +109,82 @@ void loop() {
   delay(1900);
 }
 
+#elif TEST == 5
+
+#include <esp_system.h>
+
+const int PIXELS = 12;
+Adafruit_NeoPixel strip(PIXELS, RING_DATA, NEO_GRBW + NEO_KHZ800);
+
+const char* resetName() {
+  switch (esp_reset_reason()) {
+    case ESP_RST_POWERON: return "power-on";
+    case ESP_RST_EXT: return "reset pin";
+    case ESP_RST_SW: return "software";
+    case ESP_RST_PANIC: return "PANIC (crash)";
+    case ESP_RST_INT_WDT: return "interrupt watchdog";
+    case ESP_RST_TASK_WDT: return "task watchdog";
+    case ESP_RST_WDT: return "other watchdog";
+    case ESP_RST_DEEPSLEEP: return "deep sleep";
+    case ESP_RST_BROWNOUT: return "BROWNOUT (supply dipped)";
+    default: return "other";
+  }
+}
+
+void setup() {
+  serialBegin();
+  settingsBegin();
+  pinMode(BTN1, INPUT_PULLUP);
+  pinMode(BTN2, INPUT_PULLUP);
+  pinMode(RING_PWR, OUTPUT);
+  digitalWrite(RING_PWR, HIGH);
+  delay(10);
+  strip.begin();
+  strip.setBrightness(30);
+  strip.clear();
+  strip.show();
+}
+
+// Each pin must read the same twice in a row before a change counts. Nothing here ever waits.
+struct Pin { int pin; bool last = false, down = false; unsigned long presses = 0, bounces = 0; };
+Pin b1{BTN1}, b2{BTN2};
+void readPin(Pin& p) {
+  bool raw = digitalRead(p.pin) == LOW;
+  if (raw == p.last) {
+    if (raw != p.down) { p.down = raw; if (raw) p.presses++; }
+  } else p.bounces++;
+  p.last = raw;
+}
+
+void loop() {
+  static unsigned long lastShow = 0, lastSay = 0, loops = 0, maxGap = 0, lastLoop = 0;
+  unsigned long now = millis();
+  if (lastLoop && now - lastLoop > maxGap) maxGap = now - lastLoop;
+  lastLoop = now;
+  loops++;
+  readPin(b1);
+  readPin(b2);
+  if (now - lastShow >= 20) {   // redraw 50 times a second, whatever else happens
+    lastShow = now;
+    strip.clear();
+    if (b1.down) for (int i = 0; i < PIXELS; i++) strip.setPixelColor(i, strip.Color(255, 40, 90, 60));
+    if (b2.down) for (int i = 0; i < 9; i++) strip.setPixelColor(i, strip.Color(0, 255, 0, 0));
+    if ((now / 500) % 2) strip.setPixelColor(11, strip.Color(0, 0, 255, 0));   // heartbeat: blinks while the loop runs
+    strip.show();
+  }
+  if (now - lastSay >= 2000) {
+    lastSay = now;
+    if (Serial.availableForWrite() >= 120)   // never block on a serial port nobody is reading
+      sayf("t=%lus reset=%s | b1 %s presses=%lu bounces=%lu | b2 %s presses=%lu | loops=%lu maxgap=%lums | pins %d%d\n",
+           now / 1000, resetName(), b1.down ? "DOWN" : "up", b1.presses, b1.bounces, b2.down ? "DOWN" : "up", b2.presses, loops, maxGap,
+           digitalRead(BTN1), digitalRead(BTN2));
+    loops = 0;
+    maxGap = 0;
+  }
+}
+
 #else
-#error "Unknown TEST: use 1, 2 or 4"
+#error "Unknown TEST: use 1, 2, 4 or 5"
 #endif
 
 #endif

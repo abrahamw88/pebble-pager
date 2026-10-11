@@ -17,6 +17,7 @@
 //
 // The ring, motor and battery code is written but has not run on the parts yet (README: The ring's animation).
 //
+// The real firmware prints nothing to serial (the hardware checks do); -DDEBUG_SERIAL turns the output back on.
 // The serial console and the inbox help with testing:
 //   console: show, set name|color|partner|base <value>, send <message>, play, press <1|2> <times>, boot <1|2>,
 //            battery, show received|failed|waiting|low, awake, sleep
@@ -25,8 +26,9 @@
 //
 // Build flags (--build-property compiler.cpp.extra_flags="..."):
 //   -DFW_VERSION=N       version of this build, compared with the release's manifest (default 1)
-//   -DTEST=n             1 board check, 2 buttons + ring + motor, 4 battery
+//   -DTEST=n             1 board check, 2 buttons + ring + motor, 4 battery, 5 button stress
 //   -DNO_SLEEP           never sleep (for development)
+//   -DDEBUG_SERIAL       print what the firmware is doing over USB serial (off in the real firmware)
 //   -DWIFI_TEST          adds inbox commands that simulate Wi-Fi trouble (drop, nointernet, hide, roam) and an
 //                        "online" report to the phone after every full join
 //   -DFW_CRASH           an image that crashes at startup, to test update rollback
@@ -206,7 +208,7 @@ bool canSleep() {
 }
 
 void setup() {
-  Serial.begin(115200);
+  serialBegin();
   settingsBegin();
   powerBegin();
   outputOnGate();   // a device that was off stays asleep unless button 2 is held
