@@ -123,6 +123,7 @@ bool messagePlay() {
 }
 
 // A message went out from here a moment ago: a conversation is going on.
+// While it is, the device stays awake and connected and reads its inbox every CONVERSATION_POLL_MS (main tab).
 bool messagesConversing() { return lastSentAt && clockSeconds() - lastSentAt < CONVERSATION_S; }
 
 // Call after reading the inbox. A message normally waits for a tap of button 1, with only the ring's waiting light

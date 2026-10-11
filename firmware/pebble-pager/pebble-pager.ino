@@ -202,6 +202,7 @@ bool canSleep() {
 #endif
   if (powerHeld() || portalOn || tapWaiting || inputBusy() || inputPending() || messagesAwaiting() || wantUpdate) return false;
   if (outputActive()) return false;                         // let the ring and the motor finish
+  if (messagesConversing()) return false;                   // a conversation is going on: stay awake and connected
   if (!wifiSettled()) return false;                         // a scan or join is under way
   if (!wifiOnline()) return true;                           // nothing in range: sleep, and look again later
   return inboxRead && !messagesWaiting() && !notesWaiting();   // online: the inbox is read and nothing is left to post
@@ -255,7 +256,8 @@ void loop() {
 
   if (!inputBusy()) {   // no network work while someone is pressing or recording, so loop() stays quick
     if (wifiOnline()) {
-      if (!inboxRead || millis() - lastPoll >= (messagesAwaiting() ? RECEIPT_POLL_MS : INBOX_POLL_MS)) {
+      unsigned long every = messagesConversing() ? CONVERSATION_POLL_MS : messagesAwaiting() ? RECEIPT_POLL_MS : INBOX_POLL_MS;
+      if (!inboxRead || millis() - lastPoll >= every) {
         bool first = !inboxRead;
         inboxRead = true;
         lastPoll = millis();
@@ -263,7 +265,8 @@ void loop() {
         if (first && wakeReason == WAKE_TIMER) statPollMs += millis() - lastPoll;
         sayf("Inbox: %d new (%lu ms)\n", fresh, millis() - lastPoll);
         if (tapWaiting) arrived = 0;                           // a tap is about to play what came in
-        if (!messagesAnnounce() && (!first || fresh > 0)) remindDue = true;   // a new message plays; otherwise show that one is waiting
+        // a new message plays; otherwise show that one is waiting (not at every quick look in a conversation)
+        if (!messagesAnnounce() && ((!first && !messagesConversing()) || fresh > 0)) remindDue = true;
       }
       if (batteryReportDue()) {
         if (millis() > 60000) batteryRead();   // kept awake a long time: the reading from start-up is stale

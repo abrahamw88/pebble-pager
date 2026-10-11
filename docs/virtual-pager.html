@@ -122,7 +122,7 @@ details summary { cursor: pointer; font-family: var(--display); font-weight: 600
 
 // ---- Values from config.h ----
 const SETUP_HOLD_MS = 5000, OFF_HOLD_MS = 10000, RECORD_HOLD_MS = 500, SEND_PAUSE_MS = 2000;
-const CHECK_INTERVAL_MS = 30000, RECEIPT_POLL_MS = 5000, RECEIPT_WAIT_MS = 45000, SEND_RETRY_MS = 10000;
+const CHECK_INTERVAL_MS = 30000, CONVERSATION_POLL_MS = 3000, RECEIPT_POLL_MS = 5000, RECEIPT_WAIT_MS = 45000, SEND_RETRY_MS = 10000;
 const MAX_PRESSES = 12, MAX_RECORD_MS = 15000, OUTBOX_MAX = 5, UNREAD_MAX = 3, NOTES_MAX = 5, NTFY_BATCH = 8;
 const QUEUE_MAX_AGE_MS = 24 * 60 * 60 * 1000, PULSE_MIN_MS = 20, PULSE_MAX_MS = 5000, PULSE_MAX_TIMES = 2 * MAX_PRESSES - 1;
 const NAME_MAX_LEN = 20, BASE_MAX_LEN = 40, NTFY_SERVER = "https://ntfy.sh/";
@@ -523,7 +523,8 @@ async function loop() {
         ringAdvance(ms() / 1000); ringFail();
       }
       awaited = awaited.filter((a) => now - a.at < RECEIPT_WAIT_MS);
-      const every = settings.live ? 0 : awaited.length ? RECEIPT_POLL_MS : CHECK_INTERVAL_MS;
+      const talking = lastSentAt && now - lastSentAt < CONVERSATION_MS;   // a conversation: look often, like the device
+      const every = settings.live ? 0 : talking ? CONVERSATION_POLL_MS : awaited.length ? RECEIPT_POLL_MS : CHECK_INTERVAL_MS;
       if (ready() && (settings.live ? inbox.length > 0 || now - lastCheck >= CHECK_INTERVAL_MS : now - lastCheck >= every)) await check();
       if (tapWaiting) playOne();   // the tap's answer, now the inbox is read (or can't be)
       if (sendShown && outbox.length && !online) { sendShown = false; say("Can't send now: queued"); show("Couldn't send. It is queued and will be tried again."); ringShow(ringFail); }
@@ -538,7 +539,8 @@ async function loop() {
   const st = $("state");
   st.className = "state " + (off || !ready() ? "" : online ? "on" : "off");
   st.textContent = off ? "Off" : !ready() ? "Not set up" : online ? "Online" : "Connecting";
-  const left = Math.max(0, Math.ceil(((awaited.length ? RECEIPT_POLL_MS : CHECK_INTERVAL_MS) - (Date.now() - lastCheck)) / 1000));
+  const talking = lastSentAt && Date.now() - lastSentAt < CONVERSATION_MS;
+  const left = Math.max(0, Math.ceil(((talking ? CONVERSATION_POLL_MS : awaited.length ? RECEIPT_POLL_MS : CHECK_INTERVAL_MS) - (Date.now() - lastCheck)) / 1000));
   $("next").textContent = off || !ready() ? "" : settings.live ? "Instant" : "Next check " + left + " s";
   setTimeout(loop, 100);
 }

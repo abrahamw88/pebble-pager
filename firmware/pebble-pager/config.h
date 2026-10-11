@@ -44,6 +44,7 @@ const int NOTES_MAX = 5;                         // reports for the phone waitin
 #define QUEUE_MAX_AGE_S (24UL * 60 * 60)
 #endif
 const unsigned long CONVERSATION_S = 120;        // a message that arrives this soon after one was sent from here plays at once: a conversation is going on
+const unsigned long CONVERSATION_POLL_MS = 3000; // ...and during that time the device stays awake and connected, reading its inbox this often
 const unsigned long PLAY_GAP_MS = 250;           // dark pause after a message has played
 const unsigned long HOLD_SHOW_MS = 400;          // button 2 held this long: the ring starts to show the hold (a tap shows nothing)
 const unsigned long SETUP_SHOWN_MS = 800;        // at 5 s the ring stays full purple this long before the red count-down to "off" begins
