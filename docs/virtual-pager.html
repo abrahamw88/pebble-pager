@@ -122,7 +122,7 @@ details summary { cursor: pointer; font-family: var(--display); font-weight: 600
 
 // ---- Values from config.h ----
 const SETUP_HOLD_MS = 5000, OFF_HOLD_MS = 10000, RECORD_HOLD_MS = 500, MIN_PRESS_MS = 75, SEND_PAUSE_MS = 1000, CUTOFF_QUIET_MS = 2000;
-const CHECK_INTERVAL_MS = 30000, CONVERSATION_POLL_MS = 5000, RECEIPT_POLL_MS = 5000, RECEIPT_WAIT_MS = 45000, SEND_RETRY_MS = 10000;
+const CHECK_INTERVAL_MS = 30000, RECEIPT_POLL_MS = 5000, RECEIPT_WAIT_MS = 45000, SEND_RETRY_MS = 10000;
 const MAX_PRESSES = 12, MAX_RECORD_MS = 15000, OUTBOX_MAX = 5, UNREAD_MAX = 3, NOTES_MAX = 5, NTFY_BATCH = 8;
 const QUEUE_MAX_AGE_MS = 24 * 60 * 60 * 1000, PULSE_MIN_MS = 20, PULSE_MAX_MS = 5000, PULSE_MAX_TIMES = 2 * MAX_PRESSES - 1;
 const NAME_MAX_LEN = 20, BASE_MAX_LEN = 40, NTFY_SERVER = "https://ntfy.sh/";
@@ -231,7 +231,8 @@ function connect() {   // hold a live connection to this pager's own inbox
 
 // ---- Messages (messages.h) ----
 let awaited = [];   // [{id, at}] sent messages whose receipts have not come yet
-let lastSentAt = 0;      // when a message last went out from here
+let talkedAt = 0;        // the last message of a conversation: sending starts one, and each one sent or received carries it on
+const talking = () => talkedAt > 0 && Date.now() - talkedAt < CONVERSATION_MS;
 let sendShown = false;   // a message recorded here is still in the outbox: if it can't go, the ring says so once
 function ringShow(what) { ringAdvance(ms() / 1000); what(); }
 function queueMessage(text) {   // returns null if accepted, otherwise a short reason
@@ -256,7 +257,7 @@ async function sendNext() {
   }
   outbox.shift();
   if (!outbox.length) sendShown = false;
-  lastSentAt = Date.now();
+  talkedAt = Date.now();
   save();
   await tell("sent " + text);
   awaited.push({ id, at: Date.now() });
@@ -279,6 +280,7 @@ async function arrived(m, p) {
   unread.push({ at: Date.now(), from: fromPartner ? settings.partner : "phone", text });
   if (unread.length > UNREAD_MAX) unread.shift();
   arrivedN++;
+  if (talking()) talkedAt = Date.now();   // a reply carries the conversation on
   save();
   if (fromPartner) await publish(settings.partner, settings.name, "received " + m.id);
   else await tell("received " + text);
@@ -533,7 +535,7 @@ async function check() {   // what the device does each time it wakes: read the 
   }
   const fresh = Math.min(arrivedN, unread.length);   // a message waits for a tap, unless one was sent from here a moment ago
   arrivedN = 0;
-  if (fresh && lastSentAt && Date.now() - lastSentAt < CONVERSATION_MS) {   // a conversation is going on: play at once
+  if (fresh && talking()) {   // a conversation is going on: play at once
     while (unread.length) { const item = unread.shift(); say("Play from " + item.from + ": " + item.text + " (" + unread.length + " unread left)"); playQueue.push(item); }
     save();
     playAll();
@@ -561,9 +563,9 @@ async function loop() {
         ringAdvance(ms() / 1000); ringFail();
       }
       awaited = awaited.filter((a) => now - a.at < RECEIPT_WAIT_MS);
-      const talking = lastSentAt && now - lastSentAt < CONVERSATION_MS;   // a conversation: look often, like the device
-      const every = settings.live ? 0 : talking ? CONVERSATION_POLL_MS : awaited.length ? RECEIPT_POLL_MS : CHECK_INTERVAL_MS;
-      if (ready() && (settings.live ? inbox.length > 0 || now - lastCheck >= CHECK_INTERVAL_MS : now - lastCheck >= every)) await check();
+      const instant = settings.live || talking();   // in a conversation the device holds its inbox open as a stream: no waiting
+      const every = awaited.length ? RECEIPT_POLL_MS : CHECK_INTERVAL_MS;
+      if (ready() && (instant ? inbox.length > 0 || now - lastCheck >= CHECK_INTERVAL_MS : now - lastCheck >= every)) await check();
       if (sendShown && outbox.length && !online) { sendShown = false; say("Can't send now: queued"); show("Couldn't send. It is queued and will be tried again."); ringShow(ringFail); }
       if (online && canSend() && outbox.length && now >= sendRetryAt) await sendNext();
       if (online && notes.length && now >= notesRetryAt) {
@@ -576,9 +578,8 @@ async function loop() {
   const st = $("state");
   st.className = "state " + (off || !ready() ? "" : online ? "on" : "off");
   st.textContent = off ? "Off" : !ready() ? "Not set up" : online ? "Online" : "Connecting";
-  const talking = lastSentAt && Date.now() - lastSentAt < CONVERSATION_MS;
-  const left = Math.max(0, Math.ceil(((talking ? CONVERSATION_POLL_MS : awaited.length ? RECEIPT_POLL_MS : CHECK_INTERVAL_MS) - (Date.now() - lastCheck)) / 1000));
-  $("next").textContent = off || !ready() ? "" : settings.live ? "Instant" : "Next check " + left + " s";
+  const left = Math.max(0, Math.ceil(((awaited.length ? RECEIPT_POLL_MS : CHECK_INTERVAL_MS) - (Date.now() - lastCheck)) / 1000));
+  $("next").textContent = off || !ready() ? "" : settings.live ? "Instant" : talking() ? "In a conversation: instant" : "Next check " + left + " s";
   setTimeout(loop, 100);
 }
 

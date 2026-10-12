@@ -188,7 +188,7 @@ Then work through this list with both boards running the firmware. Each line com
 - Press button 1 on A (a tap is enough), then a long-short-short pattern: a comet in A's color lights with each press, and the message sends 1 s after the last one.
 - A's ring stays dark after it finishes recording, then flashes one green pixel at the bottom, with a short buzz, when B confirms receipt: sent and received.
 - Within 30 s the phone shows the message, and B breathes one pixel in A's color at each 30 s check until button 1 is tapped. The press plays the same pattern as a comet in A's color the moment the button goes down, with a buzz for each press. There is no replay.
-- Reply from B within 2 minutes: A plays the reply within about 5 s, with no tap, because A has just sent and stays awake and connected, reading its inbox every 5 s. Wait more than 2 minutes and send from B again: A is back to its 30 s checks and this time only shows the waiting light.
+- Reply from B within 2 minutes: A plays the reply at once, with no tap, because A has just sent and stays awake with its inbox held open as a stream. Each message either way gives the conversation 2 more minutes. Leave it more than 2 minutes and send from B again: A is back to its 30 s checks and this time only shows the waiting light.
 - With a message waiting on B, hold button 1 on B: the message plays first, then a fresh recording starts.
 - With nothing waiting, a single short tap on button 1 sends a one-press message, and a tap with a message waiting only plays it.
 - Tap button 2: the ring shows the battery level for 2 s.

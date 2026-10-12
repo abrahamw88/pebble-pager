@@ -27,7 +27,7 @@ struct Awaited { String id; unsigned long at; };   // a sent message whose recei
 Awaited awaited[OUTBOX_MAX];
 unsigned long sendRetryAt = 0;
 bool sendShown = false;   // a message recorded in this wake is still in the outbox: if it can't go, the ring says so once
-RTC_DATA_ATTR unsigned long lastSentAt = 0;   // clockSeconds() when a message last went out from here (0 = never), through sleep
+RTC_DATA_ATTR unsigned long talkedAt = 0;   // clockSeconds() of the last message of a conversation (0 = none), through sleep
 
 bool messagesCanSend() { return ntfyReady() && partnerName.length() > 0; }
 bool messagesAwaiting() {   // true while any sent message is still waiting for its receipt
@@ -59,7 +59,7 @@ void messageSendNext() {
   }
   listPop(OUTBOX);
   if (listCount(OUTBOX) == 0) sendShown = false;
-  lastSentAt = clockSeconds() | 1;
+  talkedAt = clockSeconds() | 1;   // sending starts a conversation, or carries one on
   ntfySay("sent " + text);
   int slot = 0;   // remember the id until its receipt comes; if all slots are busy, reuse the oldest
   for (int i = 0; i < OUTBOX_MAX; i++) {
@@ -89,6 +89,7 @@ void messageArrived(const NtfyMessage& m, const Pulse& p) {
   String text = pulseText(p);
   listPush(UNREAD, (fromPartner ? partnerName : String("phone")) + "\t" + text);
   arrived++;
+  if (talkedAt && clockSeconds() - talkedAt < CONVERSATION_S) talkedAt = clockSeconds() | 1;   // a reply carries the conversation on
   if (fromPartner) {
     if (ntfyPublish(partnerName, deviceName, "received " + m.id).length() == 0) listPush(RECEIPTS, m.id);   // retried by messagesTick()
   } else ntfySay("received " + text);
@@ -123,9 +124,10 @@ bool messagePlay() {
   return true;
 }
 
-// A message went out from here a moment ago: a conversation is going on.
-// While it is, the device stays awake and connected and reads its inbox every CONVERSATION_POLL_MS (main tab).
-bool messagesConversing() { return lastSentAt && clockSeconds() - lastSentAt < CONVERSATION_S; }
+// A message went out from here a moment ago, or has come in since: a conversation is going on.
+// While it is, the device stays awake with its inbox held open as a stream (main tab), so a reply plays at once.
+// Sending starts one; after that each message sent or received gives it CONVERSATION_S more.
+bool messagesConversing() { return talkedAt && clockSeconds() - talkedAt < CONVERSATION_S; }
 
 // Call after reading the inbox. A message normally waits for a tap of button 1, with only the ring's waiting light
 // to show it. During a conversation, what has just arrived plays at once, and counts as played. Returns true if
@@ -158,8 +160,10 @@ void messagesTick() {
     sayln("Can't send now: queued");
     showFailed();
   }
+  // The sender gives up on a receipt after RECEIPT_WAIT_MS: later is no use. This must run even when offline, because
+  // a receipt that is waiting keeps the device awake.
+  listExpire(RECEIPTS, RECEIPT_WAIT_MS / 1000 + 5);
   if (!wifiOnline() || !messagesCanSend() || ntfyBackedOff()) return;
-  listExpire(RECEIPTS, RECEIPT_WAIT_MS / 1000 + 5);   // the sender gives up on a receipt after RECEIPT_WAIT_MS: later is no use
   if (listCount(RECEIPTS) > 0 && (long)(millis() - receiptRetryAt) >= 0) {   // a receipt first: the sender is waiting for it
     if (ntfyPublish(partnerName, deviceName, "received " + listPeek(RECEIPTS)).length()) listPop(RECEIPTS);
     else receiptRetryAt = millis() + SEND_RETRY_MS;

@@ -266,17 +266,25 @@ void loop() {
   }
 
   if (!inputBusy()) {   // no network work while someone is pressing or recording, so loop() stays quick
+    if (!wifiOnline() || !messagesConversing()) ntfyStreamClose();   // the stream belongs to a conversation
     if (wifiOnline()) {
-      unsigned long every = messagesConversing() ? CONVERSATION_POLL_MS : messagesAwaiting() ? RECEIPT_POLL_MS : INBOX_POLL_MS;
-      if ((!inboxRead || millis() - lastPoll >= every) && !ntfyBackedOff()) {
+      // In a conversation the inbox is held open as a stream: a reply, or a receipt, is here the moment it is posted.
+      if (messagesConversing() && !ntfyStreamIsOpen() && (long)(millis() - streamRetryAt) >= 0 && ntfyStreamOpen()) {
+        inboxRead = true;   // it starts from where the inbox was last read
+        lastPoll = millis();
+      }
+      if (ntfyStreamIsOpen() && ntfyStreamRead(onMessage) > 0) messagesAnnounce();   // what arrived plays at once
+      // Otherwise it is read at intervals: every check, and quickly while a receipt is awaited.
+      unsigned long every = messagesAwaiting() ? RECEIPT_POLL_MS : INBOX_POLL_MS;
+      if (!inboxRead && ntfyBackedOff() && !messagesConversing()) inboxRead = true;   // throttled: skip this read, don't wait up for it
+      if (!ntfyStreamIsOpen() && (!inboxRead || millis() - lastPoll >= every) && !ntfyBackedOff()) {
         bool first = !inboxRead;
         inboxRead = true;
         lastPoll = millis();
         int fresh = ntfyPoll(onMessage);
         if (first && wakeReason == WAKE_TIMER) statPollMs += millis() - lastPoll;
         sayf("Inbox: %d new (%lu ms)\n", fresh, millis() - lastPoll);
-        // a new message plays; otherwise show that one is waiting (not at every quick look in a conversation)
-        if (!messagesAnnounce() && ((!first && !messagesConversing()) || fresh > 0)) remindDue = true;
+        if (!messagesAnnounce() && (!first || fresh > 0)) remindDue = true;   // a new message plays; otherwise show that one is waiting
       }
       if (batteryReportDue()) {
         if (millis() > 60000) batteryRead();   // kept awake a long time: the reading from start-up is stale
@@ -296,6 +304,7 @@ void loop() {
   if (canSleep()) {
     unsigned long awake = millis() + WAKE_LEAD_MS;
     sayf("Sleep after %lu ms\n", awake);
+    ntfyStreamClose();
     outputStop();
     powerSleep(!wifiOnline() ? (savedCount() ? wifiRetryMs() : WIFI_RETRY_MAX_MS)
                : awake < CHECK_INTERVAL_MS - 1000 ? CHECK_INTERVAL_MS - awake : 1000);
