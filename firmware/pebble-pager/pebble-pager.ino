@@ -208,7 +208,7 @@ bool canSleep() {
 #ifdef NO_SLEEP
   return false;
 #endif
-  if (powerHeld() || portalOn || inputBusy() || inputPending() || messagesAwaiting() || wantUpdate) return false;
+  if (powerHeld() || portalOn || inputBusy() || inputPending() || messagesAwaiting() || listCount(RECEIPTS) > 0 || wantUpdate) return false;
   if (outputActive()) return false;                         // let the ring and the motor finish
   if (messagesConversing()) return false;                   // a conversation is going on: stay awake and connected
   if (!wifiSettled()) return false;                         // a scan or join is under way
@@ -268,7 +268,7 @@ void loop() {
   if (!inputBusy()) {   // no network work while someone is pressing or recording, so loop() stays quick
     if (wifiOnline()) {
       unsigned long every = messagesConversing() ? CONVERSATION_POLL_MS : messagesAwaiting() ? RECEIPT_POLL_MS : INBOX_POLL_MS;
-      if (!inboxRead || millis() - lastPoll >= every) {
+      if ((!inboxRead || millis() - lastPoll >= every) && !ntfyBackedOff()) {
         bool first = !inboxRead;
         inboxRead = true;
         lastPoll = millis();

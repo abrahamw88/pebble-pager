@@ -46,7 +46,7 @@ const int NOTES_MAX = 5;                         // reports for the phone waitin
 #define QUEUE_MAX_AGE_S (24UL * 60 * 60)
 #endif
 const unsigned long CONVERSATION_S = 120;        // a message that arrives this soon after one was sent from here plays at once: a conversation is going on
-const unsigned long CONVERSATION_POLL_MS = 3000; // ...and during that time the device stays awake and connected, reading its inbox this often
+const unsigned long CONVERSATION_POLL_MS = 5000; // ...and during that time the device stays awake and connected, reading its inbox this often (ntfy refills a request every 5 s)
 const unsigned long PLAY_GAP_MS = 250;           // dark pause after a message has played
 const unsigned long HOLD_SHOW_MS = 400;          // button 2 held this long: the ring starts to show the hold (a tap shows nothing)
 const unsigned long SETUP_SHOWN_MS = 800;        // at 5 s the ring stays full purple this long before the red count-down to "off" begins
@@ -185,14 +185,15 @@ void listPush(const SavedList& l, const String& text) {   // add as the newest; 
   listSetCount(l, n + 1);
 }
 
-// Delete items older than QUEUE_MAX_AGE_S. A stamp from before a power cut is later than "now": restart its age.
-void listExpire(const SavedList& l) {
+// Delete items older than `maxAge` seconds (QUEUE_MAX_AGE_S unless given). A stamp from before a power cut is later
+// than "now": restart its age.
+void listExpire(const SavedList& l, unsigned long maxAge = QUEUE_MAX_AGE_S) {
   unsigned long now = clockSeconds();
   for (int i = listCount(l) - 1; i >= 0; i--) {
     String raw = listRaw(l, i);
     if (strtoul(raw.c_str(), nullptr, 10) > now) prefs.putString(listKey(l, i).c_str(), String(now) + raw.substring(raw.indexOf(' ')));
   }
-  while (listCount(l) > 0 && now - strtoul(listRaw(l, 0).c_str(), nullptr, 10) > QUEUE_MAX_AGE_S) listPop(l);
+  while (listCount(l) > 0 && now - strtoul(listRaw(l, 0).c_str(), nullptr, 10) > maxAge) listPop(l);
 }
 
 // ---- Serial output with the device name in front: "Eliana: ...". Indented lines and dots stay plain. ----

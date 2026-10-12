@@ -19,6 +19,8 @@
 
 const SavedList OUTBOX = {"ob", OUTBOX_MAX};
 const SavedList UNREAD = {"ur", UNREAD_MAX};
+const SavedList RECEIPTS = {"rc", OUTBOX_MAX};   // ids of received messages whose receipt could not be posted yet
+unsigned long receiptRetryAt = 0;
 
 // ---- Sending ----
 struct Awaited { String id; unsigned long at; };   // a sent message whose receipt has not arrived yet
@@ -87,8 +89,9 @@ void messageArrived(const NtfyMessage& m, const Pulse& p) {
   String text = pulseText(p);
   listPush(UNREAD, (fromPartner ? partnerName : String("phone")) + "\t" + text);
   arrived++;
-  if (fromPartner) ntfyPublish(partnerName, deviceName, "received " + m.id);
-  else ntfySay("received " + text);
+  if (fromPartner) {
+    if (ntfyPublish(partnerName, deviceName, "received " + m.id).length() == 0) listPush(RECEIPTS, m.id);   // retried by messagesTick()
+  } else ntfySay("received " + text);
 }
 
 // The color of the oldest unread message, which is its sender's color (0xRRGGBB), or -1 if nothing is waiting.
@@ -155,7 +158,14 @@ void messagesTick() {
     sayln("Can't send now: queued");
     showFailed();
   }
-  if (wifiOnline() && messagesCanSend() && listCount(OUTBOX) > 0 && (long)(millis() - sendRetryAt) >= 0) messageSendNext();
+  if (!wifiOnline() || !messagesCanSend() || ntfyBackedOff()) return;
+  listExpire(RECEIPTS, RECEIPT_WAIT_MS / 1000 + 5);   // the sender gives up on a receipt after RECEIPT_WAIT_MS: later is no use
+  if (listCount(RECEIPTS) > 0 && (long)(millis() - receiptRetryAt) >= 0) {   // a receipt first: the sender is waiting for it
+    if (ntfyPublish(partnerName, deviceName, "received " + listPeek(RECEIPTS)).length()) listPop(RECEIPTS);
+    else receiptRetryAt = millis() + SEND_RETRY_MS;
+    return;
+  }
+  if (listCount(OUTBOX) > 0 && (long)(millis() - sendRetryAt) >= 0) messageSendNext();
 }
 
 #endif

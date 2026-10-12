@@ -13,6 +13,19 @@ const int NTFY_READ_MS = 10000;
 const int NTFY_BATCH = 8;   // most messages handled per poll; any more wait for the next one
 
 bool ntfyReady() { return topicBase.length() > 0; }   // a base name has been set on the setup page
+
+// ntfy limits each visitor (IP address) to a burst of 60 requests, refilled at one every 5 s, and answers 429 beyond
+// it. That is the server working, not a network fault: the connection is fine, so it must not count as "no internet"
+// to the Wi-Fi manager. Instead everything holds off for a while, longer each time, and then carries on.
+unsigned long ntfyBackoffUntil = 0, ntfyBackoffMs = 0;
+bool ntfyBackedOff() { return (long)(millis() - ntfyBackoffUntil) < 0; }
+void ntfyNote(int code) {   // call with every response's status
+  if (code == 429) {
+    ntfyBackoffMs = ntfyBackoffMs ? min(ntfyBackoffMs * 2, 60000UL) : 15000UL;
+    ntfyBackoffUntil = millis() + ntfyBackoffMs;
+    sayf("ntfy is rate limiting: pausing %lu s\n", ntfyBackoffMs / 1000);
+  } else if (code == 200) ntfyBackoffMs = 0;
+}
 String topicUrl(const String& who) { return String(NTFY_SERVER) + topicBase + "-" + slug(who); }
 
 void ntfyOpen(WiFiClientSecure& client, HTTPClient& http) {
@@ -41,7 +54,7 @@ unsigned long jsonNumber(const String& line, const char* key) {   // value of "k
 // Post `text` to <base>-<who> with `title`. Returns the new message's id, or "" if the server did not take it.
 // Every result feeds the Wi-Fi manager's internet check.
 String ntfyPublish(const String& who, const String& title, const String& text) {
-  if (!ntfyReady()) return "";
+  if (!ntfyReady() || ntfyBackedOff()) return "";
   WiFiClientSecure client;
   HTTPClient http;
   ntfyOpen(client, http);
@@ -53,7 +66,8 @@ String ntfyPublish(const String& who, const String& title, const String& text) {
     if (code == 200) id = jsonText(http.getString(), "id");
   }
   http.end();
-  wifiIoResult(code == 200);
+  ntfyNote(code);
+  wifiIoResult(code == 200 || code == 429);
   sayf("ntfy %s %d: %s\n", slug(who).c_str(), code, text.c_str());
   return id;
 }
@@ -86,7 +100,7 @@ typedef void (*NtfyHandler)(const NtfyMessage& message);
 // "New" is tracked with the server's own message time and id, saved across restarts, so the device needs no clock:
 // the very first read only catches up (old messages are never replayed), and a message is never handled twice.
 int ntfyPoll(NtfyHandler handle) {
-  if (!ntfyReady()) return -1;
+  if (!ntfyReady() || ntfyBackedOff()) return -1;
   bool caughtUp = prefs.getBool("inInit", false);
   unsigned long lastTime = prefs.getULong("inTime", 0);
   String lastId = prefs.getString("inId", "");
@@ -98,7 +112,8 @@ int ntfyPoll(NtfyHandler handle) {
   int code = http.begin(client, url) ? http.GET() : -1;
   String body = code == 200 ? http.getString() : String();
   http.end();
-  wifiIoResult(code == 200);
+  ntfyNote(code);
+  wifiIoResult(code == 200 || code == 429);
   if (code != 200) return -1;
 
   // The server lists messages from lastTime on, so the last one handled is usually listed again: new ones follow it.
