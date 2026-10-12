@@ -28,6 +28,7 @@ Awaited awaited[OUTBOX_MAX];
 unsigned long sendRetryAt = 0;
 bool sendShown = false;   // a message recorded in this wake is still in the outbox: if it can't go, the ring says so once
 RTC_DATA_ATTR unsigned long talkedAt = 0;   // clockSeconds() of the last message of a conversation (0 = none), through sleep
+unsigned long talkedNow() { unsigned long n = clockSeconds(); return n ? n : 1; }   // never 0, which means "no conversation"; and never ahead of the clock
 
 bool messagesCanSend() { return ntfyReady() && partnerName.length() > 0; }
 bool messagesAwaiting() {   // true while any sent message is still waiting for its receipt
@@ -46,7 +47,7 @@ const char* messageQueue(const String& text) {
   sendShown = true;
   // Recording a message starts the conversation at once, not when it is posted: the inbox is read in between, and
   // a reply that arrives then must play, not wait for a tap. (Offline there is nothing to hold open.)
-  if (wifiOnline()) talkedAt = clockSeconds() | 1;
+  if (wifiOnline()) talkedAt = talkedNow();
   return nullptr;
 }
 
@@ -62,7 +63,7 @@ void messageSendNext() {
   }
   listPop(OUTBOX);
   if (listCount(OUTBOX) == 0) sendShown = false;
-  talkedAt = clockSeconds() | 1;   // sending starts a conversation, or carries one on
+  talkedAt = talkedNow();   // sending starts a conversation, or carries one on
   ntfySay("sent " + text);
   int slot = 0;   // remember the id until its receipt comes; if all slots are busy, reuse the oldest
   for (int i = 0; i < OUTBOX_MAX; i++) {
@@ -92,7 +93,7 @@ void messageArrived(const NtfyMessage& m, const Pulse& p) {
   String text = pulseText(p);
   listPush(UNREAD, (fromPartner ? partnerName : String("phone")) + "\t" + text);
   arrived++;
-  if (talkedAt && clockSeconds() - talkedAt < CONVERSATION_S) talkedAt = clockSeconds() | 1;   // a reply carries the conversation on
+  if (talkedAt && clockSeconds() - talkedAt < CONVERSATION_S) talkedAt = talkedNow();   // a reply carries the conversation on
   if (fromPartner) {
     if (ntfyPublish(partnerName, deviceName, "received " + m.id).length() == 0) listPush(RECEIPTS, m.id);   // retried by messagesTick()
   } else ntfySay("received " + text);

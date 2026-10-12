@@ -47,7 +47,7 @@ void batteryReports(bool on) {
 bool batteryLowDue() {
   if (!batteryFitted() || batteryPercent() >= BATT_LOW_PERCENT) return false;
   if (battLowAt && clockSeconds() - battLowAt < BATT_LOW_BLINK_S) return false;
-  battLowAt = clockSeconds() | 1;
+  battLowAt = clockSeconds() ? clockSeconds() : 1;   // (not `| 1`: that can put it a second ahead of the clock)
   return true;
 }
 
