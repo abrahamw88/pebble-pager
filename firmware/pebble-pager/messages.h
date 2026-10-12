@@ -124,6 +124,7 @@ bool messagePlay() {
   String item = listPeek(UNREAD);
   if (item.length() == 0) return false;
   listPop(UNREAD);
+  if (wifiOnline()) talkedAt = talkedNow();   // reading a message is the start of a conversation: the next one arrives live
   messageShow("Play", item);
   return true;
 }

@@ -183,7 +183,7 @@ void showSetup(bool on) {   // the setup page is opening (it takes a few seconds
   else ringMeterStop();
 }
 
-bool cometIdle() { RingTurn turn; return !ring.play && !ring.down && ring.level == 0; }
+bool cometIdle(float below = 0.0f) { RingTurn turn; return !ring.play && !ring.down && ring.level <= below; }
 
 bool playInterrupted = false;   // a press cut the message short: the rest stay unread, and the press starts a recording
 
@@ -205,7 +205,7 @@ void showPlay(const Pulse& p) {
     return true;
   };
   auto waitIdle = [&]() -> bool {
-    while (!cometIdle()) { powerTouch(); if (cut()) return false; delay(10); }
+    while (!cometIdle(COMET_SETTLED)) { powerTouch(); if (cut()) return false; delay(10); }
     return true;
   };
   {

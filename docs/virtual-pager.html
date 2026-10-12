@@ -127,7 +127,7 @@ const CHECK_INTERVAL_MS = 30000, RECEIPT_POLL_MS = 5000, RECEIPT_WAIT_MS = 45000
 const MAX_PRESSES = 12, MAX_RECORD_MS = 15000, OUTBOX_MAX = 5, UNREAD_MAX = 3, NOTES_MAX = 5, NTFY_BATCH = 8;
 const QUEUE_MAX_AGE_MS = 24 * 60 * 60 * 1000, PULSE_MIN_MS = 20, PULSE_MAX_MS = 5000, PULSE_MAX_TIMES = 2 * MAX_PRESSES - 1;
 const NAME_MAX_LEN = 20, BASE_MAX_LEN = 40, NTFY_SERVER = "https://ntfy.sh/";
-const ON_HOLD_MS = 5000, CONVERSATION_MS = 120000, PLAY_GAP_MS = 250, HOLD_SHOW_MS = 400, SETUP_SHOWN_MS = 800, SETUP_GLOW = 0.4;
+const ON_HOLD_MS = 5000, CONVERSATION_MS = 120000, PLAY_GAP_MS = 100, COMET_SETTLED = 0.25, HOLD_SHOW_MS = 400, SETUP_SHOWN_MS = 800, SETUP_GLOW = 0.4;
 const RGB_RECEIVED = 0x50E080, RGB_BATTERY = 0x50E080, RGB_SETUP = 0x9060F0, RGB_OFF = 0xF03030, RGB_ON = 0x50E080;
 const COLOR_NAMES = ["Pink", "Blue", "Green", "Purple", "Orange", "Teal", "Yellow", "Red"];
 const COLOR_RGB = [0xF26C94, 0x599DF0, 0x4CC783, 0x8E61E0, 0xF07C35, 0x40C9BE, 0xF2CE40, 0xE8554B];
@@ -390,7 +390,7 @@ function inputTick() {
 let off = false, playing = false, armAfterPlay = false, arrivedN = 0;
 const playQueue = [];
 const wait = (t) => new Promise((r) => setTimeout(r, t));
-const ringIdle = () => new Promise((r) => { const look = () => ((ring.play === null && !ring.down && ring.level === 0) || abortPlay ? r() : setTimeout(look, 30)); look(); });
+const ringIdle = (below = 0) => new Promise((r) => { const look = () => ((ring.play === null && !ring.down && ring.level <= below) || abortPlay ? r() : setTimeout(look, 30)); look(); });
 
 function pressRing(down) {   // the ring reacts to every press of button 1, in this pager's own color
   if (playing || off) return;
@@ -425,7 +425,7 @@ async function playAll() {   // play what is queued, one after another, each in 
     ringAdvance(ms() / 1000);
     ringSetColor(COLOR_RGB[p.color]);
     ringPlay(p.ms, p.ms.length);
-    await ringIdle();
+    await ringIdle(COMET_SETTLED);   // the next one starts as this fades, not after it has gone dark
     if (abortPlay) break;
     await wait(PLAY_GAP_MS);
     if (abortPlay) break;
@@ -441,6 +441,7 @@ async function playAll() {   // play what is queued, one after another, each in 
 
 function playOne() {   // a tap with messages waiting plays them all (there is no replay)
   if (!unread.length) { say("Nothing to play"); show("Nothing to play."); return; }
+  if (online) talkedAt = Date.now();   // reading a message starts a conversation
   while (unread.length) { const item = unread.shift(); say("Play from " + item.from + ": " + item.text + " (" + unread.length + " unread left)"); playQueue.push(item); }
   save();
   playAll();
@@ -460,6 +461,7 @@ function holdAfterPlay() {
 }
 let pressCandidate = null;   // a press with messages waiting that has not yet lasted MIN_PRESS_MS
 function startPressPlay(t0) {
+  if (online) talkedAt = Date.now();   // reading a message starts a conversation
   pressPlayed = { at: t0, hold: false };
   button[0].down = true; button[0].at = t0;
   while (unread.length) { const item = unread.shift(); say("Play from " + item.from + ": " + item.text + " (" + unread.length + " unread left)"); playQueue.push(item); }   // one press plays them all

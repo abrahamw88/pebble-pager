@@ -47,7 +47,8 @@ const int NOTES_MAX = 5;                         // reports for the phone waitin
 #endif
 const unsigned long CONVERSATION_S = 120;        // a conversation: this long after a message was sent from here, or one arrived during it, the device
                                                  // stays awake with its inbox held open, and a message that arrives plays at once
-const unsigned long PLAY_GAP_MS = 250;           // dark pause after a message has played
+const unsigned long PLAY_GAP_MS = 100;           // pause after a message has played, before the next one
+const float COMET_SETTLED = 0.25f;               // the next message starts when the last one has faded to this brightness, not to black
 const unsigned long HOLD_SHOW_MS = 400;          // button 2 held this long: the ring starts to show the hold (a tap shows nothing)
 const unsigned long SETUP_SHOWN_MS = 800;        // at 5 s the ring stays full purple this long before the red count-down to "off" begins
 const float SETUP_GLOW = 0.4f;                   // brightness of the purple ring while the setup page is open
