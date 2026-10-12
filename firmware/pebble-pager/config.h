@@ -220,9 +220,11 @@ void sayf(const char* fmt, ...) {
   vsnprintf(buf, sizeof(buf), fmt, ap);
   va_end(ap);
   const char* m = buf;
-  while (*m == '\n') { Serial.print('\n'); m++; }
-  if (*m != ' ' && *m != '.' && *m != 0) Serial.printf("%s: ", deviceName.c_str());
-  Serial.print(m);
+  String line;   // built whole and written once: a line that does not fit is lost entire, never cut after its prefix
+  while (*m == '\n') { line += '\n'; m++; }
+  if (*m != ' ' && *m != '.' && *m != 0) line += deviceName + ": ";
+  line += m;
+  Serial.write((const uint8_t*)line.c_str(), line.length());
 }
 #else
 inline void sayf(const char*, ...) {}
