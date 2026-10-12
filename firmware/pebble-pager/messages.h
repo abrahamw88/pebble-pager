@@ -27,6 +27,7 @@ struct Awaited { String id; unsigned long at; };   // a sent message whose recei
 Awaited awaited[OUTBOX_MAX];
 unsigned long sendRetryAt = 0;
 bool sendShown = false;   // a message recorded in this wake is still in the outbox: if it can't go, the ring says so once
+unsigned long sendShownAt = 0;   // when it was recorded
 RTC_DATA_ATTR unsigned long talkedAt = 0;   // clockSeconds() of the last message of a conversation (0 = none), through sleep
 unsigned long talkedNow() { unsigned long n = clockSeconds(); return n ? n : 1; }   // never 0, which means "no conversation"; and never ahead of the clock
 
@@ -45,6 +46,7 @@ const char* messageQueue(const String& text) {
   listPush(OUTBOX, pulseText(p));
   sendRetryAt = millis();
   sendShown = true;
+  sendShownAt = millis();
   // Recording a message starts the conversation at once, not when it is posted: the inbox is read in between, and
   // a reply that arrives then must play, not wait for a tap. (Offline there is nothing to hold open.)
   if (wifiOnline()) talkedAt = talkedNow();
@@ -55,11 +57,10 @@ const char* messageQueue(const String& text) {
 // phone must not cause a second message to the partner.
 void messageSendNext() {
   String text = listPeek(OUTBOX);
-  String id = ntfyPublish(partnerName, deviceName, text);
-  if (id.length() == 0) {
-    sendRetryAt = millis() + SEND_RETRY_MS;
-    if (sendShown) { sendShown = false; showFailed(); }   // once: later tries are quiet
-    return;
+  String id = ntfyPublish(partnerName, deviceName, text, true);
+  if (id.length() == 0) {   // not posted (throttled, or no answer): it stays queued and is tried again shortly. No red
+    sendRetryAt = millis() + SEND_RETRY_MS;   // yet: that would say "failed" for something that usually goes a few
+    return;                                   // seconds later. It shows only if it is still waiting after SEND_FAIL_MS.
   }
   listPop(OUTBOX);
   if (listCount(OUTBOX) == 0) sendShown = false;
@@ -95,7 +96,7 @@ void messageArrived(const NtfyMessage& m, const Pulse& p) {
   arrived++;
   if (talkedAt && clockSeconds() - talkedAt < CONVERSATION_S) talkedAt = talkedNow();   // a reply carries the conversation on
   if (fromPartner) {
-    if (ntfyPublish(partnerName, deviceName, "received " + m.id).length() == 0) listPush(RECEIPTS, m.id);   // retried by messagesTick()
+    if (ntfyPublish(partnerName, deviceName, "received " + m.id, true).length() == 0) listPush(RECEIPTS, m.id);   // retried by messagesTick()
   } else ntfySay("received " + text);
 }
 
@@ -160,6 +161,11 @@ void messagesTick() {
   }
   for (Awaited& a : awaited)
     if (a.id.length() && millis() - a.at >= RECEIPT_WAIT_MS) { sayln("No receipt"); showFailed(); a.id = ""; }
+  if (sendShown && listCount(OUTBOX) > 0 && millis() - sendShownAt >= SEND_FAIL_MS) {   // online, but still not gone
+    sendShown = false;
+    sayln("Not sent yet: queued");
+    showFailed();
+  }
   if (sendShown && listCount(OUTBOX) > 0 && wifiSettled() && !wifiOnline()) {   // no network to send it on: it waits in the outbox
     sendShown = false;
     sayln("Can't send now: queued");
@@ -168,9 +174,9 @@ void messagesTick() {
   // The sender gives up on a receipt after RECEIPT_WAIT_MS: later is no use. This must run even when offline, because
   // a receipt that is waiting keeps the device awake.
   listExpire(RECEIPTS, RECEIPT_WAIT_MS / 1000 + 5);
-  if (!wifiOnline() || !messagesCanSend() || ntfyBackedOff()) return;
+  if (!wifiOnline() || !messagesCanSend() || ntfyBackedOff() || ntfyPostBlocked()) return;
   if (listCount(RECEIPTS) > 0 && (long)(millis() - receiptRetryAt) >= 0) {   // a receipt first: the sender is waiting for it
-    if (ntfyPublish(partnerName, deviceName, "received " + listPeek(RECEIPTS)).length()) listPop(RECEIPTS);
+    if (ntfyPublish(partnerName, deviceName, "received " + listPeek(RECEIPTS), true).length()) listPop(RECEIPTS);
     else receiptRetryAt = millis() + SEND_RETRY_MS;
     return;
   }

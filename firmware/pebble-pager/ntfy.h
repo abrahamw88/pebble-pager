@@ -19,9 +19,35 @@ bool ntfyReady() { return topicBase.length() > 0; }   // a base name has been se
 // to the Wi-Fi manager. Instead everything holds off for a while, longer each time, and then carries on.
 unsigned long ntfyBackoffUntil = 0, ntfyBackoffMs = 0;
 bool ntfyBackedOff() { return (long)(millis() - ntfyBackoffUntil) < 0; }
+
+// The allowance is kept as a budget of our own, so that it is not spent on things that can wait. It starts full (60)
+// and refills a request every 5 s, as ntfy's does. A message to the partner and a receipt may use all of it; everything
+// else (reads, copies for the phone, status lines) leaves NTFY_RESERVE in it, so a message you record is never held up
+// behind them. (Other devices and a browser on the same network use the same allowance, which this cannot see: a 429
+// corrects the budget.)
+const float NTFY_BURST = 60, NTFY_RESERVE = 10;
+const unsigned long NTFY_REFILL_MS = 5000;
+float ntfyTokens = NTFY_BURST;
+unsigned long ntfyTokenAt = 0;
+void ntfyRefill() {
+  unsigned long now = millis();
+  ntfyTokens = min(NTFY_BURST, ntfyTokens + (now - ntfyTokenAt) / (float)NTFY_REFILL_MS);
+  ntfyTokenAt = now;
+}
+bool ntfyMayUse(bool urgent) { ntfyRefill(); return !ntfyBackedOff() && ntfyTokens >= (urgent ? 1.0f : NTFY_RESERVE); }
+void ntfySpend() { ntfyRefill(); ntfyTokens = max(0.0f, ntfyTokens - 1); }
+
+// ntfy's free service also allows each visitor (IP address) only 250 messages a day, and answers a post with 429 and
+// code 42908 once it is used up. Reading still works. Trying again at once is pointless, so publishing is paused for
+// a while (and tried again then: the quota is not published, and resets some time within the day).
+const unsigned long NTFY_QUOTA_RETRY_S = 600;
+RTC_DATA_ATTR unsigned long ntfyQuotaUntil = 0;   // clockSeconds() until which publishing is known to be refused
+bool ntfyPostBlocked() { return ntfyQuotaUntil && clockSeconds() < ntfyQuotaUntil; }
+
 void ntfyNote(int code) {   // call with every response's status
-  if (code == 429) {
-    ntfyBackoffMs = ntfyBackoffMs ? min(ntfyBackoffMs * 2, 60000UL) : 15000UL;
+  if (code == 429) {   // the allowance is gone: one request comes back every 5 s, so wait a little more than that
+    ntfyTokens = 0;
+    ntfyBackoffMs = ntfyBackoffMs ? min(ntfyBackoffMs * 2, 24000UL) : 6000UL;
     ntfyBackoffUntil = millis() + ntfyBackoffMs;
     sayf("ntfy is rate limiting: pausing %lu s\n", ntfyBackoffMs / 1000);
   } else if (code == 200) ntfyBackoffMs = 0;
@@ -53,8 +79,9 @@ unsigned long jsonNumber(const String& line, const char* key) {   // value of "k
 
 // Post `text` to <base>-<who> with `title`. Returns the new message's id, or "" if the server did not take it.
 // Every result feeds the Wi-Fi manager's internet check.
-String ntfyPublish(const String& who, const String& title, const String& text) {
-  if (!ntfyReady() || ntfyBackedOff()) return "";
+String ntfyPublish(const String& who, const String& title, const String& text, bool urgent = false) {
+  if (!ntfyReady() || ntfyPostBlocked() || !ntfyMayUse(urgent)) return "";
+  ntfySpend();
   WiFiClientSecure client;
   HTTPClient http;
   ntfyOpen(client, http);
@@ -64,6 +91,10 @@ String ntfyPublish(const String& who, const String& title, const String& text) {
     http.addHeader("Title", title);
     code = http.POST(text);
     if (code == 200) id = jsonText(http.getString(), "id");
+    else if (code == 429 && http.getString().indexOf("42908") >= 0) {   // the daily quota, not the rate
+      ntfyQuotaUntil = clockSeconds() + NTFY_QUOTA_RETRY_S;
+      sayf("ntfy: the daily message quota is used up; not publishing for %lu min\n", NTFY_QUOTA_RETRY_S / 60);
+    }
   }
   http.end();
   ntfyNote(code);
@@ -100,7 +131,8 @@ typedef void (*NtfyHandler)(const NtfyMessage& message);
 // "New" is tracked with the server's own message time and id, saved across restarts, so the device needs no clock:
 // the very first read only catches up (old messages are never replayed), and a message is never handled twice.
 int ntfyPoll(NtfyHandler handle) {
-  if (!ntfyReady() || ntfyBackedOff()) return -1;
+  if (!ntfyReady() || !ntfyMayUse(false)) return -1;
+  ntfySpend();
   bool caughtUp = prefs.getBool("inInit", false);
   unsigned long lastTime = prefs.getULong("inTime", 0);
   String lastId = prefs.getString("inId", "");
@@ -183,7 +215,8 @@ void ntfyStreamClose() {
 // not be opened: try again after NTFY_STREAM_RETRY_MS, and the ordinary reads carry on meanwhile.
 bool ntfyStreamOpen() {
   ntfyStreamRetryLater();   // if this fails; cleared again on success
-  if (!ntfyReady() || ntfyBackedOff() || !prefs.getBool("inInit", false) || ESP.getFreeHeap() < NTFY_STREAM_HEAP) return false;
+  if (!ntfyReady() || !ntfyMayUse(true) || !prefs.getBool("inInit", false) || ESP.getFreeHeap() < NTFY_STREAM_HEAP) return false;
+  ntfySpend();
   unsigned long t0 = millis(), lastTime = prefs.getULong("inTime", 0);
   streamClient = new WiFiClientSecure();
   streamClient->setInsecure();   // certificates are not checked yet (README: Remote updates)
