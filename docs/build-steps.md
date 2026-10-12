@@ -144,7 +144,7 @@ Now the ring and motor under the firmware. The device sleeps between checks, so 
 | `show waiting` | One pixel at the top breathes once, in the device's color |
 | `show low` | One pixel at the bottom breathes once, amber |
 | `battery` | One amber pixel for 2 s (no battery sensor yet; step 8 makes this the real level) |
-| `press 1 700 300 200` | A comet in the device's color: a long press, a gap, a short press. The ring stays dark while it sends, and about 1 s after the last press shows the green flash if the other device answers, or two red pulses after 45 s if not |
+| `press 1 700 300 200` | A comet in the device's color: a long press, a gap, a short press. The ring stays dark while it sends, and about 0.5 s after the last press shows the green flash if the other device answers, or two red pulses after 45 s if not |
 | Post `pink 400 300 400` to this device's inbox from the ntfy web app | Within 30 s one pixel at the top breathes pink, and again at each check. `play` plays it: a pink comet with a buzz for each press |
 | `press 2 3000` | The ring fills purple a little over halfway, then shows the battery level |
 | `press 2 5300` | Fills purple to full; the setup page opens and the ring stays dim purple. The same again closes it |
@@ -185,7 +185,7 @@ Repeat steps 2 to 8 on the second XIAO and breadboard, then run `-DTEST=2` and t
 Then work through this list with both boards running the firmware. Each line comes from the Behavior section of the README, and the diagram in its Overview shows the paths they cover. With only one board built, `docs/virtual-pager.html` can stand in for the other.
 
 - Press RESET on each device: it shows a cyan chase while it joins the saved Wi-Fi.
-- Press button 1 on A (a tap is enough), then a long-short-short pattern: a comet in A's color lights with each press, and the message sends 1 s after the last one.
+- Press button 1 on A (a tap is enough), then a long-short-short pattern: a comet in A's color lights with each press, and the message sends 0.5 s after the last one.
 - A's ring stays dark after it finishes recording, then flashes one green pixel at the bottom, with a short buzz, when B confirms receipt: sent and received.
 - Within 30 s the phone shows the message, and B breathes one pixel in A's color at each 30 s check until button 1 is tapped. The press plays the same pattern as a comet in A's color the moment the button goes down, with a buzz for each press. There is no replay.
 - Reply from B within 2 minutes: A plays the reply at once, with no tap, because A has just sent and stays awake with its inbox held open as a stream. Each message either way gives the conversation 2 more minutes. Leave it more than 2 minutes and send from B again: A is back to its 30 s checks and this time only shows the waiting light.

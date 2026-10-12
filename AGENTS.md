@@ -73,7 +73,7 @@ There is one sketch: the tests call the same modules as the firmware, and compil
 - The ring is 12 SK6812 **RGBW** pixels: use `NEO_GRBW + NEO_KHZ800`. The firmware has no brightness setting: `ring.h` keeps each frame inside a current budget (180 mA). The hardware checks use brightness 30 of 255.
 - Power the ring through D5 only while it is showing something, and release the data pin while it is off (`ringPower()` in `output.h` does both).
 - Change the animation only while holding a `RingTurn` (`output.h`): a task draws the ring while `loop()` runs.
-- Keep tunable values (1 s send pause, 12 presses, 15 s recording, 30 s check, 5 min away scan) as named constants.
+- Keep tunable values (0.5 s send pause, 12 presses, 15 s recording, 30 s check, 5 min away scan) as named constants.
 
 ## Build, upload, monitor
 

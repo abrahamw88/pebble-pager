@@ -18,7 +18,11 @@ bool ntfyReady() { return topicBase.length() > 0; }   // a base name has been se
 // it. That is the server working, not a network fault: the connection is fine, so it must not count as "no internet"
 // to the Wi-Fi manager. Instead everything holds off for a while, longer each time, and then carries on.
 unsigned long ntfyBackoffUntil = 0, ntfyBackoffMs = 0;
+#ifdef NTFY_NO_BLOCK   // testing only: keep trying whatever ntfy answers (to time requests while the quota is used up)
+bool ntfyBackedOff() { return false; }
+#else
 bool ntfyBackedOff() { return (long)(millis() - ntfyBackoffUntil) < 0; }
+#endif
 
 // The allowance is kept as a budget of our own, so that it is not spent on things that can wait. It starts full (60)
 // and refills a request every 5 s, as ntfy's does. A message to the partner and a receipt may use all of it; everything
@@ -42,7 +46,11 @@ void ntfySpend() { ntfyRefill(); ntfyTokens = max(0.0f, ntfyTokens - 1); }
 // a while (and tried again then: the quota is not published, and resets some time within the day).
 const unsigned long NTFY_QUOTA_RETRY_S = 600;
 RTC_DATA_ATTR unsigned long ntfyQuotaUntil = 0;   // clockSeconds() until which publishing is known to be refused
+#ifdef NTFY_NO_BLOCK
+bool ntfyPostBlocked() { return false; }
+#else
 bool ntfyPostBlocked() { return ntfyQuotaUntil && clockSeconds() < ntfyQuotaUntil; }
+#endif
 
 void ntfyNote(int code) {   // call with every response's status
   if (code == 429) {   // the allowance is gone: one request comes back every 5 s, so wait a little more than that
@@ -77,29 +85,70 @@ unsigned long jsonNumber(const String& line, const char* key) {   // value of "k
   return i < 0 ? 0 : strtoul(line.c_str() + i + k.length(), nullptr, 10);
 }
 
+// A secure connection kept open for posting, so that a message does not wait for a new handshake (about half a
+// second) each time. It is opened ahead of need (a recording has begun, or a conversation is going on), reused by
+// every post while it lasts, and closed when the conversation is over. A post that finds it dead opens a fresh one.
+const uint32_t NTFY_POST_HEAP = 60000;   // about 40 KB; not kept open with less free than this
+const unsigned long NTFY_POST_IDLE_MS = 30000;   // unused for this long, it is closed rather than trusted
+WiFiClientSecure* postClient = nullptr;
+unsigned long postClientAt = 0, postWarmRetryAt = 0;
+
+void ntfyPostClose() {
+  if (!postClient) return;
+  postClient->stop();
+  delete postClient;
+  postClient = nullptr;
+}
+
+bool ntfyPostWarm() {   // blocks for the connection (about half a second)
+  postWarmRetryAt = millis() + 5000;
+  if (postClient) return true;
+  if (!ntfyReady() || ntfyPostBlocked() || ESP.getFreeHeap() < NTFY_POST_HEAP) return false;
+  postClient = new WiFiClientSecure();
+  postClient->setInsecure();
+  postClient->setHandshakeTimeout(5);
+  if (!postClient->connect("ntfy.sh", 443, NTFY_CONNECT_MS)) { ntfyPostClose(); return false; }
+  postClientAt = millis();
+  return true;
+}
+
 // Post `text` to <base>-<who> with `title`. Returns the new message's id, or "" if the server did not take it.
-// Every result feeds the Wi-Fi manager's internet check.
+// Every result feeds the Wi-Fi manager's internet check. `urgent`: a message to the partner or a receipt, which may
+// use the whole budget (the rest leave NTFY_RESERVE).
 String ntfyPublish(const String& who, const String& title, const String& text, bool urgent = false) {
   if (!ntfyReady() || ntfyPostBlocked() || !ntfyMayUse(urgent)) return "";
   ntfySpend();
-  WiFiClientSecure client;
-  HTTPClient http;
-  ntfyOpen(client, http);
+  unsigned long t0 = millis();
   int code = -1;
   String id;
-  if (http.begin(client, topicUrl(who))) {
-    http.addHeader("Title", title);
-    code = http.POST(text);
-    if (code == 200) id = jsonText(http.getString(), "id");
-    else if (code == 429 && http.getString().indexOf("42908") >= 0) {   // the daily quota, not the rate
-      ntfyQuotaUntil = clockSeconds() + NTFY_QUOTA_RETRY_S;
-      sayf("ntfy: the daily message quota is used up; not publishing for %lu min\n", NTFY_QUOTA_RETRY_S / 60);
+  // A connection left idle may have been dropped by the server or the router without our knowing, and a post on it
+  // would stall until it timed out: past NTFY_POST_IDLE_MS it is not trusted, and a fresh one is made.
+  if (postClient && millis() - postClientAt > NTFY_POST_IDLE_MS) ntfyPostClose();
+  for (int attempt = 0; attempt < 2; attempt++) {
+    bool kept = postClient && postClient->connected();   // the open connection, if it is still there
+    WiFiClientSecure local;
+    WiFiClientSecure& client = kept ? *postClient : local;
+    HTTPClient http;
+    ntfyOpen(client, http);
+    if (kept) http.useHTTP10(false);   // HTTP/1.1, and keep it
+    http.setReuse(kept);
+    if (http.begin(client, topicUrl(who))) {
+      http.addHeader("Title", title);
+      code = http.POST(text);
+      if (code == 200) id = jsonText(http.getString(), "id");
+      else if (code == 429 && http.getString().indexOf("42908") >= 0) {   // the daily quota, not the rate
+        ntfyQuotaUntil = clockSeconds() + NTFY_QUOTA_RETRY_S;
+        sayf("ntfy: the daily message quota is used up; not publishing for %lu min\n", NTFY_QUOTA_RETRY_S / 60);
+      }
     }
+    http.end();
+    if (code > 0 || !kept) break;
+    ntfyPostClose();   // the kept connection had died: once more, on a fresh one
   }
-  http.end();
+  if (postClient) postClientAt = millis();
   ntfyNote(code);
   wifiIoResult(code == 200 || code == 429);
-  sayf("ntfy %s %d: %s\n", slug(who).c_str(), code, text.c_str());
+  sayf("ntfy %s %d: %s (%lu ms)\n", slug(who).c_str(), code, text.c_str(), millis() - t0);
   return id;
 }
 

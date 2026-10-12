@@ -28,6 +28,7 @@
 //   -DFW_VERSION=N       version of this build, compared with the release's manifest (default 1)
 //   -DTEST=n             1 board check, 2 buttons + ring + motor, 4 battery, 5 button stress
 //   -DNO_SLEEP           never sleep (for development)
+//   -DNTFY_NO_BLOCK      keep posting through ntfy's 429s and quota pause (to time requests while the quota is used up)
 //   -DDEBUG_SERIAL       print what the firmware is doing over USB serial (off in the real firmware)
 //   -DWIFI_TEST          adds inbox commands that simulate Wi-Fi trouble (drop, nointernet, hide, roam) and an
 //                        "online" report to the phone after every full join
@@ -266,6 +267,12 @@ void loop() {
 #endif
   }
 
+  // The posting connection is opened as a recording begins (its short pause hides the half second it takes; the
+  // presses are time-stamped by interrupts, so the wait does not disturb them), and closed when the conversation is
+  // over and it has sat unused.
+  if (wifiOnline() && recState != R_IDLE && !postClient && (long)(millis() - postWarmRetryAt) >= 0) ntfyPostWarm();
+  if (postClient && (!wifiOnline() || (!messagesConversing() && recState == R_IDLE && millis() - postClientAt > 10000))) ntfyPostClose();
+
   if (!inputBusy()) {   // no network work while someone is pressing or recording, so loop() stays quick
     if (!wifiOnline() || !messagesConversing()) ntfyStreamClose();   // the stream belongs to a conversation
     if (wifiOnline()) {
@@ -306,6 +313,7 @@ void loop() {
     unsigned long awake = millis() + WAKE_LEAD_MS;
     sayf("Sleep after %lu ms\n", awake);
     ntfyStreamClose();
+    ntfyPostClose();
     outputStop();
     powerSleep(!wifiOnline() ? (savedCount() ? wifiRetryMs() : WIFI_RETRY_MAX_MS)
                : awake < CHECK_INTERVAL_MS - 1000 ? CHECK_INTERVAL_MS - awake : 1000);
