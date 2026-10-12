@@ -233,16 +233,17 @@ int ntfyStreamRead(NtfyHandler handle) {
     if (c != '\n') { if (streamLine.length() < 800) streamLine += (char)c; continue; }
     String line = streamLine;
     streamLine = "";
+    if (line.length()) sayf("Stream line: %.110s\n", line.c_str());
     if (line.length() == 0 || line[0] != '{' || line.indexOf("\"event\":\"message\"") < 0) continue;   // open, keepalive, anything else
     String id = jsonText(line, "id");
     unsigned long t = jsonNumber(line, "time");
     // The stream starts with the second of the last message handled, sent again in order: everything in it up to
     // and including that message is old (as ntfyPoll() treats it). After that, a message is new unless seen lately.
-    if (t < streamFromTime) continue;
-    if (t == streamFromTime && !streamPassed) { streamPassed = id == streamFromId; continue; }
+    if (t < streamFromTime) { sayf("Stream skip: older than %lu\n", streamFromTime); continue; }
+    if (t == streamFromTime && !streamPassed) { streamPassed = id == streamFromId; sayf("Stream skip: the same second as the last one\n"); continue; }
     bool seen = id == prefs.getString("inId", "");
     for (int i = 0; i < streamSeenN; i++) seen = seen || streamSeen[i] == id;
-    if (seen) continue;
+    if (seen) { sayf("Stream skip: seen\n"); continue; }
     if (streamSeenN == NTFY_SEEN) { for (int i = 1; i < NTFY_SEEN; i++) streamSeen[i - 1] = streamSeen[i]; streamSeenN--; }
     streamSeen[streamSeenN++] = id;
     prefs.putString("inId", id);   // before handling: a handler may restart the device (an update)
