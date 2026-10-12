@@ -108,6 +108,7 @@ details summary { cursor: pointer; font-family: var(--display); font-weight: 600
       <pre id="log" aria-live="off"></pre>
     </details>
     <p class="note">The small button is button 2: tap for battery, hold 5 seconds and release for setup (the ring fills purple), 10 seconds to turn off (it counts down in red). There is no buzz on a page. Messages only arrive while this page is open on screen.</p>
+    <p class="note" id="built"></p>
     <button class="act" id="openSetup">Setup</button>
   </section>
 </div>
@@ -643,6 +644,7 @@ $("s-save").onclick = () => {
 };
 
 fillSetup();
+$("built").textContent = "This page was last updated " + new Date(document.lastModified).toLocaleString() + ". If that is older than the latest push, reload without the cache (hold Shift, or Cmd+Shift+R).";
 say("== Pebble virtual pager ==");
 if (!ready()) { $("setup").hidden = false; say("No topic base: set it in Setup"); }
 ringSetColor(ownRgb());
