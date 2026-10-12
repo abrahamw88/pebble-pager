@@ -92,7 +92,7 @@ details summary { cursor: pointer; font-family: var(--display); font-weight: 600
         <tr><td>Power on</td><td>Press and hold the small button for 5 seconds. A <span class="sw" style="background:#50E080"></span>green light fills the ring.</td></tr>
         <tr><td>Power off</td><td>Hold the small button for 10 seconds. The ring fills <span class="sw" style="background:#9060F0"></span>purple, then <span class="sw" style="background:#F03030"></span>red counts down; let go when it is dark.</td></tr>
         <tr><td>Send a message</td><td>Press the big button (a tap is enough) and keep going with a pattern of long and short presses. Each press lights a comet in your color. The ring is dark while it sends, then ends with one <span class="sw" style="background:#50E080"></span>green flash at the bottom: received.</td></tr>
-        <tr><td>Play a message</td><td>One pixel breathing at the top, in the sender's color, means a message is waiting. Press the big button and it plays at once, in the sender's color. During a conversation it plays by itself.</td></tr>
+        <tr><td>Play a message</td><td>One pixel breathing at the top, in the sender's color, means a message is waiting. Press the big button and every waiting message plays at once, each in its sender's color. During a conversation they play by themselves. A new press while they play cuts them short and starts your reply.</td></tr>
         <tr><td>Check the battery</td><td>Tap the small button. 1 to 12 <span class="sw" style="background:#50E080"></span>green pixels light up (a page has no battery, so it shows full).</td></tr>
         <tr><td>Wi-Fi setup</td><td>Hold the small button for 5 seconds and let go when the ring is full <span class="sw" style="background:#9060F0"></span>purple. Do it again to close.</td></tr>
         <tr><td>Something went wrong</td><td>Two <span class="sw" style="background:#F03030"></span>red pulses: the message could not be sent, or was not received.</td></tr>
@@ -353,7 +353,7 @@ function onEdge(e) {
     return EV_NONE;
   }
   if (recState === R_PRESSED) {
-    if (held < RECORD_HOLD_MS && unread.length) { recState = R_IDLE; return EV_PLAY; }   // a tap with messages waiting
+    if (held < RECORD_HOLD_MS && unread.length && !replyPress) { recState = R_IDLE; return EV_PLAY; }   // a tap with messages waiting
     recPresses = 0; recStart = e.at - held;   // anything else is the first press of a message
     recordPressEnd(e.at, held);
     return EV_RECORD_START;
@@ -390,7 +390,7 @@ function inputTick() {
 let off = false, playing = false, armAfterPlay = false, arrivedN = 0;
 const playQueue = [];
 const wait = (t) => new Promise((r) => setTimeout(r, t));
-const ringIdle = () => new Promise((r) => { const look = () => (ring.play === null && !ring.down && ring.level === 0 ? r() : setTimeout(look, 30)); look(); });
+const ringIdle = () => new Promise((r) => { const look = () => ((ring.play === null && !ring.down && ring.level === 0) || abortPlay ? r() : setTimeout(look, 30)); look(); });
 
 function pressRing(down) {   // the ring reacts to every press of button 1, in this pager's own color
   if (playing || off) return;
@@ -399,9 +399,22 @@ function pressRing(down) {   // the ring reacts to every press of button 1, in t
   ringPress(down);
 }
 
+let abortPlay = false, cutTimer = 0, replyPress = false;   // replyPress: this press cut a message short, so it is a reply, not 'play the next'
+// A new press (one that lasts MIN_PRESS_MS) while messages play cuts them short and starts a recording: you are
+// answering. What had not played yet goes back to unread. (output.h's showPlay() does the same on the device.)
+function cutPlay() {
+  if (!playing || pressPlayed) return;
+  abortPlay = true;
+  replyPress = true;
+  unread.unshift(...playQueue.splice(0));
+  save();
+  ringAdvance(ms() / 1000);
+  ring.play = null; ring.playCount = 0; ringPress(false);
+}
 async function playAll() {   // play what is queued, one after another, each in its sender's color
   if (playing) return;
   playing = true;
+  abortPlay = false;
   recQuietUntil = Infinity;   // presses during playback are not part of anything
   ringAdvance(ms() / 1000);
   ringPress(false);
@@ -413,23 +426,27 @@ async function playAll() {   // play what is queued, one after another, each in 
     ringSetColor(COLOR_RGB[p.color]);
     ringPlay(p.ms, p.ms.length);
     await ringIdle();
+    if (abortPlay) break;
     await wait(PLAY_GAP_MS);
+    if (abortPlay) break;
   }
   playing = false;
+  abortPlay = false;
   recQuietUntil = 0;
+  if (!replyPress) {   // presses made while it played count for nothing: take the buttons as they are now
+    for (const e of edges.splice(0)) button[e.button] = { down: e.down, at: e.at };
+  }
   if (armAfterPlay) { armAfterPlay = false; inputArm(); if (button[0].down) { ringSetColor(ownRgb()); ringAdvance(ms() / 1000); ringPress(true); } show("Now recording: press your message."); say("Recording"); }
 }
 
-function playOne() {   // a tap with messages waiting plays the oldest (there is no replay)
+function playOne() {   // a tap with messages waiting plays them all (there is no replay)
   if (!unread.length) { say("Nothing to play"); show("Nothing to play."); return; }
-  const item = unread.shift();
+  while (unread.length) { const item = unread.shift(); say("Play from " + item.from + ": " + item.text + " (" + unread.length + " unread left)"); playQueue.push(item); }
   save();
-  say("Play from " + item.from + ": " + item.text + " (" + unread.length + " unread left)");
-  playQueue.push(item);
   playAll();
 }
 
-// A press with messages waiting plays the oldest at once, in its sender's color, without waiting for the release
+// A press with messages waiting plays them all at once, oldest first, in each sender's color, without waiting for the release
 // (input.h's EV_PRESS_PLAY). The same press then still means tap (done) or hold (the rest, then a fresh recording).
 let pressPlayed = null;   // {at, hold} while that press is down
 function holdAfterPlay() {
@@ -443,12 +460,10 @@ function holdAfterPlay() {
 }
 let pressCandidate = null;   // a press with messages waiting that has not yet lasted MIN_PRESS_MS
 function startPressPlay(t0) {
-  const item = unread.shift();
-  save();
   pressPlayed = { at: t0, hold: false };
   button[0].down = true; button[0].at = t0;
-  say("Play from " + item.from + ": " + item.text + " (" + unread.length + " unread left)");
-  playQueue.push(item);
+  while (unread.length) { const item = unread.shift(); say("Play from " + item.from + ": " + item.text + " (" + unread.length + " unread left)"); playQueue.push(item); }   // one press plays them all
+  save();
   playAll();
   setTimeout(() => { if (pressPlayed && pressPlayed.at === t0) holdAfterPlay(); }, RECORD_HOLD_MS - MIN_PRESS_MS);   // from the press
 }
@@ -497,12 +512,14 @@ let onHoldAt = -1;   // off: when button 2 went down, or -1
 function wire(el, index) {
   const edge = (down) => {
     if (!off && index === 0) {
-      if (down && unread.length && recState === R_IDLE && !playing) {   // plays once it has lasted MIN_PRESS_MS: a bump does not
+      if (down && unread.length && recState === R_IDLE && !playing && !replyPress) {   // plays once it has lasted MIN_PRESS_MS: a bump does not
         const t0 = ms();
         pressCandidate = { at: t0, timer: setTimeout(() => { pressCandidate = null; startPressPlay(t0); }, MIN_PRESS_MS) };
         return;
       }
       if (!down && pressCandidate) { clearTimeout(pressCandidate.timer); pressCandidate = null; return; }   // too light
+      if (down && playing && !pressPlayed) { clearTimeout(cutTimer); cutTimer = setTimeout(cutPlay, MIN_PRESS_MS); }   // a new press while messages play
+      if (!down) clearTimeout(cutTimer);
       if (!down && pressPlayed) { endPressPlay(); return; }
     }
     if (off) {   // only a 5 s hold of button 2 turns it on; button 1 does nothing
@@ -556,7 +573,10 @@ async function check() {   // what the device does each time it wakes: read the 
 }
 
 async function loop() {
-  for (let event; (event = inputTick()) !== EV_NONE;) onInput(event);
+  // While messages play, presses are left queued: they are either a reply (the press that cuts playback short, which
+  // is then handled as a recording) or nothing (dropped when playback ends). Handling them now could lose a reply.
+  if (!playing) for (let event; (event = inputTick()) !== EV_NONE;) onInput(event);
+  if (replyPress && recState === R_IDLE && !button[0].down && !edges.length && !playing) replyPress = false;
   if (!working && !off && !inputBusy() && !playing) {
     working = true;
     try {

@@ -140,7 +140,7 @@ bool messagesAnnounce() {
   bool any = arrived > 0;
   arrived = 0;
   if (!any || !messagesConversing()) return false;
-  while (listCount(UNREAD) > 0) messagePlay();
+  while (listCount(UNREAD) > 0 && !playInterrupted) messagePlay();
   return true;
 }
 

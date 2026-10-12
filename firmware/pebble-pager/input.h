@@ -180,6 +180,17 @@ void inputArm() {
   recState = button[0].down ? R_ARMED : R_WAIT;
 }
 
+// Is this button down right now: the pin, or (for testing) a console-simulated press whose time has come.
+bool inputIsDown(int b) {
+  if (pinsDown(b)) return true;
+  bool d = b == 0 && simHeld;
+  for (int i = simNext; i < simCount; i++) {
+    if ((long)(millis() - simQueue[i].at) < 0) break;
+    if (simQueue[i].button == b) d = simQueue[i].down;
+  }
+  return d;
+}
+
 // A message has just played, and nothing pressed meanwhile is part of anything: take the buttons as they are now.
 // The one exception is the release of the press that started it (inputPressPlayed): that says tap or hold.
 void inputSkip() {

@@ -184,26 +184,55 @@ void showSetup(bool on) {   // the setup page is opening (it takes a few seconds
 }
 
 bool cometIdle() { RingTurn turn; return !ring.play && !ring.down && ring.level == 0; }
-void cometWait() { while (!cometIdle()) { powerTouch(); delay(10); } }
+
+bool playInterrupted = false;   // a press cut the message short: the rest stay unread, and the press starts a recording
 
 // Play a message: the comet in its sender's color, the motor buzzing with each press. Returns when it has finished.
-// Nothing pressed while it plays counts for anything.
+// A new press of button 1 while it plays (one that has lasted MIN_PRESS_MS) cuts it short and starts a recording:
+// you are answering. A finger already down when it began (the press that started it) does not count.
 void showPlay(const Pulse& p) {
+  playInterrupted = false;
+  bool wasUp = !inputIsDown(0);
+  unsigned long downAt = 0;
+  auto cut = [&]() -> bool {   // has a new press arrived?
+    if (!inputIsDown(0)) { wasUp = true; downAt = 0; return false; }
+    if (!wasUp) return false;
+    if (!downAt) downAt = millis();
+    return millis() - downAt >= MIN_PRESS_MS;
+  };
+  auto wait = [&](unsigned long ms) -> bool {   // false if cut short
+    for (unsigned long t0 = millis(); millis() - t0 < ms;) { powerTouch(); if (cut()) return false; delay(5); }
+    return true;
+  };
+  auto waitIdle = [&]() -> bool {
+    while (!cometIdle()) { powerTouch(); if (cut()) return false; delay(10); }
+    return true;
+  };
   {
     RingTurn turn;
     outPlaying = true;
     outPressShown = false;
     ringPress(false);
   }
-  cometWait();   // let a press that was showing fade first
-  {
-    RingTurn turn;
-    outPulse = p;
-    ringSetColor(COLOR_RGB[p.color]);
-    ringPlay(outPulse.ms, outPulse.count);
+  bool done = waitIdle();   // let a press that was showing fade first
+  if (done) {
+    {
+      RingTurn turn;
+      outPulse = p;
+      ringSetColor(COLOR_RGB[p.color]);
+      ringPlay(outPulse.ms, outPulse.count);
+    }
+    done = waitIdle() && wait(PLAY_GAP_MS);
   }
-  cometWait();
-  delay(PLAY_GAP_MS);
+  if (!done) {   // cut short: stop the comet and leave the press where it is, for the main loop to handle
+    RingTurn turn;
+    ring.play = nullptr;
+    ring.playCount = 0;
+    ringPress(false);
+    playInterrupted = true;
+    outPlaying = false;
+    return;
+  }
   outPlaying = false;
   inputSkip();
 }

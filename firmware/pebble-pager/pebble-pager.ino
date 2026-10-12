@@ -147,22 +147,21 @@ void onInput(int event) {
   wifiKick();              // any press: if offline, look for a network now
   powerHold(LINGER_MS);    // ...and stay awake a little, in case more follows
   switch (event) {
-    case EV_PRESS_PLAY:   // a press with messages waiting: play the oldest at once, in its sender's color
-      messagePlay();
-      if (inputHeldPlayed && !button[0].down) {   // it was a hold, and is over: play the rest, then a fresh recording
+    case EV_PRESS_PLAY:   // a press with messages waiting: play them all at once, oldest first, each in its sender's color
+      while (listCount(UNREAD) > 0 && !playInterrupted) messagePlay();
+      if (inputHeldPlayed && !button[0].down && !playInterrupted) {   // it was a hold, and is over: a fresh recording
         inputHeldPlayed = false;
-        while (listCount(UNREAD) > 0) messagePlay();
         inputArm();
         sayln("Recording");
       }
       break;
-    case EV_PLAY:   // a tap with messages waiting (the press that woke the device): play the oldest
-      messagePlay();
+    case EV_PLAY:   // a tap with messages waiting (the press that woke the device): play them all
+      while (listCount(UNREAD) > 0 && !playInterrupted) messagePlay();
       break;
     case EV_RECORD_START:
       if (listCount(UNREAD) > 0 || inputHeldPlayed) {   // unread messages come first: play them all, then record from scratch
         inputHeldPlayed = false;
-        while (listCount(UNREAD) > 0) messagePlay();
+        while (listCount(UNREAD) > 0 && !playInterrupted) messagePlay();
         inputArm();
       }
       sayln("Recording");
@@ -245,7 +244,9 @@ void loop() {
   String line;
   if (consoleRead(line)) { powerHold(60000); onConsole(line); }
 
-  bool waiting = listCount(UNREAD) > 0 && !portalOn;   // a press plays a waiting message at once
+  // A press that cut a message short is the start of a reply: it does not play the next waiting one instead.
+  if (playInterrupted && recState == R_IDLE && !button[0].down && !inputPending()) playInterrupted = false;
+  bool waiting = listCount(UNREAD) > 0 && !portalOn && !playInterrupted;   // a press plays a waiting message at once
   inputPlayOnPress = waiting;
   outPlayPending = waiting;
   for (int event; (event = inputTick()) != EV_NONE;) onInput(event);
