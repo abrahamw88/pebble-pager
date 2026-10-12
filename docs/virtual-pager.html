@@ -241,6 +241,7 @@ function queueMessage(text) {   // returns null if accepted, otherwise a short r
   const p = pulseParse(text);
   if (typeof p === "string") return p;
   outbox.push({ at: Date.now(), text: pulseText(p) });
+  if (online) talkedAt = Date.now();   // recording starts the conversation: a reply that arrives before it posts must play
   if (outbox.length > OUTBOX_MAX) outbox.shift();
   sendRetryAt = Date.now();
   sendShown = true;

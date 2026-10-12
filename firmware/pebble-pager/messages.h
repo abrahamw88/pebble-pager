@@ -44,6 +44,9 @@ const char* messageQueue(const String& text) {
   listPush(OUTBOX, pulseText(p));
   sendRetryAt = millis();
   sendShown = true;
+  // Recording a message starts the conversation at once, not when it is posted: the inbox is read in between, and
+  // a reply that arrives then must play, not wait for a tap. (Offline there is nothing to hold open.)
+  if (wifiOnline()) talkedAt = clockSeconds() | 1;
   return nullptr;
 }
 
