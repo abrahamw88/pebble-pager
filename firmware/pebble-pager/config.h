@@ -41,7 +41,7 @@ const unsigned long SEND_FAIL_MS = 15000;        // a message still waiting to b
 const int MAX_PRESSES = 12;                      // presses in one message
 const unsigned long MAX_RECORD_MS = 15000;       // total length of one message
 const int OUTBOX_MAX = 5;                        // recorded messages waiting to be posted
-const int UNREAD_MAX = 3;                        // received messages waiting to be played
+const int UNREAD_MAX = 6;                        // received messages waiting to be played
 const int NOTES_MAX = 5;                         // reports for the phone waiting to be posted
 #ifndef QUEUE_MAX_AGE_S                          // anything waiting longer is deleted; override for testing
 #define QUEUE_MAX_AGE_S (24UL * 60 * 60)

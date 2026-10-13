@@ -270,14 +270,15 @@ void loop() {
   // The posting connection is opened as a recording begins (its short pause hides the half second it takes; the
   // presses are time-stamped by interrupts, so the wait does not disturb them), and closed when the conversation is
   // over and it has sat unused.
-  if (wifiOnline() && recState != R_IDLE && !postClient && (long)(millis() - postWarmRetryAt) >= 0) ntfyPostWarm();
+  if (wifiOnline() && recState != R_IDLE && (!postClient || millis() - postClientAt > NTFY_POST_IDLE_MS) && (long)(millis() - postWarmRetryAt) >= 0) ntfyPostWarm();
   if (postClient && (!wifiOnline() || (!messagesConversing() && recState == R_IDLE && millis() - postClientAt > 10000))) ntfyPostClose();
 
   if (!inputBusy()) {   // no network work while someone is pressing or recording, so loop() stays quick
     if (!wifiOnline() || !messagesConversing()) ntfyStreamClose();   // the stream belongs to a conversation
     if (wifiOnline()) {
       // In a conversation the inbox is held open as a stream: a reply, or a receipt, is here the moment it is posted.
-      if (messagesConversing() && !ntfyStreamIsOpen() && (long)(millis() - streamRetryAt) >= 0 && ntfyStreamOpen()) {
+      // (not while a message is waiting to go: it is posted first, and the stream opens on the next pass)
+      if (messagesConversing() && !ntfyStreamIsOpen() && listCount(OUTBOX) == 0 && (long)(millis() - streamRetryAt) >= 0 && ntfyStreamOpen()) {
         inboxRead = true;   // it starts from where the inbox was last read
         lastPoll = millis();
       }

@@ -102,14 +102,58 @@ void ntfyPostClose() {
 
 bool ntfyPostWarm() {   // blocks for the connection (about half a second)
   postWarmRetryAt = millis() + 5000;
+  if (postClient && millis() - postClientAt > NTFY_POST_IDLE_MS) ntfyPostClose();   // stale: make a fresh one now
   if (postClient) return true;
   if (!ntfyReady() || ntfyPostBlocked() || ESP.getFreeHeap() < NTFY_POST_HEAP) return false;
+  unsigned long t0 = millis();
   postClient = new WiFiClientSecure();
   postClient->setInsecure();
   postClient->setHandshakeTimeout(5);
-  if (!postClient->connect("ntfy.sh", 443, NTFY_CONNECT_MS)) { ntfyPostClose(); return false; }
+  if (!postClient->connect("ntfy.sh", 443, NTFY_CONNECT_MS)) { ntfyPostClose(); sayln("Post connection: failed"); return false; }
   postClientAt = millis();
+  sayf("Post connection open (%lu ms, %u KB free)\n", millis() - t0, ESP.getFreeHeap() / 1024);
   return true;
+}
+
+// One post as plain HTTP/1.1 over the open connection (the library's HTTP client opens a new one however it is
+// handed). Returns the status code (-1: no answer, so the connection is not to be trusted), fills `body` with the
+// answer, and sets `reusable` unless the server said it is closing the connection.
+int ntfyRawPost(WiFiClientSecure& c, const String& topic, const String& title, const String& text, String& body, bool& reusable) {
+  reusable = false;
+  String req = "POST /" + topic + " HTTP/1.1\r\nHost: ntfy.sh\r\nUser-Agent: pebble-pager\r\nTitle: " + title +
+               "\r\nContent-Type: text/plain\r\nContent-Length: " + String(text.length()) + "\r\n\r\n" + text;
+  while (c.available() > 0) c.read();   // anything left over from before
+  c.setTimeout(3000);   // a connection that has gone stale answers at once or not at all: do not wait the usual 10 s
+  if (c.write((const uint8_t*)req.c_str(), req.length()) != req.length()) return -1;
+  String status = c.readStringUntil('\n');
+  int sp = status.indexOf(' ');
+  if (sp < 0) return -1;
+  int code = status.substring(sp + 1).toInt();
+  long length = -1;
+  bool chunked = false, closing = status.startsWith("HTTP/1.0");
+  for (int n = 0; n < 40; n++) {
+    String h = c.readStringUntil('\n');
+    h.trim();
+    if (h.length() == 0) break;
+    h.toLowerCase();
+    if (h.startsWith("content-length:")) length = h.substring(15).toInt();
+    else if (h.startsWith("transfer-encoding:") && h.indexOf("chunked") >= 0) chunked = true;
+    else if (h.startsWith("connection:") && h.indexOf("close") >= 0) closing = true;
+  }
+  body = "";
+  if (chunked) {
+    for (int n = 0; n < 8; n++) {
+      String sz = c.readStringUntil('\n');
+      long len = strtol(sz.c_str(), nullptr, 16);
+      if (len <= 0) { c.readStringUntil('\n'); break; }
+      for (long i = 0; i < len; i++) { int ch = c.read(); if (ch < 0 && !c.available()) { delay(1); ch = c.read(); } if (ch >= 0 && body.length() < 1024) body += (char)ch; }
+      c.readStringUntil('\n');
+    }
+  } else if (length > 0) {
+    for (long i = 0; i < length && i < 4096; i++) { int ch = c.read(); if (ch < 0 && !c.available()) { delay(1); ch = c.read(); } if (ch >= 0 && body.length() < 1024) body += (char)ch; }
+  } else if (length < 0) closing = true;   // no length and not chunked: the end of the body is the end of the connection
+  reusable = !closing && c.connected();
+  return code;
 }
 
 // Post `text` to <base>-<who> with `title`. Returns the new message's id, or "" if the server did not take it.
@@ -120,18 +164,31 @@ String ntfyPublish(const String& who, const String& title, const String& text, b
   ntfySpend();
   unsigned long t0 = millis();
   int code = -1;
+  bool wasKept = false;
   String id;
   // A connection left idle may have been dropped by the server or the router without our knowing, and a post on it
   // would stall until it timed out: past NTFY_POST_IDLE_MS it is not trusted, and a fresh one is made.
   if (postClient && millis() - postClientAt > NTFY_POST_IDLE_MS) ntfyPostClose();
-  for (int attempt = 0; attempt < 2; attempt++) {
-    bool kept = postClient && postClient->connected();   // the open connection, if it is still there
-    WiFiClientSecure local;
-    WiFiClientSecure& client = kept ? *postClient : local;
+  if (postClient && postClient->connected()) {   // the open connection: no handshake
+    String body;
+    bool reusable = false;
+    code = ntfyRawPost(*postClient, topicBase + "-" + slug(who), title, text, body, reusable);
+    if (code > 0) {
+      wasKept = true;
+      if (code == 200) id = jsonText(body, "id");
+      else if (code == 429 && body.indexOf("42908") >= 0) {
+        ntfyQuotaUntil = clockSeconds() + NTFY_QUOTA_RETRY_S;
+        sayf("ntfy: the daily message quota is used up; not publishing for %lu min\n", NTFY_QUOTA_RETRY_S / 60);
+      }
+      if (reusable) postClientAt = millis(); else ntfyPostClose();
+    } else {
+      ntfyPostClose();   // it had died: the post is made again below, on a fresh connection
+    }
+  }
+  if (code <= 0) {   // no open connection, or it was dead
+    WiFiClientSecure client;
     HTTPClient http;
     ntfyOpen(client, http);
-    if (kept) http.useHTTP10(false);   // HTTP/1.1, and keep it
-    http.setReuse(kept);
     if (http.begin(client, topicUrl(who))) {
       http.addHeader("Title", title);
       code = http.POST(text);
@@ -142,13 +199,10 @@ String ntfyPublish(const String& who, const String& title, const String& text, b
       }
     }
     http.end();
-    if (code > 0 || !kept) break;
-    ntfyPostClose();   // the kept connection had died: once more, on a fresh one
   }
-  if (postClient) postClientAt = millis();
   ntfyNote(code);
   wifiIoResult(code == 200 || code == 429);
-  sayf("ntfy %s %d: %s (%lu ms)\n", slug(who).c_str(), code, text.c_str(), millis() - t0);
+  sayf("ntfy %s %d: %s (%lu ms%s)\n", slug(who).c_str(), code, text.c_str(), millis() - t0, wasKept ? ", kept connection" : "");
   return id;
 }
 
@@ -236,6 +290,7 @@ const unsigned long NTFY_STREAM_DEAD_MS = 65000;    // a keepalive comes every 4
 const unsigned long NTFY_STREAM_RETRY_MS = 5000;    // wait this long before opening it again, doubling (to 40 s) each time it fails
 const uint32_t NTFY_STREAM_HEAP = 60000;            // a second secure connection needs about 40 KB: do not open below this
 const int NTFY_SEEN = 8;
+const int NTFY_STREAM_BATCH = 3;   // messages taken from the stream per pass: they are played before the next are taken, so a burst never overflows the unread list
 WiFiClientSecure* streamClient = nullptr;
 String streamLine, streamSeen[NTFY_SEEN];           // the line arriving; ids handled lately (several can share one second)
 int streamSeenN = 0, streamFails = 0;
@@ -307,7 +362,7 @@ bool ntfyStreamOpen() {
 int ntfyStreamRead(NtfyHandler handle) {
   if (!streamClient) return -1;
   int handled = 0;
-  while (streamClient && handled < NTFY_BATCH && streamClient->available() > 0) {   // (a handler may close the stream)
+  while (streamClient && handled < NTFY_STREAM_BATCH && streamClient->available() > 0) {   // (a handler may close the stream)
     int c = streamClient->read();
     if (c < 0) break;
     streamLastByte = millis();

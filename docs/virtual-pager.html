@@ -70,7 +70,7 @@ details summary { cursor: pointer; font-family: var(--display); font-weight: 600
       <button class="btn" id="b2" aria-label="Button 2: tap for battery, hold 5 seconds for setup, 10 seconds to turn off"></button>
     </div>
     <div class="says" id="says">Press the middle button to start a message, or to play one that is waiting.</div>
-    <div class="counts"><span>Unread <b id="unreadN">0</b> of 3</span><span>Waiting to send <b id="outboxN">0</b></span><span id="next"></span></div>
+    <div class="counts"><span>Unread <b id="unreadN">0</b> of 6</span><span>Waiting to send <b id="outboxN">0</b></span><span id="next"></span></div>
   </section>
 
   <section class="panel" id="setup" hidden>
@@ -124,7 +124,7 @@ details summary { cursor: pointer; font-family: var(--display); font-weight: 600
 // ---- Values from config.h ----
 const SETUP_HOLD_MS = 5000, OFF_HOLD_MS = 10000, RECORD_HOLD_MS = 500, MIN_PRESS_MS = 0, SEND_PAUSE_MS = 500,   // no bump filter on a page: a click is deliberate, and many are under 75 ms CUTOFF_QUIET_MS = 2000;
 const CHECK_INTERVAL_MS = 30000, RECEIPT_POLL_MS = 5000, RECEIPT_WAIT_MS = 45000, SEND_RETRY_MS = 10000;
-const MAX_PRESSES = 12, MAX_RECORD_MS = 15000, OUTBOX_MAX = 5, UNREAD_MAX = 3, NOTES_MAX = 5, NTFY_BATCH = 8;
+const MAX_PRESSES = 12, MAX_RECORD_MS = 15000, OUTBOX_MAX = 5, UNREAD_MAX = 6, NOTES_MAX = 5, NTFY_BATCH = 8;
 const QUEUE_MAX_AGE_MS = 24 * 60 * 60 * 1000, PULSE_MIN_MS = 20, PULSE_MAX_MS = 5000, PULSE_MAX_TIMES = 2 * MAX_PRESSES - 1;
 const NAME_MAX_LEN = 20, BASE_MAX_LEN = 40, NTFY_SERVER = "https://ntfy.sh/";
 const ON_HOLD_MS = 5000, CONVERSATION_MS = 120000, PLAY_GAP_MS = 100, COMET_SETTLED = 0.25, HOLD_SHOW_MS = 400, SETUP_SHOWN_MS = 800, SETUP_GLOW = 0.4;
