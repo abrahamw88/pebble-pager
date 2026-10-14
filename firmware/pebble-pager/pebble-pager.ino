@@ -274,6 +274,7 @@ void loop() {
   if (postClient && (!wifiOnline() || (!messagesConversing() && recState == R_IDLE && millis() - postClientAt > 10000))) ntfyPostClose();
 
   if (!inputBusy()) {   // no network work while someone is pressing or recording, so loop() stays quick
+    if (inboxMoved) { inboxMoved = false; ntfyStreamClose(); streamRetryAt = 0; }   // a changed name or topic base
     if (!wifiOnline() || !messagesConversing()) ntfyStreamClose();   // the stream belongs to a conversation
     if (wifiOnline()) {
       // In a conversation the inbox is held open as a stream: a reply, or a receipt, is here the moment it is posted.

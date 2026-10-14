@@ -38,7 +38,12 @@ extern "C" bool verifyRollbackLater() { return true; }
 RTC_DATA_ATTR bool updateValidated = false;    // this image has reached the update server since it started
 RTC_DATA_ATTR unsigned long updateCheckedAt = 0;   // clockSeconds() of the last check
 
-bool updateDue() { return !updateValidated || clockSeconds() - updateCheckedAt >= DAILY_CHECK_S; }
+const unsigned long UPDATE_RETRY_S = 15UL * 60;   // until a check has reached the server, try again this often
+bool updateDue() {
+  if (!updateCheckedAt) return true;   // a fresh start checks at once
+  unsigned long every = updateValidated ? DAILY_CHECK_S : UPDATE_RETRY_S;
+  return clockSeconds() - updateCheckedAt >= (every < DAILY_CHECK_S ? every : DAILY_CHECK_S);
+}
 const char* updateNote = "";     // why the last check installed nothing: "current", "skipped", "none" or ""
 int updateSeen = 0;              // the release version the last check saw
 int updateHttp = 0;              // last HTTP status; 0 or less means the server was never reached
@@ -193,7 +198,7 @@ bool updateCheck(bool asked) {
     ESP.restart();
   }
   wifiIoResult(reached);
-  updateCheckedAt = clockSeconds();
+  updateCheckedAt = clockSeconds() ? clockSeconds() : 1;   // (0 means "never")
   if (reached && !updateValidated) updateValidate();
   if (!asked) return reached;
   if (!reached) ntfySay("can't reach server, still on v" + String(FW_VERSION));

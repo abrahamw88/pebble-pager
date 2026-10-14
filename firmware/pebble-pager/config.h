@@ -134,6 +134,7 @@ void loadSettings() {
 }
 
 // Save the four identity settings. A changed name or base means a different inbox, so its read markers are reset.
+bool inboxMoved = false;   // the inbox changed: the main loop closes a stream still open on the old one
 void saveIdentity(const String& name, const String& color, const String& partner, const String& base) {
   String oldInbox = topicBase + "-" + slug(deviceName);
   prefs.putString("name", name);
@@ -145,6 +146,7 @@ void saveIdentity(const String& name, const String& color, const String& partner
     prefs.remove("inInit");
     prefs.remove("inTime");
     prefs.remove("inId");
+    inboxMoved = true;
   }
 }
 

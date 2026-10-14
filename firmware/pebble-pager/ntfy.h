@@ -10,6 +10,7 @@
 const char* NTFY_SERVER = "https://ntfy.sh/";
 const int NTFY_CONNECT_MS = 5000;
 const int NTFY_READ_MS = 10000;
+const int NTFY_POLL_BODY_MAX = 12000;   // most bytes of a read held in memory
 const int NTFY_BATCH = 8;   // most messages handled per poll; any more wait for the next one
 
 bool ntfyReady() { return topicBase.length() > 0; }   // a base name has been set on the setup page
@@ -243,9 +244,22 @@ int ntfyPoll(NtfyHandler handle) {
   WiFiClientSecure client;
   HTTPClient http;
   ntfyOpen(client, http);
-  String url = topicUrl(deviceName) + "/json?poll=1&since=" + (lastTime ? String(lastTime) : String("all"));
+  // The first read only catches up, so it asks for the latest message alone, not the whole cache.
+  String url = topicUrl(deviceName) + "/json?poll=1&since=" + (lastTime ? String(lastTime) : caughtUp ? String("all") : String("latest"));
   int code = http.begin(client, url) ? http.GET() : -1;
-  String body = code == 200 ? http.getString() : String();
+  String body;   // at most NTFY_POLL_BODY_MAX bytes: the oldest messages come first, the rest wait for the next read
+  if (code == 200) {
+    WiFiClient* in = http.getStreamPtr();
+    unsigned long t0 = millis();
+    while ((int)body.length() < NTFY_POLL_BODY_MAX && (in->connected() || in->available()) && millis() - t0 < NTFY_READ_MS) {
+      if (!in->available()) { delay(5); continue; }
+      char chunk[256];
+      int n = in->read((uint8_t*)chunk, min((int)sizeof chunk, NTFY_POLL_BODY_MAX - (int)body.length()));
+      if (n > 0) body.concat(chunk, n);
+    }
+    int lastNl = body.lastIndexOf('\n');
+    if (lastNl >= 0 && (int)body.length() >= NTFY_POLL_BODY_MAX) body.remove(lastNl + 1);   // drop a line cut off by the limit
+  }
   http.end();
   ntfyNote(code);
   wifiIoResult(code == 200 || code == 429);
