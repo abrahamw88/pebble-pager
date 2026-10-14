@@ -103,10 +103,26 @@ void onMessage(const NtfyMessage& m) {
   else messageArrived(m, p);
 }
 
-void batteryTap() {   // button 2's tap: the level on the ring
+// Button 2's tap: the battery level on the ring, then, when that has faded, the Wi-Fi signal.
+const unsigned long TAP_WIFI_WAIT_MS = 6000;   // most it waits for a join in progress before showing "not connected"
+bool tapWifiPending = false;
+unsigned long tapAt = 0;
+
+void batteryTap() {
   batteryRead();
   sayf("%s\n", batteryText().c_str());
-  showBattery(batteryFitted() ? batteryPercent() : 0);
+  showBattery(batteryFitted(), batteryPercent());
+  tapWifiPending = true;
+  tapAt = millis();
+}
+
+void tapWifiTick() {   // call every loop()
+  if (!tapWifiPending || gaugeShowing()) return;
+  if (!wifiOnline() && !wifiSettled() && millis() - tapAt < TAP_WIFI_WAIT_MS) return;   // still joining: wait for the answer
+  tapWifiPending = false;
+  bool online = wifiOnline();
+  sayf("Wi-Fi %s\n", online ? (String(WiFi.RSSI()) + " dBm").c_str() : "not connected");
+  showWifi(online, online ? WiFi.RSSI() : 0);
 }
 
 // Console commands that stand in for the buttons, and show each display, for testing.
@@ -253,6 +269,7 @@ void loop() {
   for (int event; (event = inputTick()) != EV_NONE;) onInput(event);
   if (starting && (wifiOnline() || wifiSettled())) starting = false;
   outputTick(starting);
+  tapWifiTick();
   remind();
 
   bool wasPortal = portalOn;

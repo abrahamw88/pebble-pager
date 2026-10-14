@@ -172,11 +172,19 @@ void showReceived() { { RingTurn turn; ringBlip(RGB_RECEIVED, RING_PIXELS / 2); 
 void showFailed() { { RingTurn turn; ringFail(); } buzz(BUZZ_SHORT_MS); }               // red, with a short buzz
 void showWaiting(uint32_t rgb) { RingTurn turn; ringBlip(rgb, 0); }                 // a message is waiting: its sender's color, at the top
 void showLow() { RingTurn turn; ringBlip(RGB_LOW, RING_PIXELS / 2); }               // battery low: amber, at the bottom
-void showBattery(int percent) {   // 1 to 12 pixels
+void showBattery(bool fitted, int percent) {   // 1 to 12 pixels: green, red under 20%, one amber pixel if there is no battery
   int lit = (percent * RING_PIXELS + 99) / 100;
   RingTurn turn;
-  ringGauge(percent < BATT_LOW_PERCENT ? RGB_LOW : RGB_BATTERY, lit < 1 ? 1 : lit > RING_PIXELS ? RING_PIXELS : lit);
+  if (!fitted) ringGauge(RGB_LOW, 1);
+  else ringGauge(percent < BATT_LOW_PERCENT ? RGB_BAD : RGB_BATTERY, lit < 1 ? 1 : lit > RING_PIXELS ? RING_PIXELS : lit);
 }
+void showWifi(bool online, int rssi) {   // 1 to 12 blue pixels by signal strength; a few red ones if not connected
+  RingTurn turn;
+  if (!online) { ringGauge(RGB_BAD, WIFI_GAUGE_OFFLINE_PIXELS); return; }
+  int lit = 1 + (RING_PIXELS - 1) * (rssi - WIFI_GAUGE_WEAK_DBM) / (WIFI_GAUGE_STRONG_DBM - WIFI_GAUGE_WEAK_DBM);
+  ringGauge(RGB_WIFI, lit < 1 ? 1 : lit > RING_PIXELS ? RING_PIXELS : lit);
+}
+bool gaugeShowing() { RingTurn turn; return ring.gaugeMs >= 0; }   // a battery or Wi-Fi gauge is still filling or holding
 void showSetup(bool on) {   // the setup page is opening (it takes a few seconds to appear) or closing
   RingTurn turn;
   if (on) ringMeter(RGB_SETUP, RING_PIXELS, SETUP_GLOW);

@@ -93,7 +93,7 @@ details summary { cursor: pointer; font-family: var(--display); font-weight: 600
         <tr><td>Power off</td><td>Hold the small button for 10 seconds. The ring fills <span class="sw" style="background:#9060F0"></span>purple, then <span class="sw" style="background:#F03030"></span>red counts down; let go when it is dark.</td></tr>
         <tr><td>Send a message</td><td>Press the big button (a tap is enough) and keep going with a pattern of long and short presses. Each press lights a comet in your color. The ring is dark while it sends, then ends with one <span class="sw" style="background:#50E080"></span>green flash at the bottom: received.</td></tr>
         <tr><td>Play a message</td><td>One pixel breathing at the top, in the sender's color, means a message is waiting. Press the big button and every waiting message plays at once, each in its sender's color. During a conversation they play by themselves. A new press while they play cuts them short and starts your reply.</td></tr>
-        <tr><td>Check the battery</td><td>Tap the small button. 1 to 12 <span class="sw" style="background:#50E080"></span>green pixels light up (a page has no battery, so it shows full).</td></tr>
+        <tr><td>Check the battery</td><td>Tap the small button. The ring fills <span class="sw" style="background:#50E080"></span>green to the battery level (<span class="sw" style="background:#F03030"></span>red under 20%), then <span class="sw" style="background:#3070FF"></span>blue to the Wi-Fi strength, or two <span class="sw" style="background:#F03030"></span>red pixels if not connected. A page has no battery or signal strength, so each shows full.</td></tr>
         <tr><td>Wi-Fi setup</td><td>Hold the small button for 5 seconds and let go when the ring is full <span class="sw" style="background:#9060F0"></span>purple. Do it again to close.</td></tr>
         <tr><td>Something went wrong</td><td>Two <span class="sw" style="background:#F03030"></span>red pulses: the message could not be sent, or was not received.</td></tr>
         <tr><td>Low battery</td><td>One <span class="sw" style="background:#FFA020"></span>amber pixel at the bottom, once a minute.</td></tr>
@@ -128,7 +128,7 @@ const MAX_PRESSES = 12, MAX_RECORD_MS = 15000, OUTBOX_MAX = 5, UNREAD_MAX = 6, N
 const QUEUE_MAX_AGE_MS = 24 * 60 * 60 * 1000, PULSE_MIN_MS = 20, PULSE_MAX_MS = 5000, PULSE_MAX_TIMES = 2 * MAX_PRESSES - 1;
 const NAME_MAX_LEN = 20, BASE_MAX_LEN = 40, NTFY_SERVER = "https://ntfy.sh/";
 const ON_HOLD_MS = 5000, CONVERSATION_MS = 120000, PLAY_GAP_MS = 100, COMET_SETTLED = 0.25, HOLD_SHOW_MS = 400, SETUP_SHOWN_MS = 800, SETUP_GLOW = 0.4;
-const RGB_RECEIVED = 0x50E080, RGB_BATTERY = 0x50E080, RGB_SETUP = 0x9060F0, RGB_OFF = 0xF03030, RGB_ON = 0x50E080;
+const RGB_RECEIVED = 0x50E080, RGB_BATTERY = 0x50E080, RGB_BAD = 0xF03030, RGB_WIFI = 0x3070FF, RGB_SETUP = 0x9060F0, RGB_OFF = 0xF03030, RGB_ON = 0x50E080;
 const COLOR_NAMES = ["Pink", "Blue", "Green", "Purple", "Orange", "Teal", "Yellow", "Red"];
 const COLOR_RGB = [0xF26C94, 0x599DF0, 0x4CC783, 0x8E61E0, 0xF07C35, 0x40C9BE, 0xF2CE40, 0xE8554B];
 const DIFFUSER = 0.6;   // how the ring is drawn; see ring-preview.html
@@ -496,7 +496,7 @@ function onInput(event) {
     show(problem ? "Not sent: " + problem + "." : "Recorded <b>" + text + "</b>. Sending.");
     lastCheck = 0;   // the recording is done: look for a new message straight away
   }
-  if (event === EV_BATTERY) { say("battery: none, a web page is always full"); show("Battery level. A web page has none, so it shows full."); ringShow(() => ringGauge(RGB_BATTERY, RING_PIXELS)); }
+  if (event === EV_BATTERY) { say("battery: none, a web page is always full"); show("Battery level, then Wi-Fi. A web page has no battery or signal strength, so each shows full (red, two pixels, if the browser is offline)."); ringShow(() => ringGauge(RGB_BATTERY, RING_PIXELS)); wifiTapPending = true; }
   if (event === EV_SETUP) toggleSetup();
   if (event === EV_OFF) { say("Off"); turnOff(); }
 }
@@ -615,7 +615,9 @@ async function loop() {
 // ---- Drawing ----
 const frame = Array.from({ length: RING_PIXELS }, () => [0, 0, 0, 0]);
 let holdShown = false;
+let wifiTapPending = false;   // after the battery gauge: the Wi-Fi gauge (a page has no signal strength: full blue, or two red pixels offline)
 function showState() {   // output.h's outputTick(): button 2's hold on the meter
+  if (wifiTapPending && ring.gaugeMs < 0) { wifiTapPending = false; if (navigator.onLine) ringGauge(RGB_WIFI, RING_PIXELS); else ringGauge(RGB_BAD, 2); }
   if (off) {   // output.h's outputOnGate(): the ring fills green while button 2 is held
     const held = onHoldAt >= 0 ? ms() - onHoldAt : 0;
     if (held >= HOLD_SHOW_MS) ringMeter(RGB_ON, RING_PIXELS * Math.min(held / ON_HOLD_MS, 1), 1);

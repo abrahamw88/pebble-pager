@@ -232,7 +232,9 @@ $("blip").onclick = () => { ringAdvance(now()); ringBlip(COLORS.find((c) => c[0]
 let holdAt = -1;
 $("working").onclick = () => { ringAdvance(now()); if (ring.busy) ringBusyStop(); else ringBusy(0x40D8E8); say("Joining Wi-Fi after switching on."); };
 $("sent").onclick = () => { ringAdvance(now()); ringBlip(0x50E080, 6); say("Received: one green pixel flashes at the bottom, with a short buzz."); };
-$("battery").onclick = () => { ringAdvance(now()); ringGauge(0x50E080, 7); say("Battery level after a tap of button 2: 7 of 12 pixels."); };
+let wifiAfter = false;
+$("battery").onclick = () => { ringAdvance(now()); ringGauge(0x50E080, 7); wifiAfter = true; say("Battery level after a tap of button 2: 7 of 12 green pixels, then the Wi-Fi signal in blue (here 9 of 12)."); };
+setInterval(() => { if (wifiAfter && ring.gaugeMs < 0) { wifiAfter = false; ringGauge(0x3070FF, 9); } }, 50);
 $("low").onclick = () => { ringAdvance(now()); ringBlip(0xFFA020, 6); say("Battery under 20%: an amber blink at the bottom, once a minute."); };
 $("hold2").onclick = () => { holdAt = performance.now(); say("Button 2 held: purple fills to 5 s, then red counts down to 10 s."); };
 function showHold() {   // the same steps as the firmware's outputTick()

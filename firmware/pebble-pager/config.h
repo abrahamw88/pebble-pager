@@ -80,7 +80,11 @@ const uint32_t COLOR_RGB[COLOR_COUNT] = {0xF26C94, 0x599DF0, 0x4CC783, 0x8E61E0,
 const uint32_t RGB_WORKING = 0x40D8E8;   // cyan chase: joining Wi-Fi after switching on
 const uint32_t RGB_RECEIVED = 0x50E080;  // green flash at the bottom: the partner received the message
 const uint32_t RGB_BATTERY = 0x50E080;   // green: battery level
-const uint32_t RGB_LOW = 0xFFA020;       // amber: battery low
+const uint32_t RGB_LOW = 0xFFA020;       // amber: the low-battery blink, and the gauge when no battery is fitted
+const uint32_t RGB_BAD = 0xF03030;       // red: a gauge that is low (battery under 20%) or Wi-Fi not connected
+const uint32_t RGB_WIFI = 0x3070FF;      // blue: Wi-Fi signal strength
+const int WIFI_GAUGE_WEAK_DBM = -90, WIFI_GAUGE_STRONG_DBM = -50;   // the signal gauge runs from 1 pixel to 12 between these
+const int WIFI_GAUGE_OFFLINE_PIXELS = 2;                              // a few pixels, in red, when not connected
 const uint32_t RGB_SETUP = 0x9060F0;     // purple: holding for setup, setup page open
 const uint32_t RGB_OFF = 0xF03030;       // red: holding on towards "off"
 const uint32_t RGB_ON = 0x50E080;        // green: holding to turn on a device that is off
