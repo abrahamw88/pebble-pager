@@ -248,8 +248,8 @@ int ntfyPoll(NtfyHandler handle) {
   String url = topicUrl(deviceName) + "/json?poll=1&since=" + (lastTime ? String(lastTime) : caughtUp ? String("all") : String("latest"));
   int code = http.begin(client, url) ? http.GET() : -1;
   String body;   // at most NTFY_POLL_BODY_MAX bytes: the oldest messages come first, the rest wait for the next read
-  if (code == 200) {
-    WiFiClient* in = http.getStreamPtr();
+  WiFiClient* in = code == 200 ? http.getStreamPtr() : nullptr;   // null once the server has closed on an empty body
+  if (in) {
     unsigned long t0 = millis();
     while ((int)body.length() < NTFY_POLL_BODY_MAX && (in->connected() || in->available()) && millis() - t0 < NTFY_READ_MS) {
       if (!in->available()) { delay(5); continue; }
