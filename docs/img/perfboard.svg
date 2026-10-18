@@ -3,7 +3,7 @@
 <text x='24.0' y='32.0' font-size='16' font-weight='600' fill='#1F2124'>Perfboard layout, seen from the front (the ring side)</text>
 <text x='24.0' y='54.0' font-size='11.5' fill='#5F6267'>16 × 22 holes at 2.54 mm (40.6 × 55.9 mm), drawn to scale. Dashed outlines are parts on the back, with only their pins coming through.</text>
 <text x='24.0' y='72.0' font-size='11.5' fill='#5F6267'>Only button 1, the ring, the resistors and the diode are on the front. The XIAO is on the back, face down, so its pin order is mirrored.</text>
-<path d='M219.0 101.0 H763.0 V815.5 L729.5 849.0 H252.5 L219.0 815.5 Z' fill='#F7F3E8' stroke='#8A8D93' stroke-width='1.5' stroke-linejoin='round'/>
+<path d='M219.0 101.0 H763.0 V815.5 L729.5 849.0 H263.2 L219.0 804.8 V552.2 A29.45 29.45 0 0 0 227.9 507.0 A29.45 29.45 0 0 0 219.0 461.7 Z' fill='#F7F3E8' stroke='#8A8D93' stroke-width='1.5' stroke-linejoin='round'/>
 <text x='236.0' y='95.0' font-size='9' text-anchor='middle' fill='#5F6267'>1</text>
 <text x='270.0' y='95.0' font-size='9' text-anchor='middle' fill='#5F6267'>2</text>
 <text x='304.0' y='95.0' font-size='9' text-anchor='middle' fill='#5F6267'>3</text>
@@ -61,9 +61,6 @@
 <circle cx='236' cy='356' r='3' fill='#FFFFFF' stroke='#C4C6CB' stroke-width='1'/>
 <circle cx='236' cy='390' r='3' fill='#FFFFFF' stroke='#C4C6CB' stroke-width='1'/>
 <circle cx='236' cy='424' r='3' fill='#FFFFFF' stroke='#C4C6CB' stroke-width='1'/>
-<circle cx='236' cy='458' r='3' fill='#FFFFFF' stroke='#C4C6CB' stroke-width='1'/>
-<circle cx='236' cy='492' r='3' fill='#FFFFFF' stroke='#C4C6CB' stroke-width='1'/>
-<circle cx='236' cy='526' r='3' fill='#FFFFFF' stroke='#C4C6CB' stroke-width='1'/>
 <circle cx='236' cy='560' r='3' fill='#FFFFFF' stroke='#C4C6CB' stroke-width='1'/>
 <circle cx='236' cy='594' r='3' fill='#FFFFFF' stroke='#C4C6CB' stroke-width='1'/>
 <circle cx='236' cy='628' r='3' fill='#FFFFFF' stroke='#C4C6CB' stroke-width='1'/>
@@ -571,8 +568,8 @@
 <text x='189.0' y='862.0' font-size='11' font-weight='600' text-anchor='end' fill='#1F2124'>Button 2</text>
 <text x='189.0' y='876.0' font-size='10' text-anchor='end' fill='#5F6267'>on the back</text>
 <path d='M746.3 832.3 L771.0 842.0' fill='none' stroke='#8A8D93' stroke-width='1' stroke-dasharray='3 3'/>
-<text x='777.0' y='846.0' font-size='11' font-weight='600' text-anchor='start' fill='#1F2124'>Corners cut off</text>
-<text x='777.0' y='860.0' font-size='10' text-anchor='start' fill='#5F6267'>2.5 mm triangles, both bottom corners</text>
+<text x='777.0' y='846.0' font-size='11' font-weight='600' text-anchor='start' fill='#1F2124'>Corners and left edge cut</text>
+<text x='777.0' y='860.0' font-size='10' text-anchor='start' fill='#5F6267'>3.3 mm left, 2.5 mm right, edge notch</text>
 <path d='M752.0 652.0 L771.0 526.0' fill='none' stroke='#8A8D93' stroke-width='1' stroke-dasharray='3 3'/>
 <text x='777.0' y='530.0' font-size='11' font-weight='600' text-anchor='start' fill='#1F2124'>Q2 PN2222A, motor switch</text>
 <text x='777.0' y='544.0' font-size='10' text-anchor='start' fill='#5F6267'>on the back, standing</text>

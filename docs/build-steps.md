@@ -219,8 +219,9 @@ The board is 16 by 22 holes (40.6 × 55.9 mm), with holes counted from the top l
 - **Past the top edge:** the capacitor and the motor do not sit on the board. The capacitor is 8 mm across, too tall for either side, so it lies in the case above the board, in front of the battery, on two short wires. The motor sticks to the inside of the case front.
 - **Links** are solder bridges or bare wire from hole to hole, and each color in the picture is one connection. All but two are on the front; the two by button 1 are on the back, because the ring covers the front there.
 - **Insulated wires:** three run across the back, in the 1.5 mm gap under the battery (A carries D2 to button 1; B and C carry ground to button 1 and on to the left side). Use thin wire, 30 AWG or so, and lay them so they do not cross. One short jumper crosses the front, from R3 to Q2's base.
-- **The ring's wires:** run each of the ring's three wires under the ring, on the front, out to its numbered hole.
-- **Both bottom corners are cut off.** Cut a triangle off each bottom corner of the board, 2.5 mm along each edge, so the board clears the case's rounded corners. The cut takes the corner holes 1, 22 and 16, 22, which nothing uses.
+- **The ring's orientation and wires:** turn the ring so its first pixel, the one next to the data input pad, is at the top, with the pixels facing out. Seen from the front the pixels then run clockwise, as the firmware expects (step 7). Its pads then sit near the top, so run each of the three wires down under the ring, on the front, to its numbered hole. Dry-fit the ring first: the wire holes were placed without the real pad positions in hand.
+- **The antenna:** the XIAO's antenna plugs into the small U.FL socket at its top end, on the face that points at the battery. Plug it in before the battery goes in. Lay the flat antenna against the inside of the case, as far from the battery and the XIAO as it will go, and run its cable round the battery's side rather than under it. The case has no set place for it yet, so check that it fits before closing the case: without it, Wi-Fi barely reaches across a room.
+- **Cut the bottom corners and notch the left edge.** Cut a triangle off each bottom corner of the board, 3.3 mm along each edge on the left and 2.5 mm on the right, so the board clears the case's rounded corners. Then file a notch into the left edge at rows 11 to 13, about 1.2 mm deep and 4.4 mm wide at each end, for the case's two lower left screws. These cuts take holes 1, 22, 16, 22 and 1, 11 to 1, 13, which nothing uses. The board sits 1.27 mm left of the case's center so that the USB-C port is centered in the bottom edge.
 - **D6 is cut off.** The XIAO's D6 pin (6, 16) is unused and its joint would sit under the ring's edge, so clip that pin flush before mounting the XIAO.
 
 Solder in this order, so nothing is trapped:
@@ -230,7 +231,7 @@ Solder in this order, so nothing is trapped:
 3. The battery wires and the sensor wire onto the XIAO's BAT pads, since those pads face the board afterwards. Feed the sensor wire through hole 10, 20 and solder it on the front.
 4. Button 2, the two transistors and the XIAO from the back, soldered on the front. Check each transistor's three legs against the table before soldering. Put a strip of insulating tape on the XIAO's underside first.
 5. Wires B and C, the jumper, then the ring, motor and capacitor wires.
-6. An insulating sheet over the back of the board before the battery goes in, so no joint or lead can touch the cell.
+6. An insulating sheet over the back of the board, then the antenna plugged into the XIAO, before the battery goes in, so no joint or lead can touch the cell.
 
 Watch these neighbours, where a stray blob of solder would matter:
 
