@@ -120,7 +120,7 @@ A breadboard prototype of both devices, batteries included, costs about $79 in p
 | [LiPo 3.7 V 2,000 mAh, JLJLUP, with protection circuit and PH 2.0 plug](https://www.amazon.com/dp/B0FH7H4Z7W) | 2 | $9.99 each, or $16.99 for two | Step 8 |
 | JST-PH 2-pin socket cable | 2 | about $1 each, est. | Step 8 |
 | Enclosure, 3D printed | 2 | $3–5 each, est. | Final build |
-| Thin silicone wire and perfboard | 1 set | about $2, est. | Final build |
+| Thin silicone wire (30 AWG or so) and perfboard: stock 40 × 60 mm, 14 × 20 holes, double-sided, plated-through | 1 set | about $2, est. | Final build |
 
 The battery measures 53 × 34 × 10 mm (its listing says 52 × 34 × 10), has a built-in protection circuit, and comes with a PH 2.0 plug on a 70 mm lead. Its seller warns that the plug's polarity is not standard, so check it as step 8 describes before connecting anything. The case is sized around this cell: a different one needs the case checked again. The ring is 36.8 mm across and 3.25 mm thick, with a 23.3 mm center hole for the send button, so the same part serves the prototype and the final build. There is no power switch: the device turns off from button 2, and the case should leave a pinhole over the XIAO's RESET button.
 
