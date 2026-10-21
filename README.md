@@ -58,7 +58,7 @@ Colors: the sender's color is one of Pink, Blue, Green, Purple, Orange, Teal, Ye
 | 1, large | Tap, a message waiting | Wakes the device and plays the waiting message the moment the button goes down, in the sender's color. There is no replay. |
 | 1, large | Tap or hold, nothing waiting | The first press of a message. Each further press within 0.5 s adds a pulse, and it sends 0.5 s after the last one. A single tap is a one-press message. |
 | 1, large | Hold, messages waiting | Plays them all, then starts a fresh recording. |
-| 2, small | Tap | Shows the battery level on the ring. |
+| 2, small | Tap | Shows the battery level on the ring, then the Wi-Fi signal. |
 | 2, small | Hold 5 s | The ring fills purple. Release to open Wi-Fi setup. |
 | 2, small | Keep holding to 10 s | The ring turns red and counts down until it is dark. Release then to turn the device off. |
 | 2, small | Hold 5 s, while off | Turns the device on. The ring fills green, the same meter as the other holds, and a shorter press does nothing. Button 1 does nothing while it is off. |

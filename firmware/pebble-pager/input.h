@@ -1,7 +1,7 @@
 // Buttons. Button 1 (large): with messages waiting, a press plays the next one at once (a tap), and a hold of half a
 // second plays them all and then starts a fresh recording. With none waiting, any press, short or long, is the first
-// press of a message, and the message is sent 1 s after the last press. Button 2 (small): a tap shows the battery,
-// a 5 s hold opens or closes the setup page, a 10 s hold turns the device off; holds act on release.
+// press of a message, and the message is sent 0.5 s after the last press. Button 2 (small): a tap shows the battery,
+// then the Wi-Fi signal, a 5 s hold opens or closes the setup page, a 10 s hold turns the device off; holds act on release.
 //
 // Every press and release is caught by an interrupt and stamped with the time, so press lengths stay exact even
 // while loop() is busy with a network request. All the logic works from those stamps.
