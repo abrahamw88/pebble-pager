@@ -91,7 +91,7 @@ details summary { cursor: pointer; font-family: var(--display); font-weight: 600
       <table class="ref">
         <tr><td>Power on</td><td>Press and hold the small button for 5 seconds. A <span class="sw" style="background:#50E080"></span>green light fills the ring.</td></tr>
         <tr><td>Power off</td><td>Hold the small button for 10 seconds. The ring fills <span class="sw" style="background:#9060F0"></span>purple, then <span class="sw" style="background:#F03030"></span>red counts down; let go when it is dark.</td></tr>
-        <tr><td>Send a message</td><td>Press the big button (a tap is enough) and keep going with a pattern of long and short presses. Each press lights a comet in your color. The ring is dark while it sends, then ends with one <span class="sw" style="background:#50E080"></span>green flash at the bottom: received.</td></tr>
+        <tr><td>Send a message</td><td>Press the big button (a tap is enough) and keep going with a pattern of long and short presses. Each press lights a comet in your color. The ring is dark while it sends. If the partner was not already in a conversation with you, a dim <span class="sw" style="background:#50E080"></span>green fill goes once round the ring while it waits for them (up to 45 s) and finishes in a second when they answer. It ends with one <span class="sw" style="background:#50E080"></span>green flash at the bottom: received.</td></tr>
         <tr><td>Play a message</td><td>One pixel breathing at the top, in the sender's color, means a message is waiting. Press the big button and every waiting message plays at once, each in its sender's color. During a conversation they play by themselves. A new press while they play cuts them short and starts your reply.</td></tr>
         <tr><td>Check the battery</td><td>Tap the small button. The ring fills <span class="sw" style="background:#50E080"></span>green to the battery level (<span class="sw" style="background:#F03030"></span>red under 20%), then <span class="sw" style="background:#3070FF"></span>blue to the Wi-Fi strength, or two <span class="sw" style="background:#F03030"></span>red pixels if not connected. A page has no battery or signal strength, so each shows full.</td></tr>
         <tr><td>Wi-Fi setup</td><td>Hold the small button for 5 seconds and let go when the ring is full <span class="sw" style="background:#9060F0"></span>purple. Do it again to close.</td></tr>
@@ -236,6 +236,15 @@ let talkedAt = 0;        // the last message of a conversation: sending starts o
 const talking = () => talkedAt > 0 && Date.now() - talkedAt < CONVERSATION_MS;
 let sendShown = false;   // a message recorded here is still in the outbox: if it can't go, the ring says so once
 function ringShow(what) { ringAdvance(ms() / 1000); what(); }
+const ringFailed = () => { ringConnectStop(); ringFail(); };   // output.h's showFailed(): the connecting fill gives way to the red pulses
+let partnerHeardAt = 0;   // the last receipt or message from the partner: their device is awake and answers fast
+const partnerLive = () => partnerHeardAt > 0 && Date.now() - partnerHeardAt < CONVERSATION_MS;
+function flashReceived() {   // output.h's showReceived(): a connecting fill finishes first (a second), then the green flash
+  let filling = false;
+  ringShow(() => { filling = ringConnecting(); ringConnectFinish(); });
+  const flash = () => ringShow(() => ringBlip(RGB_RECEIVED, RING_PIXELS / 2));
+  if (filling) setTimeout(flash, 1000); else flash();
+}
 function queueMessage(text) {   // returns null if accepted, otherwise a short reason
   if (!canSend()) return "set the topic base and partner's name in Setup first";
   const p = pulseParse(text);
@@ -254,7 +263,7 @@ async function sendNext() {
   const id = await publish(settings.partner, settings.name, text);
   if (!id) {
     sendRetryAt = Date.now() + SEND_RETRY_MS;
-    if (sendShown) { sendShown = false; ringShow(ringFail); show("Couldn't send. It is queued and will be tried again."); }
+    if (sendShown) { sendShown = false; ringShow(ringFailed); show("Couldn't send. It is queued and will be tried again."); }
     return;
   }
   outbox.shift();
@@ -262,6 +271,7 @@ async function sendNext() {
   talkedAt = Date.now();
   save();
   await tell("sent " + text);
+  if (!partnerLive()) ringShow(() => ringConnect(RGB_RECEIVED, RECEIPT_WAIT_MS / 1000));   // the first message of a series: a fill while their device wakes and answers
   awaited.push({ id, at: Date.now() });
   if (awaited.length > OUTBOX_MAX) awaited.shift();
   show("Sent <b>" + text + "</b>. Waiting for it to be received.");
@@ -272,7 +282,8 @@ function receipt(id) {
   if (i < 0) return;
   say("Delivered in " + (Date.now() - awaited[i].at) + " ms");
   awaited.splice(i, 1);
-  ringShow(() => ringBlip(RGB_RECEIVED, RING_PIXELS / 2));
+  partnerHeardAt = Date.now();
+  flashReceived();
   show("Received by " + settings.partner + ".");
 }
 
@@ -286,8 +297,11 @@ async function arrived(m, p) {
   save();
   // The receipt goes out alongside, not before: waiting for the network here left a window in which the message was
   // unread and not yet playing, and a press made then was lost.
-  if (fromPartner) publish(settings.partner, settings.name, "received " + m.id);
-  else tell("received " + text);
+  if (fromPartner) {
+    publish(settings.partner, settings.name, "received " + m.id);
+    partnerHeardAt = Date.now();
+    if (awaited.length) { awaited = []; flashReceived(); }   // a reply proves they have what we sent: it counts as the receipt
+  } else tell("received " + text);
 }
 
 async function handle(m) {   // one message from the inbox: a command, a receipt or a pulse message
@@ -491,12 +505,12 @@ function onInput(event) {
   if (event === EV_RECORD_DONE) {
     const text = settings.color.toLowerCase() + " " + recorded.join(" ");
     const problem = queueMessage(text);
-    if (problem) ringShow(ringFail);
+    if (problem) ringShow(ringFailed);
     say("Recorded " + text + ": " + (problem || "queued"));
     show(problem ? "Not sent: " + problem + "." : "Recorded <b>" + text + "</b>. Sending.");
     lastCheck = 0;   // the recording is done: look for a new message straight away
   }
-  if (event === EV_BATTERY) { say("battery: none, a web page is always full"); show("Battery level, then Wi-Fi. A web page has no battery or signal strength, so each shows full (red, two pixels, if the browser is offline)."); ringShow(() => ringGauge(RGB_BATTERY, RING_PIXELS)); wifiTapPending = true; }
+  if (event === EV_BATTERY) { say("battery: none, a web page is always full"); show("Battery level, then Wi-Fi. A web page has no battery or signal strength, so each shows full (red, two pixels, if the browser is offline)."); ringShow(() => { ringConnectStop(); ringGauge(RGB_BATTERY, RING_PIXELS); }); wifiTapPending = true; }
   if (event === EV_SETUP) toggleSetup();
   if (event === EV_OFF) { say("Off"); turnOff(); }
 }
@@ -505,7 +519,7 @@ function turnOff() {
   off = true;
   if (stream) stream.close();
   stream = null; online = false;
-  ringAdvance(ms() / 1000); ringPress(false); ringBusyStop(); ringMeterStop();
+  ringAdvance(ms() / 1000); ringPress(false); ringBusyStop(); ringMeterStop(); ringConnectStop();
   show("Off. Hold the small button for 5 seconds to turn it on.");
 }
 function turnOn() { off = false; say("== Pebble virtual pager =="); show("On."); lastCheck = 0; connect(); }
@@ -589,13 +603,13 @@ async function loop() {
       for (const a of awaited.filter((a) => now - a.at >= RECEIPT_WAIT_MS)) {   // no receipt in time: the red pulse
         say("No receipt");
         show("Not received by " + settings.partner + ".");
-        ringAdvance(ms() / 1000); ringFail();
+        ringAdvance(ms() / 1000); ringFailed();
       }
       awaited = awaited.filter((a) => now - a.at < RECEIPT_WAIT_MS);
       const instant = settings.live || talking();   // in a conversation the device holds its inbox open as a stream: no waiting
       const every = awaited.length ? RECEIPT_POLL_MS : CHECK_INTERVAL_MS;
       if (ready() && (instant ? inbox.length > 0 || now - lastCheck >= CHECK_INTERVAL_MS : now - lastCheck >= every)) await check();
-      if (sendShown && outbox.length && !online) { sendShown = false; say("Can't send now: queued"); show("Couldn't send. It is queued and will be tried again."); ringShow(ringFail); }
+      if (sendShown && outbox.length && !online) { sendShown = false; say("Can't send now: queued"); show("Couldn't send. It is queued and will be tried again."); ringShow(ringFailed); }
       if (online && canSend() && outbox.length && now >= sendRetryAt) await sendNext();
       if (online && notes.length && now >= notesRetryAt) {
         if ((await publish("phone", "Pebble", notes[0].line)).length) { notes.shift(); save(); } else notesRetryAt = now + SEND_RETRY_MS;
@@ -623,6 +637,7 @@ function showState() {   // output.h's outputTick(): button 2's hold on the mete
     if (held >= HOLD_SHOW_MS) ringMeter(RGB_ON, RING_PIXELS * Math.min(held / ON_HOLD_MS, 1), 1);
     return;
   }
+  if (button[1].down) ringConnectStop();   // every button 2 action cancels the connecting fill
   const held = button[1].down ? ms() - button[1].at : 0, redFrom = SETUP_HOLD_MS + SETUP_SHOWN_MS;
   const setupOpen = !$("setup").hidden && !off, gauge = ring.gaugeMs >= 0;
   if (held >= OFF_HOLD_MS) ringMeterStop();
@@ -654,7 +669,7 @@ function fillSetup() {
     + (settings.partner ? "<span>and sends to <b>" + settings.base + "-" + slug(settings.partner) + "</b></span>" : "")
     + "<span>Copies for the phone go to <b>" + settings.base + "-phone</b></span>";
 }
-function toggleSetup() { const s = $("setup"); s.hidden = !s.hidden; if (!s.hidden) { fillSetup(); s.scrollIntoView({ behavior: "smooth", block: "start" }); } }
+function toggleSetup() { ringShow(ringConnectStop); const s = $("setup"); s.hidden = !s.hidden; if (!s.hidden) { fillSetup(); s.scrollIntoView({ behavior: "smooth", block: "start" }); } }
 $("openSetup").onclick = toggleSetup;
 $("s-save").onclick = () => {
   const oldInbox = settings.base + "-" + slug(settings.name);

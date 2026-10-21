@@ -156,6 +156,7 @@ void outputTick(bool working) {
   else ringBusyStop();
 
   unsigned long held = button[1].down ? millis() - button[1].at : 0;
+  if (button[1].down) ringConnectStop();   // holding button 2 cancels the connecting fill too
   unsigned long redFrom = SETUP_HOLD_MS + SETUP_SHOWN_MS;
   bool gauge = ring.gaugeMs >= 0;   // the battery level is showing: leave it be
   if (held >= OFF_HOLD_MS) ringMeterStop();
@@ -168,18 +169,29 @@ void outputTick(bool working) {
 }
 
 // ---- What the device shows. Each returns at once, except showPlay(). ----
-void showReceived() { { RingTurn turn; ringBlip(RGB_RECEIVED, RING_PIXELS / 2); } buzz(BUZZ_SHORT_MS); }   // one green pixel at the bottom, with a short buzz
-void showFailed() { { RingTurn turn; ringFail(); } buzz(BUZZ_SHORT_MS); }               // red, with a short buzz
+bool connectRunning() { RingTurn turn; return ringConnecting(); }
+void showConnecting(float seconds) { RingTurn turn; ringConnect(RGB_RECEIVED, seconds); }   // a dim green fill, timed to the wait for the partner's device
+void showReceived() {   // one green pixel at the bottom, with a short buzz; a connecting fill first finishes (about a second)
+  bool filling;
+  { RingTurn turn; filling = ringConnecting(); ringConnectFinish(); }
+  if (filling) sayln("Connecting: fill finishing");
+  for (unsigned long t0 = millis(); filling && connectRunning() && millis() - t0 < 1500;) { powerTouch(); delay(10); }
+  { RingTurn turn; ringBlip(RGB_RECEIVED, RING_PIXELS / 2); }
+  buzz(BUZZ_SHORT_MS);
+}
+void showFailed() { { RingTurn turn; ringConnectStop(); ringFail(); } buzz(BUZZ_SHORT_MS); }   // red, with a short buzz
 void showWaiting(uint32_t rgb) { RingTurn turn; ringBlip(rgb, 0); }                 // a message is waiting: its sender's color, at the top
 void showLow() { RingTurn turn; ringBlip(RGB_LOW, RING_PIXELS / 2); }               // battery low: amber, at the bottom
 void showBattery(bool fitted, int percent) {   // 1 to 12 pixels: green, red under 20%, one amber pixel if there is no battery
   int lit = (percent * RING_PIXELS + 99) / 100;
   RingTurn turn;
+  ringConnectStop();   // every button 2 action cancels the connecting fill
   if (!fitted) ringGauge(RGB_LOW, 1);
   else ringGauge(percent < BATT_LOW_PERCENT ? RGB_BAD : RGB_BATTERY, lit < 1 ? 1 : lit > RING_PIXELS ? RING_PIXELS : lit);
 }
 void showWifi(bool online, int rssi) {   // 1 to 12 blue pixels by signal strength; a few red ones if not connected
   RingTurn turn;
+  ringConnectStop();
   if (!online) { ringGauge(RGB_BAD, WIFI_GAUGE_OFFLINE_PIXELS); return; }
   int lit = 1 + (RING_PIXELS - 1) * (rssi - WIFI_GAUGE_WEAK_DBM) / (WIFI_GAUGE_STRONG_DBM - WIFI_GAUGE_WEAK_DBM);
   ringGauge(RGB_WIFI, lit < 1 ? 1 : lit > RING_PIXELS ? RING_PIXELS : lit);
@@ -187,6 +199,7 @@ void showWifi(bool online, int rssi) {   // 1 to 12 blue pixels by signal streng
 bool gaugeShowing() { RingTurn turn; return ring.gaugeMs >= 0; }   // a battery or Wi-Fi gauge is still filling or holding
 void showSetup(bool on) {   // the setup page is opening (it takes a few seconds to appear) or closing
   RingTurn turn;
+  ringConnectStop();
   if (on) ringMeter(RGB_SETUP, RING_PIXELS, SETUP_GLOW);
   else ringMeterStop();
 }

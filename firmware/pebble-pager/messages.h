@@ -28,6 +28,9 @@ Awaited awaited[OUTBOX_MAX];
 unsigned long sendRetryAt = 0;
 bool sendShown = false;   // a message recorded in this wake is still in the outbox: if it can't go, the ring says so once
 unsigned long sendShownAt = 0;   // when it was recorded
+unsigned long partnerHeardAt = 0;   // millis() of the last receipt or message from the partner (0 = not this wake)
+bool partnerLive() { return partnerHeardAt && millis() - partnerHeardAt < CONVERSATION_S * 1000UL; }   // their device is awake and listening: answers come fast
+void partnerHeard() { partnerHeardAt = millis() ? millis() : 1; }
 RTC_DATA_ATTR unsigned long talkedAt = 0;   // clockSeconds() of the last message of a conversation (0 = none), through sleep
 unsigned long talkedNow() { unsigned long n = clockSeconds(); return n ? n : 1; }   // never 0, which means "no conversation"; and never ahead of the clock
 
@@ -65,6 +68,7 @@ void messageSendNext() {
   listPop(OUTBOX);
   if (listCount(OUTBOX) == 0) sendShown = false;
   talkedAt = talkedNow();   // sending starts a conversation, or carries one on
+  if (!partnerLive()) { sayln("Connecting: fill started"); showConnecting(RECEIPT_WAIT_MS / 1000.0f); }   // the first message of a series: a fill while their device wakes and answers
   ntfySay("sent " + text);
   int slot = 0;   // remember the id until its receipt comes; if all slots are busy, reuse the oldest
   for (int i = 0; i < OUTBOX_MAX; i++) {
@@ -80,6 +84,7 @@ void messageReceipt(const String& id) {
   for (Awaited& a : awaited) {
     if (a.id != id) continue;
     sayf("Delivered in %lu ms\n", millis() - a.at);
+    partnerHeard();
     showReceived();
     a.id = "";
   }
@@ -97,6 +102,10 @@ void messageArrived(const NtfyMessage& m, const Pulse& p) {
   if (talkedAt && clockSeconds() - talkedAt < CONVERSATION_S) talkedAt = talkedNow();   // a reply carries the conversation on
   if (fromPartner) {
     if (ntfyPublish(partnerName, deviceName, "received " + m.id, true).length() == 0) listPush(RECEIPTS, m.id);   // retried by messagesTick()
+    partnerHeard();
+    bool answered = false;   // a reply from the partner proves they have what we sent: it counts as the receipt
+    for (Awaited& a : awaited) if (a.id.length()) { a.id = ""; answered = true; }
+    if (answered) showReceived();
   } else ntfySay("received " + text);
 }
 

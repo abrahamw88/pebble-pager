@@ -277,6 +277,7 @@ const ringStates = [
   { id: 'playing', name: 'Message', color: '#599DF0', lit: 12, desc: "Pulses in the sender's color, with matching buzzes", label: "pulsing a message in the sender's color" },
   { id: 'waiting', name: 'Message waiting', color: '#599DF0', lit: 1, desc: "One pixel blinking slowly in the sender's color", label: "blinking one pixel in the sender's color" },
   { id: 'joining', name: 'Joining Wi-Fi', color: '#6FC6D6', lit: 4, desc: 'Cyan chase while joining Wi-Fi after switching on', label: 'chasing in cyan while it joins Wi-Fi' },
+  { id: 'connecting', name: 'Connecting', color: '#50E080', lit: 6, desc: 'A dim green fill over up to 45 s while the first message waits for the other device to answer; finishes in 1 s, then the green flash', label: 'filling dim green while connecting to the other device' },
   { id: 'delivered', name: 'Received', color: '#50E080', lit: 1, desc: 'One green pixel flashes at the bottom, with a short buzz: the partner got the message', label: 'flashing one green pixel at the bottom with a short buzz' },
   { id: 'failed', name: 'Not received', color: '#E8554B', lit: 12, desc: 'Two red pulses and a short buzz; the message could not be sent or no receipt came', label: 'pulsing red twice' },
   { id: 'battery', name: 'Battery level', color: '#50E080', lit: 9, desc: 'Fills green (red under 20%), then blue for Wi-Fi strength (two red pixels if not connected), after a button 2 tap', label: 'showing the battery level' },

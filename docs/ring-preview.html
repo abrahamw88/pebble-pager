@@ -83,6 +83,7 @@ button.act:focus-visible, .swatch:focus-visible, input:focus-visible { outline: 
         <h2>Status lights</h2>
         <div class="row">
           <button class="act" id="working">Sending (toggle)</button>
+          <button class="act" id="connecting">Connecting (10 s)</button>
           <button class="act" id="sent">Received</button>
           <button class="act" id="battery">Battery 7 of 12</button>
           <button class="act" id="low">Battery low</button>
@@ -139,6 +140,8 @@ const TUNING = [
   ["whiteGain", "White tail brightness", "against the colored head", 0.2, 1.2, 0.05],
   ["peak", "Brightness", "above 1 the head is already at full, so more of the comet reaches full", 0.1, 2.5, 0.05],
   ["meter", "Status brightness", "the battery level and button 2's hold, next to the comet", 0.2, 1, 0.05],
+  ["connect", "Connecting brightness", "the dim green fill while waiting for the partner's device", 0.05, 1, 0.05],
+  ["fail", "Failed brightness", "the red pulses", 0.1, 1, 0.05],
   ["budgetMa", "Power budget", "mA the ring may draw", 60, 400, 10]
 ];
 const DEFAULTS = Object.assign({}, ringTune);
@@ -231,7 +234,14 @@ $("blip").onclick = () => { ringAdvance(now()); ringBlip(COLORS.find((c) => c[0]
 
 let holdAt = -1;
 $("working").onclick = () => { ringAdvance(now()); if (ring.busy) ringBusyStop(); else ringBusy(0x40D8E8); say("Joining Wi-Fi after switching on."); };
-$("sent").onclick = () => { ringAdvance(now()); ringBlip(0x50E080, 6); say("Received: one green pixel flashes at the bottom, with a short buzz."); };
+$("connecting").onclick = () => { ringAdvance(now()); ringConnect(0x50E080, 10); say("Connecting: a dim green fill timed to the wait (10 s here, 45 s on the device). Press Received to answer it; a comet takes over the ring and the fill carries on after."); };
+$("sent").onclick = () => {
+  ringAdvance(now());
+  const filling = ringConnecting();
+  ringConnectFinish();
+  setTimeout(() => { ringAdvance(now()); ringBlip(0x50E080, 6); }, filling ? 1000 : 0);
+  say("Received: " + (filling ? "the fill finishes in a second, then " : "") + "one green pixel flashes at the bottom, with a short buzz.");
+};
 let wifiAfter = false;
 $("battery").onclick = () => { ringAdvance(now()); ringGauge(0x50E080, 7); wifiAfter = true; say("Battery level after a tap of button 2: 7 of 12 green pixels, then the Wi-Fi signal in blue (here 9 of 12)."); };
 setInterval(() => { if (wifiAfter && ring.gaugeMs < 0) { wifiAfter = false; ringGauge(0x3070FF, 9); } }, 50);

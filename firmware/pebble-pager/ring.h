@@ -39,6 +39,8 @@ struct RingTuning {
   float peak = 1.4f;         // brightness; above 1 the head is already at full, so more of the comet reaches full
   float budgetMa = 180.0f;   // the ring may draw at most this; a frame over it is dimmed as a whole
   float meter = 0.6f;        // brightness of the meter, which can light the whole ring, next to the comet
+  float connect = 0.3f;      // brightness of the connecting fill: dim, because it can stay lit for up to 45 s
+  float fail = 0.55f;        // brightness of the red "not received" pulses: the same low-to-medium level as the other status lights
 };
 RingTuning ringTune;
 
@@ -61,6 +63,13 @@ struct RingState {
   float meterColor[4] = {0, 0, 0, 0};
   int gaugeMs = -1;              // ms into a gauge (the meter fills, holds and fades by itself), or -1
   int gaugePixels = 0;
+  float connectAt = -1;          // seconds into the connecting fill (a timed wait for the partner's device), or -1
+  float connectSecs = 0;         // how long that wait is expected to last: the fill reaches the end at this time
+  float connectFinishT = -1;     // seconds into the quick finish of the fill (the partner answered), or -1
+  float connectFrom = 0;         // how full the fill was (0 to 1) when it began to finish
+  float connectFill = 0;         // how full it is now, 0 to 1 (kept, so it can fade out where it stood)
+  float connectLevel = 0;        // its brightness, 0 to 1: it gives way to anything else that is showing, and comes back after
+  float connectColor[4] = {0, 0, 0, 0};
   const uint16_t* play = nullptr;   // a message being played back: press, gap, press... in ms
   int playCount = 0, playIndex = 0;
   int playLeftMs = 0;               // what is left of the current press or gap (whole ms, so every device agrees)
@@ -111,9 +120,27 @@ void ringGauge(uint32_t rgb, int pixels) {   // the meter fills to `pixels`, hol
   ring.gaugePixels = pixels; ring.gaugeMs = 0; ring.meterFill = 0; ring.meterTarget = 1;
 }
 
+// The connecting fill: after a message has gone out to a partner whose device may be asleep, a dim fill goes once round
+// the ring in the time the wait is expected to take. It keeps time whatever else shows (the comet, the meter, button 2's
+// gauges take over the ring and it comes back afterwards). When the partner answers it finishes in a second; the
+// caller then flashes "received". It ends by itself only if told to: the caller stops it when the wait is over.
+void ringConnect(uint32_t rgb, float seconds) {
+  if (ring.connectAt >= 0) return;   // one at a time: the first message of a series
+  ringSplit(rgb, ring.connectColor);
+  ring.connectSecs = seconds; ring.connectAt = 0; ring.connectFinishT = -1; ring.connectFill = 0;
+}
+void ringConnectFinish() {
+  if (ring.connectAt < 0 || ring.connectFinishT >= 0) return;
+  ring.connectFrom = fminf(1.0f, ring.connectAt / ring.connectSecs);
+  ring.connectFinishT = 0;
+}
+void ringConnectStop() { ring.connectAt = -1; ring.connectFinishT = -1; }
+bool ringConnecting() { return ring.connectAt >= 0; }   // the fill is running or finishing
+
 bool ringActive() {   // false when everything is dark: the ring's power can be switched off
   return ring.down || ring.level > 0 || ring.failT >= 0 || ring.blipT >= 0 || ring.play ||
-         ring.busy || ring.busyLevel > 0 || ring.meterTarget > 0 || ring.meterLevel > 0;
+         ring.busy || ring.busyLevel > 0 || ring.meterTarget > 0 || ring.meterLevel > 0 ||
+         ring.connectAt >= 0 || ring.connectLevel > 0;
 }
 
 float ringSmooth(float a, float b, float x) {   // 0 below a, 1 above b, an S-curve between
@@ -175,6 +202,19 @@ void ringStep() {   // advance the simulation by RING_STEP_S
   }
   ring.meterLevel += (ring.meterTarget - ring.meterLevel) * 8.0f * dt;
   if (ring.meterTarget == 0 && ring.meterLevel < 0.003f) ring.meterLevel = 0;
+
+  // The connecting fill keeps time always; it is only hidden while the comet or the meter has the ring.
+  if (ring.connectAt >= 0) {
+    ring.connectAt += dt;
+    if (ring.connectFinishT >= 0) { ring.connectFinishT += dt; if (ring.connectFinishT >= 0.999f) ringConnectStop(); }
+    else if (ring.connectAt >= ring.connectSecs + 2.0f) ringConnectStop();   // the caller should have stopped it by now
+    if (ring.connectAt >= 0)
+      ring.connectFill = ring.connectFinishT >= 0 ? ring.connectFrom + (1.0f - ring.connectFrom) * ringSmooth(0.0f, 1.0f, ring.connectFinishT)
+                                                  : fminf(1.0f, ring.connectAt / ring.connectSecs);
+  }
+  bool taken = ring.down || ring.level > 0.02f || ring.play || ring.meterTarget > 0 || ring.meterLevel > 0.01f;
+  ring.connectLevel += ((ring.connectAt >= 0 && !taken ? 1.0f : 0.0f) - ring.connectLevel) * 8.0f * dt;
+  if ((ring.connectAt < 0 || taken) && ring.connectLevel < 0.003f) ring.connectLevel = 0;
 }
 
 void ringAdvance(double nowS) {   // bring the simulation up to `nowS` seconds
@@ -214,7 +254,7 @@ float ringRender(uint8_t out[RING_PIXELS][4]) {
     float t = ring.failT, pulse = 0;
     if (t < 0.6f) pulse = sinf(3.1415927f * t / 0.6f);
     else if (t >= 0.75f) pulse = sinf(3.1415927f * (t - 0.75f) / 0.6f);
-    pulse = pulse * pulse * ringTune.peak;
+    pulse = pulse * pulse * ringTune.fail;
     for (int i = 0; i < RING_PIXELS; i++) px[i][0] += 0.9f * pulse;
   }
   if (ring.blipT >= 0) {   // one pixel breathes once, with a faint glow either side
@@ -231,6 +271,13 @@ float ringRender(uint8_t out[RING_PIXELS][4]) {
       if (d > RING_PIXELS / 4.0f) d = RING_PIXELS / 2.0f - d;
       if (d >= 1.5f) continue;
       for (int c = 0; c < 4; c++) px[i][c] += ring.busyColor[c] * (1 - d / 1.5f) * ring.busyLevel * 0.8f;
+    }
+  }
+  if (ring.connectLevel > 0) {   // the connecting fill: pixels lit from the top, clockwise, in proportion to the wait
+    for (int i = 0; i < RING_PIXELS; i++) {
+      float lit = ring.connectFill * RING_PIXELS - i;
+      lit = lit < 0 ? 0 : lit > 1 ? 1 : lit;
+      for (int c = 0; c < 4; c++) px[i][c] += ring.connectColor[c] * lit * ring.connectLevel * ringTune.connect;
     }
   }
   if (ring.meterLevel > 0) {   // pixels lit from the top, clockwise; the last one partly, so the fill glides

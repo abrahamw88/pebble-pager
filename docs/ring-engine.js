@@ -7,7 +7,7 @@ const RING_STEP_S = RING_STEP_MS / 1000;
 
 const ringTune = {
   speed: 0.9, accel: 0.2, maxSpeed: 1.9, tail: 5.5, tailPower: 1.0, attackHz: 2.6, releaseHz: 1.5,
-  leap: 1.2, recoil: 1.0, bounceHz: 3.0, bounceDamp: 0.35, stretch: 1.0, pastel: 0.2, whiteGain: 1.0, peak: 1.4, budgetMa: 180.0, meter: 0.6
+  leap: 1.2, recoil: 1.0, bounceHz: 3.0, bounceDamp: 0.35, stretch: 1.0, pastel: 0.2, whiteGain: 1.0, peak: 1.4, budgetMa: 180.0, meter: 0.6, connect: 0.3, fail: 0.55
 };
 
 const ring = {
@@ -15,6 +15,7 @@ const ring = {
   failT: -1, blipT: -1, blipColor: [0, 0, 0, 0], blipAt: 0,
   busy: false, busyLevel: 0, busyAngle: 0, busyColor: [0, 0, 0, 0],
   meterFill: 0, meterTarget: 0, meterLevel: 0, meterColor: [0, 0, 0, 0], gaugeMs: -1, gaugePixels: 0,
+  connectAt: -1, connectSecs: 0, connectFinishT: -1, connectFrom: 0, connectFill: 0, connectLevel: 0, connectColor: [0, 0, 0, 0],
   play: null, playCount: 0, playIndex: 0, playLeftMs: 0, clock: 0
 };
 
@@ -57,9 +58,23 @@ function ringGauge(rgb, pixels) {
   ring.gaugePixels = pixels; ring.gaugeMs = 0; ring.meterFill = 0; ring.meterTarget = 1;
 }
 
+function ringConnect(rgb, seconds) {
+  if (ring.connectAt >= 0) return;
+  ringSplit(rgb, ring.connectColor);
+  ring.connectSecs = seconds; ring.connectAt = 0; ring.connectFinishT = -1; ring.connectFill = 0;
+}
+function ringConnectFinish() {
+  if (ring.connectAt < 0 || ring.connectFinishT >= 0) return;
+  ring.connectFrom = Math.min(1.0, ring.connectAt / ring.connectSecs);
+  ring.connectFinishT = 0;
+}
+function ringConnectStop() { ring.connectAt = -1; ring.connectFinishT = -1; }
+function ringConnecting() { return ring.connectAt >= 0; }
+
 function ringActive() {
   return ring.down || ring.level > 0 || ring.failT >= 0 || ring.blipT >= 0 || ring.play !== null ||
-         ring.busy || ring.busyLevel > 0 || ring.meterTarget > 0 || ring.meterLevel > 0;
+         ring.busy || ring.busyLevel > 0 || ring.meterTarget > 0 || ring.meterLevel > 0 ||
+         ring.connectAt >= 0 || ring.connectLevel > 0;
 }
 
 function ringSmooth(a, b, x) {
@@ -116,6 +131,18 @@ function ringStep() {
   }
   ring.meterLevel += (ring.meterTarget - ring.meterLevel) * 8.0 * dt;
   if (ring.meterTarget === 0 && ring.meterLevel < 0.003) ring.meterLevel = 0;
+
+  if (ring.connectAt >= 0) {
+    ring.connectAt += dt;
+    if (ring.connectFinishT >= 0) { ring.connectFinishT += dt; if (ring.connectFinishT >= 0.999) ringConnectStop(); }
+    else if (ring.connectAt >= ring.connectSecs + 2.0) ringConnectStop();
+    if (ring.connectAt >= 0)
+      ring.connectFill = ring.connectFinishT >= 0 ? ring.connectFrom + (1.0 - ring.connectFrom) * ringSmooth(0.0, 1.0, ring.connectFinishT)
+                                                  : Math.min(1.0, ring.connectAt / ring.connectSecs);
+  }
+  const taken = ring.down || ring.level > 0.02 || ring.play !== null || ring.meterTarget > 0 || ring.meterLevel > 0.01;
+  ring.connectLevel += ((ring.connectAt >= 0 && !taken ? 1.0 : 0.0) - ring.connectLevel) * 8.0 * dt;
+  if ((ring.connectAt < 0 || taken) && ring.connectLevel < 0.003) ring.connectLevel = 0;
 }
 
 function ringAdvance(nowS) {
@@ -154,7 +181,7 @@ function ringRender(out) {
     let pulse = 0;
     if (t < 0.6) pulse = Math.sin(3.1415927 * t / 0.6);
     else if (t >= 0.75) pulse = Math.sin(3.1415927 * (t - 0.75) / 0.6);
-    pulse = pulse * pulse * ringTune.peak;
+    pulse = pulse * pulse * ringTune.fail;
     for (let i = 0; i < RING_PIXELS; i++) px[i][0] += 0.9 * pulse;
   }
   if (ring.blipT >= 0) {
@@ -170,6 +197,13 @@ function ringRender(out) {
       if (d > RING_PIXELS / 4.0) d = RING_PIXELS / 2.0 - d;
       if (d >= 1.5) continue;
       for (let c = 0; c < 4; c++) px[i][c] += ring.busyColor[c] * (1 - d / 1.5) * ring.busyLevel * 0.8;
+    }
+  }
+  if (ring.connectLevel > 0) {
+    for (let i = 0; i < RING_PIXELS; i++) {
+      let lit = ring.connectFill * RING_PIXELS - i;
+      lit = lit < 0 ? 0 : lit > 1 ? 1 : lit;
+      for (let c = 0; c < 4; c++) px[i][c] += ring.connectColor[c] * lit * ring.connectLevel * ringTune.connect;
     }
   }
   if (ring.meterLevel > 0) {
