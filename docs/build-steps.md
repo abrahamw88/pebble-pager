@@ -214,86 +214,87 @@ The schematic shows how everything connects, with the same part names as the boa
 
 ![Schematic: the XIAO, the battery sensor, both buttons, the motor and ring switches, the LED ring, the motor, the capacitor and the battery](img/schematic.svg)
 
-![Perfboard layout seen from the front: button 1, the ring and the resistors on the front; the XIAO, button 2, both transistors and the diode on the back; every wire; and the parts off the board with their leads](img/perfboard.svg)
+![Perfboard layout seen from the front: button 1, the ring and the resistors on the front; the XIAO, button 2, both transistors and the diode on the back; every wire, in the color of its signal; and the parts off the board, numbered to the leads they join](img/perfboard.svg)
 
 The board is a stock 40 × 60 mm perfboard with 14 by 20 holes and pads on both sides (plated-through holes), because parts are soldered from both sides. Holes are counted from the top left as column, row, seen from the front. The case is sized for a board 1.5 mm thick.
 
 - **Cut the board to fit.** Cut off the bottom border so the bottom row of holes sits 1.27 mm from the edge, as on the other three sides of a hole; the board is then 40 × 55.4 mm, and the XIAO's USB end reaches the case wall. Then cut a triangle off each bottom corner, 3 mm along each edge on the left and 1.5 mm on the right, so the board clears the case's rounded corners. No hole the layout uses is lost. The board sits 1.27 mm left of the case's center, so the USB-C port is centered in the bottom edge.
-- **On the front:** button 1 in the middle, with the ring around it, and below the ring the seven resistors, lying flat. No part or bare link goes under the ring. Only insulated wires run there: the ring's own three wires and the capacitor's and motor's leads. The case allows 3 mm for the ring's board and the wires under it. Inside the ring sits button 1's cap, whose skirt stops 0.25 mm above the board as a hard stop for the switch, so nothing on the front may cross from under the ring into its center: the three wires to button 1 run on the back instead.
-- **On the back:** the XIAO on its headers, with its chip, shield and USB-C port facing away from the board (its BAT pads face the board) and its USB end at the bottom edge; button 2 to its left; Q1 and Q2 standing upright at the two side edges, both flat faces toward the XIAO; and the diode lying flat beside the XIAO's right pins, with its stripe toward 3V3. The battery covers the back from just above row 13 to past the top edge and sits 1.5 mm off the board, so only joints trimmed flush go under it. Everything else on the back is below its bottom edge, which the board diagram marks with a dashed line. Wires A, B and C also lie on the back, flat in that gap.
-- **Off the board:** the LED ring, the motor, the 1000 µF capacitor, the battery and the antenna. The board diagram draws each one in purple with its leads to the holes they solder to. The capacitor is 8 mm across, too tall for either side of the board, so it lies in the case just past the top edge of the board, in front of the battery. The motor sticks to the inside of the case front at the top right, and its insulated leads run down to holes 4 and 5.
-- **Links** are solder bridges or bare wire from hole to hole, all on the front, and each color in the board diagram is one connection. The two by button 1 sit inside the ring's center hole.
-- **Wires and jumpers** are thin insulated wire (30 AWG or so). Wires A, B and C lie on the back: each end passes up through its hole and is soldered on the front, together with the link there. A carries D2 to button 1, straight up column 6 under the XIAO and the battery; B carries ground to button 1, up between the diode and Q2, then under the battery; and C carries ground on from button 1 to the left side, over button 1's legs, under the battery. Lay them flat and tape them down, so the battery sits level. Wire D (R1 to Q1's base), jumper E (R3 to Q2's base) and jumper F (ground down to button 2 and R7) are on the front, below the ring.
-- **The ring's orientation and wires:** turn the ring so its first pixel, the one next to the data input pad, is at the top, with the pixels facing out. Seen from the front the pixels then run clockwise, as the firmware expects (step 7). Its pads are on its back, spaced around it; run each of the three wires under the ring's band, not across its open center, to its numbered hole (1, 2 and 3). The diagram's pad positions are approximate, so dry-fit the ring first.
-- **The battery:** its two leads solder to the BAT+ and BAT− pads under the middle of the XIAO, through the JST socket cable as in step 8. Your cell's plug is a PH 2.0, so use a PH 2.0 socket. A third wire from the BAT+ pad carries the battery voltage to hole 8.
+- **On the front:** button 1 in the middle, with the ring around it, and below the ring the seven resistors, lying flat. Nothing bare goes under the ring, only its own insulated wires. Inside the ring sits button 1's cap, whose skirt stops 0.25 mm above the board as a hard stop for the switch, so nothing on the front crosses into the ring's center: the wires to button 1 come up from the back.
+- **On the back:** the XIAO on its headers, with its chip, shield and USB-C port facing away from the board (its BAT pads face the board) and its USB end at the bottom edge; button 2 to its left; Q1 standing at the left edge with its flat face toward the edge, and Q2 at the right edge with its flat face toward the XIAO; and the diode lying flat beside the XIAO's right pins, with its stripe toward 3V3. The battery covers the back from just above row 13 to past the top edge and sits 1.5 mm off the board, so only joints trimmed flush go under it. Everything else on the back is below its bottom edge, which the board diagram marks with a line. Wires A, B and C also lie on the back, flat.
+- **Wires:** every connection is a thin insulated wire (30 AWG or so), lap-soldered onto the leads it joins; strip it bare where the run is only a hole or two. The holes are plated through, so a wire soldered onto a lead on the front joins it even where the part is soldered on the back. A lead takes at most three wires (only Q1's emitter has three). Each line in the board diagram is one wire, in the color of its signal.
+- **Wires A, B and C, on the back:** they carry button 1's two connections from below, and each passes up through a free hole at each end (ringed in the diagram, nothing soldered in it) to be lapped onto its lead on the front. A carries D2 from the XIAO, under the XIAO and the battery, onto button 1's leg at 9, 8. B carries ground from R2, beside the XIAO, and C carries ground from the XIAO's ground pin, under the XIAO between its header strips; both lap onto button 1's leg at 6, 6, and the ring's ground current runs through them. D2 and ground land on diagonally opposite legs, so the button works whichever pairs of legs are joined inside it.
+- **Off the board:** the LED ring, the motor, the 1000 µF capacitor, the battery and the antenna. The board diagram draws each in purple with a number on each lead, and the same number on the lead on the board that it is lapped onto (the last table lists them). The capacitor is 8 mm across, too tall for either side of the board, so it lies in the case just past the top edge of the board, in front of the battery; its + lead solders onto the ring's PWR pad, together with the ring's own PWR wire, and its − lead onto Q1's emitter. The motor sticks to the inside of the case front at the top right, and its leads go to the diode's two ends, so the diode sits right across it.
+- **The ring's orientation and wires:** turn the ring so its first pixel, the one next to the data input pad, is at the top, with the pixels facing out. Seen from the front the pixels then run clockwise, as the firmware expects (step 7). Its pads are on its back, spaced around it; run each of its three wires under the ring's band, not across its open center, to the lead with its number (1, 2 and 3). The diagram's pad positions are approximate, so dry-fit the ring first.
+- **The battery:** its two leads solder to the BAT+ and BAT− pads under the middle of the XIAO, through the JST socket cable as in step 8. Your cell's plug is a PH 2.0, so use a PH 2.0 socket. A third wire from the BAT+ pad carries the battery voltage up through hole 9, 18 onto R6's end at 9, 19.
 - **The antenna:** the XIAO's antenna plugs into the small U.FL socket at its top end, on the face that points at the battery. Plug it in before the battery goes in. Lay the flat antenna against the inside of the case, as far from the battery and the XIAO as it will go, and run its cable round the battery's side rather than under it. The case has no set place for it yet, so check that it fits before closing the case: without it, Wi-Fi barely reaches across a room.
 
 Solder in this order, so nothing is trapped:
 
-1. Wires A, B and C on the back, first, because their end holes are also link holes and fill with solder: push each end up through its hole (6, 18 and 6, 9; 14, 17 and 10, 6; 10, 5 and 1, 12) and solder it on the front.
-2. The links on the front, including the two inside the ring's center hole, then the flat resistors on the front, then button 1. Trim every lead flush on the back, above all where the XIAO and the battery will sit, and take care not to nick wires A, B and C.
-3. The battery leads and the sense wire onto the XIAO's BAT pads, since those pads face the board afterwards. Feed the sense wire through hole 8 (9, 20) and solder it on the front.
-4. The parts on the back: the diode (stripe toward 12, 18), button 2, Q1 and Q2, then the XIAO, all soldered on the front. Check each transistor's three legs against the table before soldering: with both flat faces toward the XIAO, the legs land as the table gives. Put a strip of insulating tape on the XIAO's underside first.
-5. Wire D and jumpers E and F, then the ring's three wires, the motor's two leads and the capacitor's two wires.
-6. The antenna into the XIAO, then an insulating sheet over the back of the board, then the battery, so no joint or lead can touch the cell.
+1. Wires A, B and C on the back, first: lay each along its route, push its ends up through its two holes (A: 6, 18 and 9, 9; B: 4, 16 and 5, 6; C: 10, 19 and 6, 5) and tape it flat. Leave the ends long on the front; they are lapped on in step 5.
+2. The resistors and button 1 on the front. Solder them on the back and trim every lead flush, above all where the XIAO and the battery will sit, taking care not to nick wires A, B and C.
+3. The battery leads and the sense wire onto the XIAO's BAT pads, since those pads face the board afterwards. Feed the sense wire up through 9, 18.
+4. The parts on the back: the diode (stripe toward 12, 18), button 2, Q1 and Q2, then the XIAO, all soldered on the front. Check each transistor's three legs against the table before soldering: Q1's flat face toward the left edge, Q2's toward the XIAO. Put a strip of insulating tape on the XIAO's underside first.
+5. The wires on the front, each lapped onto its two leads; then the ends of wires A, B and C, and the sense wire onto R6.
+6. The ring's three wires, the motor's two leads, and the capacitor (its + lead onto the ring's PWR pad with the ring's PWR wire, its − lead onto Q1's emitter).
+7. The antenna into the XIAO, then an insulating sheet over the back of the board, then the battery, so no joint or lead can touch the cell.
 
 Watch these neighbours, where a stray blob of solder would matter:
 
 - **4, 20** is a spare leg of button 2, right next to the XIAO's **D0** pin. D0 must not be grounded, or the board will not start.
-- **12, 18 (3V3, the diode's striped end) and 12, 19 (ground)** are next to each other.
-- **9, 19 and 9, 20** carry battery + and sit inside the XIAO's footprint. Keep them clean.
-- **10, 18** is 3V3 (wire hole 6), next to D10 at 10, 17.
-- **4, 18** is D3 (button 2), right next to the XIAO's **D2** pin at 5, 18.
-- **1, 18** is button 2's spare leg, which is D3, between the ring's ground wire at 1, 17 and ground at 1, 19.
-- **1, 11 to 1, 17** run ground, Q1's emitter, base and collector, and the ring's ground wire, one after another down the left edge.
-- **Column 14, rows 13 to 19** run the motor's blue wire, Q2's collector, base and emitter, and ground.
+- **4, 18** is D3 (button 2), right next to the XIAO's **D2** pin at 5, 18, which has wire A lapped on.
+- **1, 14 to 1, 16** are Q1's collector, base and emitter, with five wires lapped on between them; **1, 18** below is button 2's spare leg, which is D3.
+- **11, 18 (3V3) and 11, 19 (ground)** are neighbouring XIAO pins, each with wires lapped on.
+- **9, 19** carries battery + and sits inside the XIAO's footprint. Keep it clean.
 - The unused pins (D0, D6, D7, D8, D9, 5V) connect to nothing.
 
-Before powering up, check with a multimeter that 3V3 and ground are not shorted, and that each XIAO pin reaches the hole the tables give.
+Before powering up, check with a multimeter that 3V3 and ground are not shorted, and that each XIAO pin reaches the leads the tables give.
 
 | Part | Holes (column, row) |
 |---|---|
 | XIAO ESP32-C3 (back) | Left pins in column 5, rows 14 to 20: D6, D5, D4, D3, D2, D1, D0. Right pins in column 11, rows 14 to 20: D7, D8, D9, D10, 3V3, GND, 5V. USB end at the bottom edge |
-| Button 1 (front) | 6, 6 and 9, 6 (ground side); 6, 8 and 9, 8 (D2 side) |
-| Button 2 (back) | 1, 18 and 4, 18 (D3 side); 1, 20 and 4, 20 (ground side) |
-| Q1, ring switch (back, standing, flat face toward the XIAO) | Emitter 1, 14; base 1, 15; collector 1, 16 |
+| Button 1 (front) | 6, 6 and 9, 6; 6, 8 and 9, 8. Ground is lapped onto 6, 6 and D2 onto 9, 8, diagonally opposite |
+| Button 2 (back) | 1, 18 and 4, 18; 1, 20 and 4, 20. D3 is lapped onto 4, 18 and ground onto 1, 20, diagonally opposite |
+| Q1, ring switch (back, standing, flat face toward the left edge) | Collector 1, 14; base 1, 15; emitter 1, 16 |
 | Q2, motor switch (back, standing, flat face toward the XIAO) | Collector 14, 14; base 14, 15; emitter 14, 16 |
 | R1, 470 Ω, D5 to Q1 base (front) | 6, 15 to 9, 15 |
-| R2, 10 kΩ, Q1 base to ground (front) | 3, 16 to 3, 13 |
+| R2, 10 kΩ, Q1 base to ground (front) | 3, 13 to 3, 16 |
 | R3, 1 kΩ, D4 to Q2 base (front) | 6, 16 to 9, 16 |
 | R4, 10 kΩ, Q2 base to ground (front) | 13, 16 to 13, 19 |
 | R5, 330 Ω, D10 to the ring data wire (front) | 10, 17 to 7, 17 |
 | R6, 220 kΩ, battery + to D1 (front) | 6, 19 to 9, 19 |
 | R7, 220 kΩ, D1 to ground (front) | 4, 19 to 1, 19 |
 | 1N4148 diode (back, lying flat) | Plain end 12, 15; striped end 12, 18, toward 3V3 |
-| Wire hole 1: ring GND | 1, 17 |
-| Wire hole 2: ring 5V/PWR | 12, 17 |
-| Wire hole 3: ring IN | 6, 17 |
-| Wire hole 4: motor red (+) | 12, 16 |
-| Wire hole 5: motor blue (−) | 14, 13 |
-| Wire hole 6: capacitor + | 10, 18 |
-| Wire hole 7: capacitor − (striped) | 1, 11 |
-| Wire hole 8: BAT+ (sense) | 9, 20 |
-| Wire A, D2 to button 1 (back, under the XIAO and the battery) | 6, 18 to 6, 9 |
-| Wire B, ground to button 1 (back, between the diode and Q2, then under the battery) | 14, 17 to 10, 6 |
-| Wire C, ground from button 1 to the left side (back, under the battery) | 10, 5 to 1, 12 |
-| Wire D, R1 to Q1 base, below the ring (front) | 10, 15 to 2, 15 |
-| Jumper E, R3 to Q2 base (front) | 10, 16 to 13, 15 |
-| Jumper F, ground down to button 2 and R7 (front) | 2, 14 to 2, 20 |
 
-| Link | Runs through (column, row), corner to corner |
+| Wire | From | To |
+|---|---|---|
+| D5 | XIAO D5 pin (5, 15) | R1 (6, 15) |
+| D4 | XIAO D4 pin (5, 16) | R3 (6, 16) |
+| D3 | XIAO D3 pin (5, 17) | Button 2 (4, 18) |
+| D1 | XIAO D1 pin (5, 19) | R6 (6, 19) |
+| D1 | XIAO D1 pin (5, 19) | R7 (4, 19) |
+| D10 | XIAO D10 pin (11, 17) | R5 (10, 17) |
+| 3V3 | XIAO 3V3 pin (11, 18) | Diode, striped end (12, 18) |
+| Q1 base | R1 (9, 15) | R2 (3, 13) |
+| Q1 base | R2 (3, 13) | Q1 base (1, 15) |
+| Q2 base | R3 (9, 16) | R4 (13, 16) |
+| Q2 base | R4 (13, 16) | Q2 base (14, 15) |
+| Motor − | Q2 collector (14, 14) | Diode, plain end (12, 15) |
+| Ground | XIAO GND pin (11, 19) | R4 (13, 19) |
+| Ground | R4 (13, 19) | Q2 emitter (14, 16) |
+| Ground | R2 (3, 16) | Q1 emitter (1, 16) |
+| Ground | Q1 emitter (1, 16) | R7 (1, 19) |
+| Ground | R7 (1, 19) | Button 2 (1, 20) |
+| D2, wire A (back, up through 6, 18 and 9, 9) | XIAO D2 pin (5, 18) | Button 1 (9, 8) |
+| Ground, wire B (back, up through 4, 16 and 5, 6) | R2 (3, 16) | Button 1 (6, 6) |
+| Ground, wire C (back, up through 10, 19 and 6, 5) | XIAO GND pin (11, 19) | Button 1 (6, 6) |
+
+| Off the board | Lapped onto |
 |---|---|
-| Ground | 11, 19 → 14, 19 → 14, 16; 1, 12 → 1, 11; 1, 12 → 1, 14; 1, 13 → 3, 13; 2, 13 → 2, 14; 1, 19 → 1, 20 → 2, 20; 9, 6 → 10, 6 → 10, 5 |
-| 3V3 | 11, 18 → 12, 18 → 12, 16; 11, 18 → 10, 18 |
-| D5 to R1 | 5, 15 → 6, 15 |
-| Q1 base, R1, R2 and wire D | 9, 15 → 10, 15; 1, 15 → 2, 15 → 2, 16 → 3, 16 |
-| Q1 collector to wire hole 1 | 1, 16 → 1, 17 |
-| D4 to R3 | 5, 16 → 6, 16 |
-| Q2 base, R3, R4 and jumper E | 9, 16 → 10, 16; 14, 15 → 13, 15 → 13, 16 |
-| Q2 collector, the diode and wire hole 5 | 12, 15 → 12, 14 → 14, 14 → 14, 13 |
-| D10 to R5 | 11, 17 → 10, 17 |
-| R5 to wire hole 3 | 7, 17 → 6, 17 |
-| D3 to button 2 | 5, 17 → 4, 17 → 4, 18 |
-| D2 to wire A, at both ends | 5, 18 → 6, 18; 6, 8 → 6, 9 |
-| D1 to R6 and R7 | 4, 19 → 6, 19 (through the D1 pin at 5, 19) |
-| R6 to wire hole 8 | 9, 19 → 9, 20 |
+| 1. Ring GND pad | Q1 collector (1, 14) |
+| 2. Ring PWR pad | XIAO 3V3 pin (11, 18); the capacitor's + lead also solders onto this ring pad |
+| 3. Ring DIN pad | R5 (7, 17) |
+| 4. Motor red (+) | Diode, striped end (12, 18) |
+| 5. Motor blue (−) | Diode, plain end (12, 15) |
+| 6. Capacitor − (striped) | Q1 emitter (1, 16) |
+| BAT+ sense wire, from the XIAO's BAT+ pad, up through 9, 18 | R6 (9, 19) |
+| Battery + and − | The XIAO's BAT+ and BAT− pads, underneath |
