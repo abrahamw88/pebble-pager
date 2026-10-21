@@ -12,8 +12,8 @@ These steps build both devices on breadboards so you can test the buttons, ring,
 | Needle-nose pliers or tweezers | Bending legs and seating small parts |
 | Multimeter | Checking connections and battery polarity |
 | iPhone with the ntfy app | Step 7 |
-| Soldering iron with a fine tip, thin solder and flux | Steps 4 and 8 |
-| Helping hands | Steps 4 and 8 |
+| Soldering iron with a fine tip, thin solder and flux | Steps 4, 8 and 10 |
+| Helping hands | Steps 4, 8 and 10 |
 
 ## How a breadboard connects
 
@@ -30,8 +30,11 @@ The goal is a computer that can upload code to the XIAO and read what it prints.
 1. Install Arduino IDE 2 from arduino.cc.
 2. In File → Preferences, add this board manager URL: `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`
 3. In Tools → Board → Boards Manager, search "esp32" and install "esp32 by Espressif Systems".
-4. Plug the XIAO in with the data cable. Choose Tools → Board → esp32 → XIAO_ESP32C3, then the new port under Tools → Port.
-5. Upload the firmware with `-DTEST=1`, then open Tools → Serial Monitor at 115200 baud.
+4. Open Tools → Manage Libraries, search "Adafruit NeoPixel" and install it. Every build needs it, even before the ring is wired.
+5. Plug the XIAO in with the data cable. Choose Tools → Board → esp32 → XIAO_ESP32C3, then the new port under Tools → Port, and Tools → Partition Scheme → "Minimal SPIFFS (1.9MB APP with OTA/128KB SPIFFS)". Keep that partition scheme for every upload: remote updates rely on it, and changing it later needs a USB upload.
+6. Open `firmware/pebble-pager/pebble-pager.ino`. Upload it with `-DTEST=1`, then open Tools → Serial Monitor at 115200 baud.
+
+The steps name builds by their flags, such as `-DTEST=1`, `-DNO_SLEEP` or `-DDEBUG_SERIAL`. Arduino IDE has no box for flags, so add the matching line at the very top of `pebble-pager.ino` instead, for example `#define TEST 1` or `#define NO_SLEEP`, and delete it again to build the firmware itself. With arduino-cli, pass `--build-property compiler.cpp.extra_flags="-DTEST=1"`.
 
 **Check:** the board prints its chip, MAC address and temperature, then a list of nearby Wi-Fi networks. No wiring is needed.
 
@@ -71,14 +74,13 @@ The ring is the pager's display: it plays messages and shows sending, Wi-Fi and 
 
 ![Ring wiring map: data from D10 through 330 ohms, power from the plus rail, ground through a PN2222A switched by D5 through 470 ohms, and a 1000 microfarad capacitor across the rails](img/step4-ring.svg)
 
-1. In Arduino IDE, open Tools → Manage Libraries, search "Adafruit NeoPixel" and install it.
-2. Find three pads on the back of the ring: power (marked 5V or PWR), ground (GND) and data input (IN). Solder a wire about 10 cm long to each. Leave the data output pad empty.
-3. Unplug USB. Wire the ring's power pad to the + rail. It runs on 3V3 in this build, not 5 V.
-4. Data: a jumper from D10's column to a free column, a 330 Ω resistor from there to another free column, and the ring's data input wire into that one. Keep the resistor at the ring's end of the wire, as Adafruit advises.
-5. Seat a PN2222A with each leg in its own column. With the flat face toward you and the legs down, a PN2222A's legs are emitter, base, collector from left to right. Datasheets number the legs differently: some (Philips, NXP) count 1, 2, 3 from the right in that view, so their "1 collector, 2 base, 3 emitter" is the same part, with the collector on the right. The P2N2222A is a different part with the outer two swapped, so check the name printed on yours. A transistor in backwards still switches, but weakly: a dim ring or a feeble motor is the sign.
-6. Collector: the ring's GND wire. Emitter: a jumper to the − rail.
-7. Base: a 470 Ω resistor from the middle leg's column to a free column, then a jumper from there to D5. Add a 10 kΩ resistor from the base's column to the − rail. (The ring can draw three times what the motor does, so its transistor gets a smaller base resistor than the motor's 1 kΩ, to switch fully on. With no 470 Ω to hand, a 330 Ω works too.)
-8. Put the 1000 µF capacitor across the + and − rails, with its striped leg (−) in the − rail.
+1. Find three pads on the back of the ring: power (marked 5V or PWR), ground (GND) and data input (IN). Solder a wire about 10 cm long to each. Leave the data output pad empty.
+2. Unplug USB. Wire the ring's power pad to the + rail. It runs on 3V3 in this build, not 5 V.
+3. Data: a jumper from D10's column to a free column, a 330 Ω resistor from there to another free column, and the ring's data input wire into that one. Keep the resistor at the ring's end of the wire, as Adafruit advises.
+4. Seat a PN2222A with each leg in its own column. With the flat face toward you and the legs down, a PN2222A's legs are emitter, base, collector from left to right. Datasheets number the legs differently: some (Philips, NXP) count 1, 2, 3 from the right in that view, so their "1 collector, 2 base, 3 emitter" is the same part, with the collector on the right. The P2N2222A is a different part with the outer two swapped, so check the name printed on yours. A transistor in backwards still switches, but weakly: a dim ring or a feeble motor is the sign.
+5. Collector: the ring's GND wire. Emitter: a jumper to the − rail.
+6. Base: a 470 Ω resistor from the middle leg's column to a free column, then a jumper from there to D5. Add a 10 kΩ resistor from the base's column to the − rail. (The ring can draw three times what the motor does, so its transistor gets a smaller base resistor than the motor's 1 kΩ, to switch fully on. With no 470 Ω to hand, a 330 Ω works too.)
+7. Put the 1000 µF capacitor across the + and − rails, with its striped leg (−) in the − rail.
 
 The 10 kΩ resistor keeps the ring switched off while the chip is asleep or starting up. The ring gets tested in step 6.
 
@@ -112,7 +114,7 @@ If something's off:
 
 - **The ring stays dark:** check that the ring's power wire reaches the + rail, that the data wire is on the input pad and not the output pad, and that the 470 Ω from D5 goes to the transistor's middle leg. If you're unsure of the transistor's pinout, swap its outer two legs.
 - **Colors are scrambled or shift around the ring:** the sketch's pixel type is wrong. It must be four-channel GRBW for this ring.
-- **Colors flicker or look dim:** recheck the data wire and its 330 Ω resistor. If they're fine, the ring may not like 3.3 V; the wiring notes above give the fallback.
+- **Colors flicker or look dim:** recheck the data wire and its 330 Ω resistor. If they're fine, the ring may not like 3.3 V: the fallback is to power it from battery + instead, once step 8 adds the battery (README, Wiring and pin plan).
 - **A button does nothing:** check that both of its wires reach the button's columns and that the button is pressed fully into the board.
 - **A button fires over and over without a press:** the button is turned 90°, so the two wired legs are always connected. Turn it a quarter turn, or wire the diagonally opposite leg as in step 3.
 - **The ring works but nothing buzzes:** check that the 1 kΩ from D4 goes to the motor transistor's middle leg and that the emitter, not the collector, goes to the − rail.
@@ -126,11 +128,11 @@ ntfy needs no account to start. On the free tier the topic name works as the pas
 ![The computer posts to ntfy; ntfy pushes to the phone; the device reads its inbox topic and answers on the phone topic](img/step7-ntfy.svg)
 
 1. Snap the small antenna that came with the XIAO onto its connector, pressing straight down until it clicks. Without it, Wi-Fi barely reaches across a room.
-2. Pick a base name: `pebble-` plus at least seven random letters and digits, like `pebble-7qk2x9m`. Your three topics are that name plus `-a`, `-b` and `-phone`.
+2. Pick a base name: `pebble-` plus at least seven random letters and digits, like `pebble-7qk2x9m`. Your three topics are that name plus `-phone` for the phone, and plus each device's name in lower case for its inbox, such as `-eliana` and `-sophia`.
 3. On the iPhone, install ntfy from the App Store and allow notifications when it asks. Tap +, enter your `-phone` topic, and keep the default server, ntfy.sh.
-4. Test 1, from the computer: in a terminal, open ntfy.sh/app in a browser, subscribe to your -phone topic and publish a message from there. The phone should show it within a few seconds.
+4. Test 1, from the computer: open ntfy.sh/app in a browser, subscribe to your `-phone` topic and publish a message from there. The phone should show it within a few seconds.
 5. Test 2, from the board: upload the firmware (no test flag). It prints nothing to the Serial Monitor; the phone is where it answers.
-6. Hold the small BOOT button for 5 s and release, join the `pebblepager` network on your phone (password `pebblepager`), and fill in the page: the device's name, its partner's name, the topic base, and your Wi-Fi (2.4 GHz only).
+6. Hold button 2 for 5 s and release (the XIAO's small BOOT button does the same), join the `pebblepager` network on your phone (password `pebblepager`), and fill in the page: the device's name, its partner's name, the topic base, and your Wi-Fi (2.4 GHz only).
 7. From the ntfy web app, post `update` to the device's inbox, `<base>-<name>` in lower case.
 
 **Check:** the phone shows "Eliana checking for update" followed by an answer, such as "Eliana up to date (v1)". For the serial output while developing, build with `-DDEBUG_SERIAL`.
@@ -143,10 +145,10 @@ Now the ring and motor under the firmware. The device sleeps between checks, so 
 | `show failed` | Two red pulses over the whole ring, with a short buzz |
 | `show waiting` | One pixel at the top breathes once, in the device's color |
 | `show low` | One pixel at the bottom breathes once, amber |
-| `battery` | One amber pixel for 2 s (no battery sensor yet; step 8 makes this the real level) |
+| `battery` | One amber pixel for 2 s, as no battery is fitted yet (step 8 makes this the real level), then blue pixels for the Wi-Fi signal |
 | `press 1 700 300 200` | A comet in the device's color: a long press, a gap, a short press. The ring stays dark while it posts, then (if the other device has not just answered) a dim green fill goes round the ring over up to 45 s while it connects, and finishes in a second with the green flash if the other device answers, or two red pulses after 45 s if not |
 | Post `pink 400 300 400` to this device's inbox from the ntfy web app | Within 30 s one pixel at the top breathes pink, and again at each check. `play` plays it: a pink comet with a buzz for each press |
-| `press 2 3000` | The ring fills purple a little over halfway, then shows the battery level |
+| `press 2 3000` | The ring fills purple a little over halfway, then shows the battery level and the Wi-Fi signal |
 | `press 2 5300` | Fills purple to full; the setup page opens and the ring stays dim purple. The same again closes it |
 
 Then the real buttons: hold button 1 and the comet should start at once and stop when you let go.
@@ -174,28 +176,28 @@ With a battery on its BAT pads, the XIAO runs without USB and charges the batter
 
 **Check:** with USB in, the Serial Monitor shows about 3.7–4.2 V and a percentage, creeping up as the battery charges. Unplug USB and the first pixel keeps blinking green, which means the board is running on the battery. If the reading is more than about 0.1 V off from the multimeter across the battery, note the difference for each board; the firmware has no correction yet and would need one.
 
-Then upload the firmware (no test flag) and tap button 2: the ring shows the level as 1 to 12 green pixels for 2 s. Post `battery` to the device's inbox and the phone shows the same reading, for example "Eliana battery 3.92 V, 64%".
+Then upload the firmware (no test flag) and tap button 2: the ring shows the level as 1 to 12 green pixels for 2 s (red under 20%), then the Wi-Fi signal in blue. Post `battery` to the device's inbox and the phone shows the same reading, for example "Eliana battery 3.92 V, 64%".
 
 From now on, unplug the battery as well as USB before moving any wire, since the battery powers the rails too. Don't leave it charging unattended, and if the cell swells, gets hot or smells odd, unplug it and move it somewhere it can't catch anything on fire.
 
 ## Step 9: Build device B and plan the end-to-end test
 
-Repeat steps 2 to 8 on the second XIAO and breadboard, then run `-DTEST=2` and the firmware on it. Put a strip of tape on each board marked A or B so the topics don't get mixed up. On each setup page, give the device its name and color and the other one's name as its partner.
+Repeat steps 2 to 8 on the second XIAO and breadboard, then run `-DTEST=2` and the firmware on it. Put a strip of tape on each board marked with its device's name, so the two don't get mixed up. On each setup page, give the device its name and color and the other one's name as its partner.
 
 Then work through this list with both boards running the firmware. Each line comes from the Behavior section of the README, and the diagram in its Overview shows the paths they cover. With only one board built, `docs/virtual-pager.html` can stand in for the other.
 
 - Press RESET on each device: it shows a cyan chase while it joins the saved Wi-Fi.
 - Press button 1 on A (a tap is enough), then a long-short-short pattern: a comet in A's color lights with each press, and the message sends 0.5 s after the last one.
-- A's ring stays dark after it finishes recording, then flashes one green pixel at the bottom, with a short buzz, when B confirms receipt: sent and received.
+- A's ring stays dark while it sends, then a dim green fill goes round the ring while B wakes and answers (up to 45 s), and one green pixel flashes at the bottom, with a short buzz, when B confirms receipt: sent and received. A second message within the conversation skips the fill.
 - Within 30 s the phone shows the message, and B breathes one pixel in A's color at each 30 s check until button 1 is tapped. The press plays the same pattern as a comet in A's color the moment the button goes down, with a buzz for each press. There is no replay.
 - Reply from B within 2 minutes: A plays the reply at once, with no tap, because A has just sent and stays awake with its inbox held open as a stream. Each message either way gives the conversation 2 more minutes. Leave it more than 2 minutes and send from B again: A is back to its 30 s checks and this time only shows the waiting light.
 - With a message waiting on B, hold button 1 on B: the message plays first, then a fresh recording starts.
 - With nothing waiting, a single short tap on button 1 sends a one-press message, and a tap with a message waiting only plays it.
-- Tap button 2: the ring shows the battery level for 2 s.
+- Tap button 2: the ring shows the battery level for 2 s, then the Wi-Fi signal in blue.
 - Hold button 2 for 5 s and release: the ring fills purple, the `pebblepager` network appears, the ring stays dim purple while the setup page is open, and a new network can be added from the phone.
 - Hold button 2 for 10 s: after full purple the ring turns red and counts down to dark. Release and the device turns off. Press button 1: nothing happens. Tap button 2: nothing visible, and the device goes back to sleep. Hold button 2: the ring fills green, and at 5 s the device turns on.
 - Turn off A's Wi-Fi and record a message: A shows two red pulses with a short buzz. Turn the Wi-Fi back on: the queued message goes out.
-- Switch B off (button 2, 10 s) and send from A: A's ring stays dark for 45 s, then shows two red pulses with a short buzz, because no receipt came.
+- Switch B off (button 2, 10 s) and send from A: A's dim green fill goes round for 45 s, then two red pulses with a short buzz, because no receipt came.
 - Send from the iPhone Shortcut to each device's topic: each one plays the pattern.
 - Time ten messages each way: every one arrives within 30 s.
 - Take a device out of range of every saved network for an hour, then bring it back: it rejoins within 5 minutes and delivers anything queued.
@@ -204,7 +206,7 @@ Then work through this list with both boards running the firmware. Each line com
 - After a firmware update over Wi-Fi, the saved networks are still there.
 - Change A's color on the setup page: A's next message plays on B in the new color, and the color is still set after a firmware update.
 
-The last few results, delivery time and battery days, decide between plan A and plan B and settle the battery size before the case is designed.
+The last few results, delivery time and battery days, decide between plan A and plan B, and confirm the battery: the case is designed around the 2,000 mAh cell in the parts list.
 
 ## Step 10: Move to perfboard
 
