@@ -519,7 +519,7 @@
 <text x='487.0' y='973.5' font-size='9' font-weight='600' text-anchor='middle' fill='#1F2124' stroke='#E9D9B6' stroke-width='3' paint-order='stroke'>R5 330Ω</text>
 <text x='453.0' y='1041.5' font-size='9' font-weight='600' text-anchor='middle' fill='#1F2124' stroke='#E9D9B6' stroke-width='3' paint-order='stroke'>R6 220kΩ</text>
 <text x='283.0' y='1041.5' font-size='9' font-weight='600' text-anchor='middle' fill='#1F2124' stroke='#E9D9B6' stroke-width='3' paint-order='stroke'>R7 220kΩ</text>
-<text x='652.0' y='430.0' font-size='8.5' font-weight='700' text-anchor='end' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#1F2124'>M2.3, drill 2.5 mm (#40)</text>
+<text x='652.0' y='430.0' font-size='8.5' font-weight='700' text-anchor='end' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#1F2124'>M2.3, drill 3/32 in (2.5 mm)</text>
 <line x1='199.7' y1='852.7' x2='232.0' y2='868.0' stroke='#7A4FC0' stroke-width='1.6'/>
 <circle cx='199.7' cy='852.7' r='7.5' fill='#7A4FC0' stroke='#FFFFFF' stroke-width='1.5'/><text x='199.7' y='856.1' font-size='9.5' font-weight='700' fill='#FFFFFF' text-anchor='middle'>1</text>
 <line x1='553.3' y1='1021.0' x2='572.0' y2='1004.0' stroke='#7A4FC0' stroke-width='1.6'/>
@@ -575,7 +575,7 @@
 <text x='60.0' y='1373.0' font-size='11' fill='#1F2124'>The LED ring: only insulated wires under it</text>
 <text x='530.0' y='1373.0' font-size='11' fill='#1F2124'>Button 1's cap skirt: nothing on the front crosses it</text>
 <text x='60.0' y='1395.0' font-size='11' fill='#1F2124'>A case post or support presses here: keep wires off it</text>
-<text x='530.0' y='1395.0' font-size='11' fill='#1F2124'>Screw hole: drill 2.5 mm (or a #40 bit) for an M2.3 × 6 from the back</text>
+<text x='530.0' y='1395.0' font-size='11' fill='#1F2124'>Screw hole: drill 3/32 in (or 2.5 mm) for an M2.3 × 6 from the back</text>
 <text x='60.0' y='1417.0' font-size='11' fill='#1F2124'>Pointer from a label to its part</text>
 <text x='24.0' y='1445.0' font-size='11' font-weight='600' fill='#1F2124'>Colour is the signal:</text>
 <text x='169' y='1445.0' font-size='10.5' fill='#1F2124'>ground</text>
