@@ -302,7 +302,7 @@
 <circle cx='764.0' cy='1072.0' r='3' fill='#FFFFFF' stroke='#C4C6CB' stroke-width='1'/>
 <path d='M492.0 1004.0 L479.1 987.0 L479.1 745.6 L594.0 664.0' fill='none' stroke='#E08A2E' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round' stroke-dasharray='0.1 6'/>
 <path d='M390.0 936.0 L424.0 908.8 L424.0 630.0 L492.0 596.0' fill='none' stroke='#1F2124' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round' stroke-dasharray='0.1 6'/>
-<path d='M628.0 1038.0 L614.4 1024.4 L614.4 572.2 L512.4 572.2 L492.0 596.0' fill='none' stroke='#1F2124' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round' stroke-dasharray='0.1 6'/>
+<path d='M730.0 1038.0 L711.3 1019.3 L711.3 840.0 L614.4 743.1 L614.4 572.2 L512.4 572.2 L492.0 596.0' fill='none' stroke='#1F2124' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round' stroke-dasharray='0.1 6'/>
 <path d='M390.0 936.0 L356.0 966.6 L310.1 983.6 L310.1 1024.4 L322.0 1038.0' fill='none' stroke='#1F2124' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round' stroke-dasharray='0.1 6'/>
 <path d='M577.0 1004.0 L594.0 1004.0' fill='none' stroke='#7A4FC0' stroke-width='3.2' stroke-linecap='round' stroke-dasharray='0.1 6'/>
 <line x1='492.0' y1='902.0' x2='594.0' y2='902.0' stroke='#9A9CA1' stroke-width='2'/>
@@ -341,7 +341,6 @@
 <path d='M390.0 936.0 L322.0 936.0' fill='none' stroke='#FFFFFF' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/><path d='M390.0 936.0 L322.0 936.0' fill='none' stroke='#1F2124' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/>
 <path d='M322.0 1038.0 L322.0 1072.0' fill='none' stroke='#FFFFFF' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/><path d='M322.0 1038.0 L322.0 1072.0' fill='none' stroke='#1F2124' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/>
 <path d='M458.0 1004.0 L492.0 1004.0' fill='none' stroke='#FFFFFF' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/><path d='M458.0 1004.0 L492.0 1004.0' fill='none' stroke='#E08A2E' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/>
-<path d='M662.0 1038.0 L628.0 1038.0' fill='none' stroke='#FFFFFF' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/><path d='M662.0 1038.0 L628.0 1038.0' fill='none' stroke='#1F2124' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/>
 <path d='M594.0 1004.0 L594.0 1038.0' fill='none' stroke='#FFFFFF' stroke-width='7' stroke-linecap='round'/><path d='M594.0 1004.0 L594.0 1038.0' fill='none' stroke='#7A4FC0' stroke-width='3.6' stroke-linecap='round'/>
 <circle cx='322.0' cy='426.0' r='28.1' fill='#E39B2D' fill-opacity='0.22' stroke='#D08A1E' stroke-width='1.2'/>
 <circle cx='764.0' cy='426.0' r='28.1' fill='#E39B2D' fill-opacity='0.22' stroke='#D08A1E' stroke-width='1.2'/>
@@ -420,7 +419,6 @@
 <rect x='690.0' y='896.0' width='12' height='12' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
 <rect x='690.0' y='998.0' width='12' height='12' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
 <circle cx='492.0' cy='1004.0' r='5.6' fill='#FFFFFF' stroke='#E08A2E' stroke-width='2.2'/>
-<circle cx='628.0' cy='1038.0' r='5.6' fill='#FFFFFF' stroke='#1F2124' stroke-width='2.2'/>
 <circle cx='594.0' cy='1004.0' r='5.6' fill='#FFFFFF' stroke='#7A4FC0' stroke-width='2.2'/>
 <path d='M513.0 610.0 L235.3 524.0' fill='none' stroke='#B9BBC0' stroke-width='1'/><circle cx='513.0' cy='610.0' r='2.2' fill='#9A9CA1'/>
 <path d='M308.4 888.4 L235.3 762.0' fill='none' stroke='#B9BBC0' stroke-width='1'/><circle cx='308.4' cy='888.4' r='2.2' fill='#9A9CA1'/>
@@ -533,7 +531,7 @@
 <circle cx='289.7' cy='951.3' r='7.5' fill='#7A4FC0' stroke='#FFFFFF' stroke-width='1.5'/><text x='289.7' y='954.7' font-size='9.5' font-weight='700' fill='#FFFFFF' text-anchor='middle'>6</text>
 <text x='486.9' y='786.4' font-size='8.5' font-weight='700' text-anchor='start' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#E08A2E'>Wire A, back</text>
 <text x='415.5' y='752.4' font-size='8.5' font-weight='700' text-anchor='end' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#3A3B3F'>Wire B, back</text>
-<text x='622.9' y='786.4' font-size='8.5' font-weight='700' text-anchor='start' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#3A3B3F'>Wire C, back</text>
+<text x='668.0' y='786.4' font-size='8.5' font-weight='700' text-anchor='start' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#3A3B3F'>Wire C, back</text>
 <text x='374.7' y='988.7' font-size='8.5' font-weight='700' text-anchor='start' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#3A3B3F'>Wire D, back</text>
 <text x='229.3' y='528.0' font-size='11' font-weight='600' text-anchor='end' fill='#1F2124'>Button 1</text>
 <text x='229.3' y='542.0' font-size='10' text-anchor='end' fill='#5F6267'>front, in the ring</text>
