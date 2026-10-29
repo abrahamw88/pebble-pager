@@ -1,6 +1,5 @@
 // The ring animation engine, for the browser. A line-for-line copy of firmware/pebble-pager/ring.h: keep the two
-// in step, and check them against each other after any change (see AGENTS.md). Used by ring-preview.html and
-// virtual-pager.html.
+// in step, and check them against each other after any change (see AGENTS.md). Used by virtual-pager.html.
 const RING_PIXELS = 12;
 const RING_STEP_MS = 5;
 const RING_STEP_S = RING_STEP_MS / 1000;

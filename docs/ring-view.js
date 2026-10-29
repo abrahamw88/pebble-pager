@@ -1,5 +1,5 @@
 // Draws the ring on a canvas: a dim room, the device's shell, a frosted ring, and each pixel as a soft circle of
-// light. Shared by ring-preview.html and virtual-pager.html. Only a picture: nothing here affects the firmware.
+// light. Used by virtual-pager.html. Only a picture: nothing here affects the firmware.
 //   canvas    a square canvas
 //   frame     12 pixels of [red, green, blue, white], 0 to 255, from ringRender()
 //   shellRgb  the device's color, 0xRRGGBB

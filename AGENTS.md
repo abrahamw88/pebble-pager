@@ -35,9 +35,8 @@ docs/build-steps.md            breadboard wiring and test steps
 docs/img/                      the build steps' diagrams, one SVG per step (fixed colors on a white card, so they read in light and dark)
 docs/concept.html              visual concept sheet (open in a browser): look, colorways, every ring state
 docs/virtual-pager.html        a second pager in a browser, live on ntfy; a JavaScript port of the firmware's message and button logic
-docs/ring-preview.html         the ring animation in a browser, for tuning
-docs/ring-engine.js            JavaScript copy of ring.h, shared by both pages
-docs/ring-view.js              draws the ring on a canvas, shared by both pages
+docs/ring-engine.js            JavaScript copy of ring.h, used by the virtual pager
+docs/ring-view.js              draws the ring on a canvas, used by the virtual pager
 firmware/pebble-pager/         the one sketch; each tab is a module
   pebble-pager.ino             main flow, build flags (listed in its header)
   config.h                     pins, values to tune, saved settings, serial output and console

@@ -88,7 +88,7 @@ Presses and releases are caught by interrupts and time-stamped, so the recorded 
 
 ### The ring's animation
 
-The ring is the device's face, so its motion is designed to be smooth and a little playful. `firmware/pebble-pager/ring.h` is the engine, and `docs/ring-preview.html` runs a copy of the same math (`docs/ring-engine.js`) in a browser for tuning.
+The ring is the device's face, so its motion is designed to be smooth and a little playful. `firmware/pebble-pager/ring.h` is the engine, and `docs/ring-engine.js` is a copy of the same math that the virtual pager runs in a browser. To tune a level, change `ringTune` in `ring.h` and in `ring-engine.js`.
 
 - **The comet.** A head in the sender's color with a tail that melts into white, gliding between pixels so it never jumps. It is the only message animation: recording and playback are computed from the same press times, so both devices show the same thing.
 - **A press is a key on a synth.** Button down fades the comet in over about half a second, and it is orbiting, tail and all, from the first instant (the tail is full length by a third of the way through the fade, so the chase never waits for the light); it orbits for as long as the button is held, starting at 0.9 laps per second and gaining 0.2 each second up to 1.9; release fades it out towards white as it coasts. It carries on from where it stopped, so a long message travels round the ring.

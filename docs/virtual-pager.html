@@ -131,7 +131,7 @@ const ON_HOLD_MS = 5000, CONVERSATION_MS = 120000, PLAY_GAP_MS = 100, COMET_SETT
 const RGB_RECEIVED = 0x50E080, RGB_BATTERY = 0x50E080, RGB_BAD = 0xF03030, RGB_WIFI = 0x3070FF, RGB_SETUP = 0x9060F0, RGB_OFF = 0xF03030, RGB_ON = 0x50E080;
 const COLOR_NAMES = ["Pink", "Blue", "Green", "Purple", "Orange", "Teal", "Yellow", "Red"];
 const COLOR_RGB = [0xF26C94, 0x599DF0, 0x4CC783, 0x8E61E0, 0xF07C35, 0x40C9BE, 0xF2CE40, 0xE8554B];
-const DIFFUSER = 0.6;   // how the ring is drawn; see ring-preview.html
+const DIFFUSER = 0.6;   // how the ring is drawn (ring-view.js)
 
 const $ = (id) => document.getElementById(id);
 const colorIndex = (name) => COLOR_NAMES.findIndex((c) => c.toLowerCase() === String(name).toLowerCase());
