@@ -132,7 +132,7 @@ ntfy needs no account to start. On the free tier the topic name works as the pas
 3. On the iPhone, install ntfy from the App Store and allow notifications when it asks. Tap +, enter your `-phone` topic, and keep the default server, ntfy.sh.
 4. Test 1, from the computer: open ntfy.sh/app in a browser, subscribe to your `-phone` topic and publish a message from there. The phone should show it within a few seconds.
 5. Test 2, from the board: upload the firmware (no test flag). It prints nothing to the Serial Monitor; the phone is where it answers.
-6. Hold button 2 for 5 s and release (the XIAO's small BOOT button does the same), join the `pebblepager` network on your phone (password `pebblepager`), and fill in the page: the device's name, its partner's name, the topic base, and your Wi-Fi (2.4 GHz only).
+6. Hold button 2 for 5 s and release (the XIAO's small BOOT button does the same), join the `pebble-pager` network on your phone (password `pebble-pager`), and fill in the page: the device's name, its partner's name, the topic base, and your Wi-Fi (2.4 GHz only).
 7. From the ntfy web app, post `update` to the device's inbox, `<base>-<name>` in lower case.
 
 **Check:** the phone shows "Eliana checking for update" followed by an answer, such as "Eliana up to date (v1)". For the serial output while developing, build with `-DDEBUG_SERIAL`.
@@ -194,7 +194,7 @@ Then work through this list with both boards running the firmware. Each line com
 - With a message waiting on B, hold button 1 on B: the message plays first, then a fresh recording starts.
 - With nothing waiting, a single short tap on button 1 sends a one-press message, and a tap with a message waiting only plays it.
 - Tap button 2: the ring shows the battery level for 2 s, then the Wi-Fi signal in blue.
-- Hold button 2 for 5 s and release: the ring fills purple, the `pebblepager` network appears, the ring stays dim purple while the setup page is open, and a new network can be added from the phone.
+- Hold button 2 for 5 s and release: the ring fills purple, the `pebble-pager` network appears, the ring stays dim purple while the setup page is open, and a new network can be added from the phone.
 - Hold button 2 for 10 s: after full purple the ring turns red and counts down to dark. Release and the device turns off. Press button 1: nothing happens. Tap button 2: nothing visible, and the device goes back to sleep. Hold button 2: the ring fills green, and at 5 s the device turns on.
 - Turn off A's Wi-Fi and record a message: A shows two red pulses with a short buzz. Turn the Wi-Fi back on: the queued message goes out.
 - Switch B off (button 2, 10 s) and send from A: A's dim green fill goes round for 45 s, then two red pulses with a short buzz, because no receipt came.

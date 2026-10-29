@@ -7,8 +7,8 @@
 #include <DNSServer.h>
 #include "config.h"
 
-const char* SETUP_SSID = "pebblepager";
-const char* SETUP_PASS = "pebblepager";   // placeholder; should become a per-device value
+const char* SETUP_SSID = "pebble-pager";
+const char* SETUP_PASS = "pebble-pager";   // placeholder; should become a per-device value
 const unsigned long SETUP_TIMEOUT_MS = 5UL * 60 * 1000;
 const unsigned long PORTAL_JOIN_TIMEOUT_MS = 15000;
 const char* PAGE_HEAD = "<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'>"
