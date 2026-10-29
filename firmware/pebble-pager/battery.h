@@ -25,7 +25,7 @@ bool batteryFitted() { return battMv >= BATT_MISSING_MV; }   // false on a bare 
 
 // A resting lithium cell's voltage at each 10%, empty to full. Under load, or while charging, this is only a guide.
 int batteryPercent() {
-  static const int mv[11] = {3300, 3690, 3730, 3770, 3800, 3840, 3870, 3950, 4020, 4110, 4200};
+  static const int mv[11] = {3300, 3650, 3710, 3735, 3760, 3790, 3820, 3860, 3920, 4030, 4200};
   if (battMv <= mv[0]) return 0;
   for (int i = 1; i < 11; i++)
     if (battMv < mv[i]) return 10 * (i - 1) + 10 * (battMv - mv[i - 1]) / (mv[i] - mv[i - 1]);
