@@ -53,8 +53,16 @@ firmware/pebble-pager/         the one sketch; each tab is a module
   ota.h                        remote firmware updates
   portal.h                     setup page
   tests.h                      hardware checks, built instead of the firmware with -DTEST=n
+tools/diagrams/                Python scripts that draw the step 10 board diagram, schematic and tables
+  layout.py                    the board layout as data (holes, parts, wires, posts) and its rule checker; run it to check
+  perfboard.py                 draws docs/img/perfboard-front.svg and perfboard-back.svg from layout.py
+  verify.py                    checks both views against layout.py
+  tables.py                    prints step 10's part and wire tables, pasted into docs/build-steps.md
+  schematic.py                 draws docs/img/schematic.svg
 .secrets                       git-ignored: TOPIC_BASE=... for test scripts on this computer only
 ```
+
+Change the board layout in `tools/diagrams/layout.py`, never by hand in the SVG: run `layout.py`, `perfboard.py` and `verify.py`, and paste `tables.py`'s output over step 10's tables. The scripts use only Python's standard library. Positions are in mm from the case center, where the ring is; `BOARD_DY` is how far the board sits toward the USB end, and it must match the Fusion model.
 
 There is one sketch: the tests call the same modules as the firmware, and compile out of it. The sketch folder and its `.ino` must share a name. Do not name a tab after a core library (`wifi.h`, `update.h`): macOS file names ignore case, so it would replace `WiFi.h` or `Update.h`. Tabs use `#ifndef` include guards, not `#pragma once`, which the build does not honor here.
 

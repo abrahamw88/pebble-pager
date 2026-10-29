@@ -10,3 +10,6 @@ secrets.h
 # Claude Code local settings
 .claude/settings.local.json
 .claude/launch.json
+
+# Python caches from tools/
+__pycache__/
