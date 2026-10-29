@@ -61,12 +61,11 @@
 bool wantUpdate = false;   // the phone sent "update"
 
 // A line for the phone about how the device is doing. The time awake per check is measured, and is what decides
-// battery life. The mA figure is only an estimate from it, using the assumed currents in README (Power budget).
+// battery life.
 String statusText() {
   unsigned long n = statChecks ? statChecks : 1, avg = statCheckMs / n;
-  float ma = (90.0 * avg + 0.053 * (CHECK_INTERVAL_MS - avg)) / CHECK_INTERVAL_MS;   // README: Power budget
   return "status: v" + String(FW_VERSION) + ", " + String(statChecks) + " checks, awake avg " + String(avg) + " ms max " +
-         String(statMaxCheckMs) + " ms (estimated " + String(ma, 1) + " mA, not measured; start " + String(statStartMs / n) + " join " +
+         String(statMaxCheckMs) + " ms (start " + String(statStartMs / n) + " join " +
          String(statJoinMs / n) + " inbox " + String(statPollMs / n) + "), joins " + String(wFastJoins) + " fast " +
          String(wFullJoins) + " full " + String(wFastFails) + " failed, " + String(WiFi.RSSI()) + " dBm, " +
          String(statButtonWakes) + " button wakes, " + String(statStalls) + " stalls, unread " + String(listCount(UNREAD)) +
