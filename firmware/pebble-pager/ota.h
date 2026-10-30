@@ -44,7 +44,7 @@ bool updateDue() {
   unsigned long every = updateValidated ? DAILY_CHECK_S : UPDATE_RETRY_S;
   return clockSeconds() - updateCheckedAt >= (every < DAILY_CHECK_S ? every : DAILY_CHECK_S);
 }
-const char* updateNote = "";     // why the last check installed nothing: "current", "skipped", "none" or ""
+const char* updateNote = "";     // why the last check installed nothing: "current", "skipped", "none", "retry" or ""
 int updateSeen = 0;              // the release version the last check saw
 int updateHttp = 0;              // last HTTP status; 0 or less means the server was never reached
 const char* updateReason = "";   // why the last install failed
@@ -143,7 +143,7 @@ bool updateLook(bool* reached) {
   stallAllowed = true;   // a download takes a while: not a hang
   int result = updateInstall(size, sha);
   stallAllowed = false;
-  if (result == OTA_RETRY) { sayf("v%d not installed (%s): will retry\n", remote, updateReason); return false; }
+  if (result == OTA_RETRY) { sayf("v%d not installed (%s): will retry\n", remote, updateReason); updateNote = "retry"; return false; }
   if (result == OTA_BAD_IMAGE) {
     prefs.putInt("otaBad", remote);
     ntfySay("failed update to v" + String(remote) + ": " + updateReason + ", still on v" + String(FW_VERSION));
@@ -205,6 +205,8 @@ bool updateCheck(bool asked) {
   else if (!strcmp(updateNote, "current")) ntfySay("up to date (v" + String(FW_VERSION) + ")");
   else if (!strcmp(updateNote, "none")) ntfySay("no update published, still on v" + String(FW_VERSION));
   else if (!strcmp(updateNote, "skipped")) ntfySay("skipped v" + String(updateSeen) + " (failed before), still on v" + String(FW_VERSION));
+  else if (!strcmp(updateNote, "retry"))   // the download broke off: the next daily check (or another "update") tries again
+    ntfySay("update to v" + String(updateSeen) + " not installed (" + updateReason + "), still on v" + String(FW_VERSION));
   return reached;   // installed, rejected and failed outcomes are reported where they happen
 }
 
