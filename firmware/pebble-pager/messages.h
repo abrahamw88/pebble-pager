@@ -92,6 +92,9 @@ void messageReceipt(const String& id) {
 
 // ---- Receiving ----
 int arrived = 0;                          // messages that came in and have not been announced yet
+bool waitingLit = false;                  // an arrival has already lit the waiting light: the inbox read need not ask for it again
+bool messagesConversing();                // (below)
+long messageWaitingColor();               // (below)
 
 // A valid pulse message arrived. Keep it for playing and answer it straight away.
 void messageArrived(const NtfyMessage& m, const Pulse& p) {
@@ -100,6 +103,9 @@ void messageArrived(const NtfyMessage& m, const Pulse& p) {
   listPush(UNREAD, (fromPartner ? partnerName : String("phone")) + "\t" + text);
   arrived++;
   if (talkedAt && clockSeconds() - talkedAt < CONVERSATION_S) talkedAt = talkedNow();   // a reply carries the conversation on
+  // A message that will wait for a tap lights its waiting light now, before the receipt is posted (that takes a second
+  // or two), so the pager answers when the sender sees "received", not at the next wake.
+  if (!messagesConversing() && !outputActive()) { showWaiting(messageWaitingColor()); waitingLit = true; }
   if (fromPartner) {
     if (ntfyPublish(partnerName, deviceName, "received " + m.id, true).length() == 0) listPush(RECEIPTS, m.id);   // retried by messagesTick()
     partnerHeard();

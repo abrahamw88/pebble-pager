@@ -224,7 +224,7 @@ bool canSleep() {
   return false;
 #endif
   if (powerHeld() || portalOn || inputBusy() || inputPending() || messagesAwaiting() || listCount(RECEIPTS) > 0 || wantUpdate) return false;
-  if (outputActive()) return false;                         // let the ring and the motor finish
+  if (outputActive() || remindDue) return false;            // let the ring and the motor finish, and show a reminder that is due
   if (messagesConversing()) return false;                   // a conversation is going on: stay awake and connected
   if (!wifiSettled()) return false;                         // a scan or join is under way
   if (!wifiOnline()) return true;                           // nothing in range: sleep, and look again later
@@ -310,7 +310,9 @@ void loop() {
         int fresh = ntfyPoll(onMessage);
         if (first && wakeReason == WAKE_TIMER) statPollMs += millis() - lastPoll;
         sayf("Inbox: %d new (%lu ms)\n", fresh, millis() - lastPoll);
-        if (!messagesAnnounce() && (!first || fresh > 0)) remindDue = true;   // a new message plays; otherwise show that one is waiting
+        bool played = messagesAnnounce();
+        if (!played && (!first || fresh > 0) && !waitingLit) remindDue = true;   // a new message plays; otherwise show that one is waiting
+        waitingLit = false;   // (a new arrival has lit it already, in messageArrived)
       }
       if (batteryReportDue()) {
         if (millis() > 60000) batteryRead();   // kept awake a long time: the reading from start-up is stale
