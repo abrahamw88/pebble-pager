@@ -19,6 +19,10 @@
 #define OTA_STR_(x) #x
 #define OTA_STR(x) OTA_STR_(x)
 #define OTA_BASE "http://" OTA_STR(OTA_LOCAL_IP) ":8000/"
+#elif defined(OTA_TAG)   // -DOTA_TAG=ota-test : test against one release (a pre-release), not the latest
+#define OTA_STR_(x) #x
+#define OTA_STR(x) OTA_STR_(x)
+#define OTA_BASE "https://github.com/abrahamw88/pebble-pager/releases/download/" OTA_STR(OTA_TAG) "/"
 #else
 #define OTA_BASE "https://github.com/abrahamw88/pebble-pager/releases/latest/download/"
 #endif
@@ -47,6 +51,7 @@ bool updateDue() {
 const char* updateNote = "";     // why the last check installed nothing: "current", "skipped", "none", "retry" or ""
 int updateSeen = 0;              // the release version the last check saw
 int updateHttp = 0;              // last HTTP status; 0 or less means the server was never reached
+int updateHeapKb = 0;            // largest free memory block before the last request: a secure connection needs about 40 KB
 const char* updateReason = "";   // why the last install failed
 
 // GET `url`, following redirects (GitHub release downloads redirect to another host).
@@ -57,9 +62,10 @@ bool updateOpen(HTTPClient& http, WiFiClient& plain, WiFiClientSecure& secure, c
   http.setConnectTimeout(5000);
   http.setTimeout(10000);
   http.useHTTP10(true);
+  updateHeapKb = ESP.getMaxAllocHeap() / 1024;
   bool begun = url.startsWith("https") ? http.begin(secure, url) : http.begin(plain, url);
   updateHttp = begun ? http.GET() : -1;
-  sayf("GET %s %d\n", url.substring(url.lastIndexOf('/') + 1).c_str(), updateHttp);
+  sayf("GET %s %d (%d KB free, %d bytes)\n", url.substring(url.lastIndexOf('/') + 1).c_str(), updateHttp, updateHeapKb, http.getSize());
   return updateHttp == 200;
 }
 
@@ -79,7 +85,9 @@ int updateInstall(size_t size, const String& wantSha) {
   WiFiClientSecure secure;
   HTTPClient http;
   if (!updateOpen(http, plain, secure, String(OTA_BASE) + BIN_FILE)) { http.end(); updateReason = "download failed"; return OTA_RETRY; }
-  if (http.getSize() != (int)size) { http.end(); updateReason = "bad size"; return OTA_BAD_IMAGE; }
+  // A wrong size or hash installs nothing and is retried: just after a release, GitHub can serve the new manifest
+  // with the old file for a few minutes.
+  if (http.getSize() != (int)size) { http.end(); updateReason = "bad size"; return OTA_RETRY; }
   if (!Update.begin(size)) { http.end(); updateReason = "too big"; return OTA_BAD_IMAGE; }
 
   mbedtls_sha256_context sha;
@@ -112,7 +120,7 @@ int updateInstall(size_t size, const String& wantSha) {
   }
   char hex[65];
   for (int i = 0; i < 32; i++) sprintf(hex + 2 * i, "%02x", digest[i]);
-  if (!wantSha.equalsIgnoreCase(hex)) { Update.abort(); updateReason = "bad hash"; return OTA_BAD_IMAGE; }
+  if (!wantSha.equalsIgnoreCase(hex)) { Update.abort(); updateReason = "bad hash"; return OTA_RETRY; }
   if (!Update.end(true)) { updateReason = "bad image"; return OTA_BAD_IMAGE; }
   return OTA_OK;
 }
@@ -137,7 +145,7 @@ bool updateLook(bool* reached) {
   sayf("Running v%d, release v%d\n", FW_VERSION, remote);
   if (remote == prefs.getInt("otaBad", 0)) { updateNote = "skipped"; return false; }
   if (remote <= FW_VERSION) { updateNote = "current"; return false; }
-  if (size == 0 || sha.length() != 64) { sayln("Bad manifest"); return false; }
+  if (size == 0 || sha.length() != 64) { sayln("Bad manifest"); updateReason = "bad manifest"; updateNote = "retry"; return false; }
 
   sayf("Installing v%d (%u B)\n", remote, (unsigned)size);
   stallAllowed = true;   // a download takes a while: not a hang
@@ -201,12 +209,13 @@ bool updateCheck(bool asked) {
   updateCheckedAt = clockSeconds() ? clockSeconds() : 1;   // (0 means "never")
   if (reached && !updateValidated) updateValidate();
   if (!asked) return reached;
-  if (!reached) ntfySay("can't reach server, still on v" + String(FW_VERSION));
+  String detail = " (HTTP " + String(updateHttp) + ", " + String(updateHeapKb) + " KB free)";   // for a failure: where it broke
+  if (!reached) ntfySay("can't reach server" + detail + ", still on v" + String(FW_VERSION));
   else if (!strcmp(updateNote, "current")) ntfySay("up to date (v" + String(FW_VERSION) + ")");
-  else if (!strcmp(updateNote, "none")) ntfySay("no update published, still on v" + String(FW_VERSION));
+  else if (!strcmp(updateNote, "none")) ntfySay("no update published" + detail + ", still on v" + String(FW_VERSION));
   else if (!strcmp(updateNote, "skipped")) ntfySay("skipped v" + String(updateSeen) + " (failed before), still on v" + String(FW_VERSION));
   else if (!strcmp(updateNote, "retry"))   // the download broke off: the next daily check (or another "update") tries again
-    ntfySay("update to v" + String(updateSeen) + " not installed (" + updateReason + "), still on v" + String(FW_VERSION));
+    ntfySay("update to v" + String(updateSeen) + " not installed: " + updateReason + detail + ", still on v" + String(FW_VERSION));
   return reached;   // installed, rejected and failed outcomes are reported where they happen
 }
 

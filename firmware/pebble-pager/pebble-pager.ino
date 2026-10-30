@@ -34,6 +34,7 @@
 //                        "online" report to the phone after every full join
 //   -DFW_CRASH           an image that crashes at startup, to test update rollback
 //   -DOTA_LOCAL_IP=a.b.c.d   take updates from a local web server on port 8000 instead of GitHub
+//   -DOTA_TAG=name       take updates from that one GitHub release (a pre-release, for testing) instead of the latest
 //   -DDAILY_CHECK_S=n    shorter update check interval, for testing
 //   -DQUEUE_MAX_AGE_S=n  shorter age limit for queued messages, for testing
 
@@ -58,7 +59,7 @@
 #include "tests.h"
 #else
 
-bool wantUpdate = false;   // the phone sent "update"
+RTC_DATA_ATTR bool wantUpdate = false;   // the phone sent "update": kept through sleep until it can run
 
 // A line for the phone about how the device is doing. The time awake per check is measured, and is what decides
 // battery life.
@@ -224,7 +225,7 @@ bool canSleep() {
 #ifdef NO_SLEEP
   return false;
 #endif
-  if (powerHeld() || portalOn || inputBusy() || inputPending() || messagesAwaiting() || listCount(RECEIPTS) > 0 || wantUpdate) return false;
+  if (powerHeld() || portalOn || inputBusy() || inputPending() || messagesAwaiting() || listCount(RECEIPTS) > 0) return false;
   if (outputActive() || remindDue) return false;            // let the ring and the motor finish, and show a reminder that is due
   if (messagesConversing()) return false;                   // a conversation is going on: stay awake and connected
   if (!wifiSettled()) return false;                         // a scan or join is under way
@@ -319,10 +320,13 @@ void loop() {
         if (millis() > 60000) batteryRead();   // kept awake a long time: the reading from start-up is stale
         ntfySay(batteryText());
       }
-      if (wantUpdate || (!checked && updateDue())) {   // asked for, or the once-a-start / once-a-day check
+      // Asked for, or the once-a-start / once-a-day check. Not while the setup page is open: a download would stall it.
+      if (!portalOn && (wantUpdate || (!checked && updateDue()))) {
         bool asked = wantUpdate;
         wantUpdate = false;
         checked = true;
+        ntfyStreamClose();   // free their memory: the download needs a secure connection of its own
+        ntfyPostClose();
         updateCheck(asked);
       }
     }
