@@ -68,7 +68,8 @@ String statusText() {
          String(statMaxCheckMs) + " ms (start " + String(statStartMs / n) + " join " +
          String(statJoinMs / n) + " inbox " + String(statPollMs / n) + "), joins " + String(wFastJoins) + " fast " +
          String(wFullJoins) + " full " + String(wFastFails) + " failed, " + String(WiFi.RSSI()) + " dBm, " +
-         String(statButtonWakes) + " button wakes, " + String(statStalls) + " stalls, unread " + String(listCount(UNREAD)) +
+         String(statButtonWakes) + " button wakes, " + String(statStalls) + " stalls, frame gap max " + String(statFrameGapMs) +
+         " ms at " + String(statFrameGapAt) + " ms, unread " + String(listCount(UNREAD)) +
          " outbox " + String(listCount(OUTBOX)) + ", " + batteryText();
 }
 

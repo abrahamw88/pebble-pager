@@ -21,7 +21,7 @@ Adafruit_NeoPixel* pixels = nullptr;    // exists only while the ring has power
 volatile bool outPlaying = false;       // a message is playing: the comet is not following button 1
 volatile bool outPlayPending = false;   // unread messages are waiting: a press plays one in its sender's color, not a comet of ours
 volatile unsigned long buzzUntil = 0;   // the motor runs until this millis()
-bool motorOn = false;
+int motorNow = 0;                       // how hard the motor is running, 0 to 255
 uint32_t outOwnRgb = COLOR_RGB[0];      // this device's color
 bool outPressShown = false;             // the comet is lit for a press of button 1
 bool outHoldShown = false;              // the meter is showing a hold of button 2, or the setup page
@@ -35,10 +35,26 @@ struct RingTurn {   // hold one of these to change the animation: it waits for t
   ~RingTurn() { xSemaphoreGive(outLock); }
 };
 
-void motorRun(bool on) {   // gently: the pin is switched fast, so the motor gets only part of the power
-  if (on == motorOn) return;
-  motorOn = on;
-  analogWrite(MOTOR, on ? MOTOR_STRENGTH : 0);
+void motorRun(int strength) {   // 0 to 255, gently: the pin is switched fast, so the motor gets only part of the power
+  if (strength == motorNow) return;
+  motorNow = strength;
+  analogWrite(MOTOR, strength);
+}
+
+// The motor runs with the comet's key (a press of button 1, or a press of a message playing), and sways a little
+// stronger and softer once each lap, following the head round the ring.
+// When the key is let go it fades out over MOTOR_FADE_MS rather than stopping dead. Call once a frame.
+int motorComet() {
+  static int from = 0;               // strength when the key was let go
+  static unsigned long upAt = 0;     // ...and when
+  if (ring.down) {
+    from = MOTOR_STRENGTH + (int)(MOTOR_SWAY * (0.5f - 0.5f * cosf(6.2831853f * ring.angle)));
+    upAt = millis();
+    return from;
+  }
+  unsigned long t = millis() - upAt;
+  if (t >= MOTOR_FADE_MS) from = 0;
+  return from ? from * (int)(MOTOR_FADE_MS - t) / (int)MOTOR_FADE_MS : 0;
 }
 
 void ringPower(bool on) {
@@ -73,18 +89,24 @@ void outputFollow() {
 
 void outputTask(void*) {
   static uint8_t frame[RING_PIXELS][4];
+  int64_t shownAt = 0;   // when the last frame went out, while the ring stays lit
   for (;;) {
     xSemaphoreTake(outLock, portMAX_DELAY);
     ringAdvance(outputNow());
     outputFollow();
     bool lit = ringActive();
-    motorRun((ring.play && ring.down) || buzzing());   // a message buzzes with each of its presses
+    int comet = motorComet();   // with every press, played or recorded
+    motorRun(buzzing() ? max(comet, MOTOR_STRENGTH) : comet);
     ringPower(lit);
     if (lit) {
       ringRender(frame);
       for (int i = 0; i < RING_PIXELS; i++) pixels->setPixelColor(i, frame[i][0], frame[i][1], frame[i][2], frame[i][3]);
       pixels->show();
-    }
+      int64_t at = esp_timer_get_time();   // a long gap between frames is a visible stutter: kept for "status"
+      unsigned long gap = shownAt ? (at - shownAt) / 1000 : 0;
+      if (gap > statFrameGapMs) { statFrameGapMs = gap; statFrameGapAt = millis(); }
+      shownAt = at;
+    } else shownAt = 0;
     xSemaphoreGive(outLock);
     delay(FRAME_MS);
   }
@@ -102,13 +124,15 @@ void outputBegin() {
   outOwnRgb = COLOR_RGB[c < 0 ? 0 : c];
   ring.clock = outputNow();
   outLock = xSemaphoreCreateMutex();
-  xTaskCreate(outputTask, "output", 4096, nullptr, 2, nullptr);   // above loop(), so a busy loop() cannot stall the light
+  // Above loop() and above the Wi-Fi driver's own tasks (18 to 23), which otherwise take the one core for most of the
+  // first second or two after a wake, while Wi-Fi starts and joins: the light stuttered. A frame takes about 1 ms.
+  xTaskCreate(outputTask, "output", 4096, nullptr, configMAX_PRIORITIES - 1, nullptr);
 }
 
 // Call before sleeping: dark and still. The turn is never given back, so the task does nothing more.
 void outputStop() {
   xSemaphoreTake(outLock, portMAX_DELAY);
-  motorRun(false);
+  motorRun(0);
   ringPower(false);
 }
 
@@ -141,7 +165,7 @@ void outputOnGate() {
 
 bool outputActive() {   // something is lit, playing or buzzing
   RingTurn turn;
-  return ringActive() || outPlaying || buzzing();
+  return ringActive() || outPlaying || buzzing() || motorNow > 0;
 }
 
 void buzz(unsigned long ms) { buzzUntil = millis() + ms; }

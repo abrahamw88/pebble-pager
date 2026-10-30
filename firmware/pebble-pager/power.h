@@ -18,6 +18,7 @@ RTC_DATA_ATTR unsigned long statChecks = 0, statCheckMs = 0, statMaxCheckMs = 0;
 RTC_DATA_ATTR unsigned long statButtonWakes = 0, statStalls = 0;
 RTC_DATA_ATTR bool powerIsOff = false;   // switched off from button 2: only a long hold of button 2 turns it on
 RTC_DATA_ATTR unsigned long statStartMs = 0, statJoinMs = 0, statPollMs = 0;   // totals over timer wakes: start-up, fast join, inbox read
+RTC_DATA_ATTR unsigned long statFrameGapMs = 0, statFrameGapAt = 0;   // the ring's longest wait between frames, and when in its wake (ms)
 
 void powerSleep(unsigned long ms);
 
