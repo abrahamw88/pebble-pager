@@ -30,7 +30,7 @@
 //   -DNO_SLEEP           never sleep (for development)
 //   -DNTFY_NO_BLOCK      keep posting through ntfy's 429s and quota pause (to time requests while the quota is used up)
 //   -DDEBUG_SERIAL       print what the firmware is doing over USB serial (off in the real firmware)
-//   -DWIFI_TEST          adds inbox commands that simulate Wi-Fi trouble (drop, nointernet, hide, roam) and an
+//   -DWIFI_TEST          adds inbox commands that simulate Wi-Fi trouble (drop, nointernet, hide, refuse, roam) and an
 //                        "online" report to the phone after every full join
 //   -DFW_CRASH           an image that crashes at startup, to test update rollback
 //   -DOTA_LOCAL_IP=a.b.c.d   take updates from a local web server on port 8000 instead of GitHub
@@ -67,7 +67,8 @@ String statusText() {
   return "status: v" + String(FW_VERSION) + ", " + String(statChecks) + " checks, awake avg " + String(avg) + " ms max " +
          String(statMaxCheckMs) + " ms (start " + String(statStartMs / n) + " join " +
          String(statJoinMs / n) + " inbox " + String(statPollMs / n) + "), joins " + String(wFastJoins) + " fast " +
-         String(wFullJoins) + " full " + String(wFastFails) + " failed, " + String(WiFi.RSSI()) + " dBm, " +
+         String(wFullJoins) + " full " + String(wFastFails) + " failed, " + String(wRefused) + " refused, " + String(wNoneFound) +
+         " none in range, last drop reason " + String(wDropReason) + ", " + String(WiFi.RSSI()) + " dBm, " +
          String(statButtonWakes) + " button wakes, " + String(statStalls) + " stalls, frame gap max " + String(statFrameGapMs) +
          " ms at " + String(statFrameGapAt) + " ms, unread " + String(listCount(UNREAD)) +
          " outbox " + String(listCount(OUTBOX)) + ", " + batteryText();
@@ -95,6 +96,7 @@ void onMessage(const NtfyMessage& m) {
   if (lower == "drop") WiFi.disconnect();                                              // connection lost
   if (lower == "nointernet") wIoFails = WIFI_IO_FAIL_LIMIT;                            // joined but no internet
   if (lower == "hide") { wTestHideUntil = clockSeconds() + 120; wLast.valid = false; WiFi.disconnect(); } // out of range for 2 min
+  if (lower == "refuse") { wTestRefuseUntil = clockSeconds() + 150; wLast.valid = false; WiFi.disconnect(); } // joins refused for 2.5 min
   if (lower == "roam") { wTestRoam = true; wRssiAt = millis() - WIFI_RSSI_CHECK_MS; }  // weak signal, better one nearby
 #endif
   if (!pulseLooksLike(lower)) return;

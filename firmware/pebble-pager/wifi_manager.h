@@ -10,6 +10,7 @@
 //   After a sleep it skips the scan: it rejoins the same access point with the same IP settings (the fast join),
 //   and falls back to a scan if that fails, the signal has been weak, or the IP lease is due for renewal.
 //   A dropout gets a short grace period, then a rescan. Nothing in range: retry with a growing wait, up to 5 min.
+//   A saved network in range that refuses the join is retried with the same growing wait, but only up to 1 min.
 //   Callers report each internet request with wifiIoResult(); repeated failures (a login page, a dead router)
 //   mark the network bad for a while and move to the next one. A weak signal triggers a rescan and a move
 //   only to a clearly stronger access point.
@@ -23,6 +24,7 @@ const unsigned long WIFI_LEASE_REFRESH_S = 3600;             // do a full join t
 const unsigned long WIFI_GRACE_MS = 5000;                    // let a brief dropout heal itself before rescanning
 const unsigned long WIFI_RETRY_MIN_MS = 10000;               // first retry after finding nothing
 const unsigned long WIFI_RETRY_MAX_MS = 5UL * 60 * 1000;     // away from every saved network: look every 5 min
+const unsigned long WIFI_REFUSED_MAX_MS = 60000;             // a saved network in range that refused the join: try again within a minute
 const int WIFI_IO_FAIL_LIMIT = 3;                            // failed internet requests in a row before moving on
 const unsigned long WIFI_BAD_COOLDOWN_S = 10 * 60;           // how long a network without internet is avoided
 const unsigned long WIFI_RSSI_CHECK_MS = 30000;
@@ -49,9 +51,12 @@ RTC_DATA_ATTR struct {
   unsigned long at;                                          // clockSeconds() of the full join it came from
 } wLast;
 RTC_DATA_ATTR unsigned long wFastJoins = 0, wFullJoins = 0, wFastFails = 0;   // counts, for the status report
+RTC_DATA_ATTR unsigned long wRefused = 0, wNoneFound = 0;   // full joins that failed with a network in range; scans that found none
+RTC_DATA_ATTR int wDropReason = 0;                           // the driver's reason for the last disconnect we did not ask for
 
 #ifdef WIFI_TEST   // test hooks, driven by ntfy commands (see the main tab)
 RTC_DATA_ATTR unsigned long wTestHideUntil = 0;   // pretend no network is in range until this clockSeconds() (0 = off)
+RTC_DATA_ATTR unsigned long wTestRefuseUntil = 0; // join with a wrong password until this clockSeconds(), so joins are refused
 bool wTestRoam = false;             // pretend the signal is weak and any other access point is better
 #endif
 
@@ -82,6 +87,9 @@ void wifiDhcp() { WiFi.config(IPAddress(), IPAddress(), IPAddress()); }   // for
 // Call once at start-up. After a sleep this starts the fast join straight away.
 void wifiBegin() {
   WiFi.persistent(false);   // the saved list lives in our own settings, not the Wi-Fi driver's
+  WiFi.onEvent([](arduino_event_id_t, arduino_event_info_t info) {   // 8 is our own disconnect
+    if (info.wifi_sta_disconnected.reason != WIFI_REASON_ASSOC_LEAVE) wDropReason = info.wifi_sta_disconnected.reason;
+  }, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
   WiFi.mode(WIFI_STA);
   wNextScan = millis();
   bool fresh = clockSeconds() - wLast.at < WIFI_LEASE_REFRESH_S;
@@ -123,10 +131,11 @@ void wifiAdopt() {   // the setup portal joined a network itself (it is saved as
   if (WiFi.status() == WL_CONNECTED) wifiOnlineNow(0);
 }
 
-void wifiRetryLater() {
+void wifiRetryLater(bool inRange) {   // inRange: a saved network was there but refused the join, so don't wait as if away
   wState = W_IDLE;
+  if (inRange) wRetry = min(wRetry, WIFI_REFUSED_MAX_MS);
   wNextScan = millis() + wRetry;
-  wRetry = min(wRetry * 2, WIFI_RETRY_MAX_MS);
+  wRetry = min(wRetry * 2, inRange ? WIFI_REFUSED_MAX_MS : WIFI_RETRY_MAX_MS);
 }
 void wifiRescanNow() { WiFi.disconnect(); wState = W_IDLE; wNextScan = millis() + WIFI_SETTLE_MS; }
 void wifiStartScan(bool roam) {
@@ -140,7 +149,11 @@ void wifiStartJoin() {
   int i = wCand[wCandI];
   sayf("Wi-Fi join %d of %d (%d dBm)\n", i + 1, savedCount(), wCandRssi[wCandI]);
   wifiDhcp();
-  WiFi.begin(savedSsid(i).c_str(), savedPass(i).c_str(), wCandCh[wCandI], wCandBssid[wCandI]);
+  String pass = savedPass(i);
+#ifdef WIFI_TEST
+  if (wTestRefuseUntil && clockSeconds() < wTestRefuseUntil) pass = "wrong-password";
+#endif
+  WiFi.begin(savedSsid(i).c_str(), pass.c_str(), wCandCh[wCandI], wCandBssid[wCandI]);
   wState = W_JOIN;
   wAt = millis();
 }
@@ -202,7 +215,7 @@ void wifiTick() {   // call every loop(); returns within a few milliseconds
         sayln("Wi-Fi: stronger access point found");
         WiFi.disconnect();
       }
-      if (wCandI >= wCandN) { sayln("Wi-Fi: no saved network in range"); wifiRetryLater(); break; }
+      if (wCandI >= wCandN) { sayln("Wi-Fi: no saved network in range"); wNoneFound++; wifiRetryLater(false); break; }
       wifiStartJoin();
       break;
     }
@@ -240,7 +253,7 @@ void wifiTick() {   // call every loop(); returns within a few milliseconds
       } else if (!wFast && millis() - wAt >= WIFI_JOIN_TIMEOUT_MS) {
         WiFi.disconnect();
         if (++wCandI < wCandN) wifiStartJoin();
-        else { sayln("Wi-Fi: join failed"); wifiRetryLater(); }
+        else { sayf("Wi-Fi: join failed (reason %d)\n", wDropReason); wRefused++; wifiRetryLater(true); }
       }
       break;
 
