@@ -270,7 +270,6 @@ async function sendNext() {
   if (!outbox.length) sendShown = false;
   talkedAt = Date.now();
   save();
-  await tell("sent " + text);
   if (!partnerLive()) ringShow(() => ringConnect(RGB_RECEIVED, RECEIPT_WAIT_MS / 1000));   // the first message of a series: a fill while their device wakes and answers
   awaited.push({ id, at: Date.now() });
   if (awaited.length > OUTBOX_MAX) awaited.shift();
@@ -667,7 +666,7 @@ function fillSetup() {
   $("topics").innerHTML = !ready() ? "<span>Enter the topic base to connect.</span>"
     : "<span>This pager listens on <b>" + settings.base + "-" + slug(settings.name) + "</b></span>"
     + (settings.partner ? "<span>and sends to <b>" + settings.base + "-" + slug(settings.partner) + "</b></span>" : "")
-    + "<span>Copies for the phone go to <b>" + settings.base + "-phone</b></span>";
+    + "<span>The phone follows both topics; reports go to <b>" + settings.base + "-phone</b></span>";
 }
 function toggleSetup() { ringShow(ringConnectStop); const s = $("setup"); s.hidden = !s.hidden; if (!s.hidden) { fillSetup(); s.scrollIntoView({ behavior: "smooth", block: "start" }); } }
 $("openSetup").onclick = toggleSetup;

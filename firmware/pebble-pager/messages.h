@@ -4,8 +4,9 @@
 //   Unread: messages received and not yet played, oldest first.
 //   Receipts: every message received from the partner is answered with "received <id>" as soon as it is read
 //           from the inbox, before it is played. After sending, the sender waits a short while for that answer.
-// Both lists are saved in settings, so they survive sleep, restarts and power cuts. Reports to the phone
-// ("sent ...") go through ntfySay, which keeps them until they can be posted.
+// Both lists are saved in settings, so they survive sleep, restarts and power cuts. The parent's phone follows the
+// conversation by subscribing to both devices' inboxes, so a sent message needs no copy of its own. Reports to the
+// phone topic (status, update results, a message that can't be read) go through ntfySay, which keeps them until they can be posted.
 //   On the ring: nothing while a message is on its way (it is assumed to be sending), then its one status: a green
 //           flash of the green pixel at the bottom when the partner's receipt comes, or two red pulses if it can't go now (it stays queued) or if no
 //           receipt comes. Each comes with a short buzz.
@@ -69,7 +70,6 @@ void messageSendNext() {
   if (listCount(OUTBOX) == 0) sendShown = false;
   talkedAt = talkedNow();   // sending starts a conversation, or carries one on
   if (!partnerLive()) { sayln("Connecting: fill started"); showConnecting(RECEIPT_WAIT_MS / 1000.0f); }   // the first message of a series: a fill while their device wakes and answers
-  ntfySay("sent " + text);
   int slot = 0;   // remember the id until its receipt comes; if all slots are busy, reuse the oldest
   for (int i = 0; i < OUTBOX_MAX; i++) {
     if (awaited[i].id.length() == 0) { slot = i; break; }
