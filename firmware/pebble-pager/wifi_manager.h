@@ -12,7 +12,7 @@
 //   A dropout gets a short grace period, then a rescan. Nothing in range: retry with a growing wait, up to 5 min.
 //   A saved network in range that refuses the join is retried with the same growing wait, but only up to 1 min.
 //   Callers report each internet request with wifiIoResult(); repeated failures (a login page, a dead router)
-//   mark the network bad for a while and move to the next one. A weak signal triggers a rescan and a move
+//   mark the network bad for a while and move to the next one, unless another server answers (then the server is down). A weak signal triggers a rescan and a move
 //   only to a clearly stronger access point.
 // What must outlive a sleep is kept in RTC memory; times that must outlive it use clockSeconds().
 const unsigned long WIFI_SCAN_TIMEOUT_MS = 10000;
@@ -58,6 +58,7 @@ RTC_DATA_ATTR int wDropReason = 0;                           // the driver's rea
 RTC_DATA_ATTR unsigned long wTestHideUntil = 0;   // pretend no network is in range until this clockSeconds() (0 = off)
 RTC_DATA_ATTR unsigned long wTestRefuseUntil = 0; // join with a wrong password until this clockSeconds(), so joins are refused
 bool wTestRoam = false;             // pretend the signal is weak and any other access point is better
+bool wTestNoInternet = false;       // the next check of another server fails too
 #endif
 
 bool wifiDue(unsigned long t) { return (long)(millis() - t) >= 0; }   // safe across millis() rollover
@@ -116,7 +117,10 @@ bool wifiSettled() {
   if (wState == W_ONLINE) return wIoFails < WIFI_IO_FAIL_LIMIT;
   return wState == W_IDLE && (savedCount() == 0 || !wifiDue(wNextScan));
 }
-unsigned long wifiRetryMs() { return wRetry; }                                // how long to wait before looking again
+unsigned long wifiRetryMs() {   // how long to wait before looking again (wRetry already holds the wait after that one)
+  long left = (long)(wNextScan - millis());
+  return left > 1000 ? left : 1000;
+}
 void wifiKick() { if (wState == W_IDLE) { wRetry = WIFI_RETRY_MIN_MS; wNextScan = millis(); } }   // look now (button press)
 void wifiPause() {   // before the setup portal scans: stop any search in progress
   if (wState != W_SCAN && wState != W_JOIN) return;
@@ -129,6 +133,20 @@ void wifiAdopt() {   // the setup portal joined a network itself (it is saved as
   wifiListChanged();
   wIoFails = wWeak = 0;
   if (WiFi.status() == WL_CONNECTED) wifiOnlineNow(0);
+}
+
+// The failed requests may all have gone to one server that is down (ntfy has outages) while the network is fine:
+// if another well-known server takes a connection, the network is not to blame. Blocks for up to WIFI_PROBE_MS.
+const char* WIFI_PROBE_HOST = "github.com";
+const int WIFI_PROBE_MS = 3000;
+bool wifiOtherServerAnswers() {
+#ifdef WIFI_TEST
+  if (wTestNoInternet) { wTestNoInternet = false; return false; }
+#endif
+  WiFiClient c;
+  bool ok = c.connect(WIFI_PROBE_HOST, 443, WIFI_PROBE_MS);
+  c.stop();
+  return ok;
 }
 
 void wifiRetryLater(bool inRange) {   // inRange: a saved network was there but refused the join, so don't wait as if away
@@ -266,6 +284,7 @@ void wifiTick() {   // call every loop(); returns within a few milliseconds
       wLostAt = 0;
       if (wIoFails >= WIFI_IO_FAIL_LIMIT) {
         wIoFails = 0;
+        if (wifiOtherServerAnswers()) { sayln("Wi-Fi: the internet works, the server is down"); break; }
         if (wCur >= 0 && !wifiBad(wCur)) {   // not already marked: avoid it for a while and look elsewhere
           sayln("Wi-Fi: no internet here, trying others");
           wBadUntil[wCur] = clockSeconds() + WIFI_BAD_COOLDOWN_S;

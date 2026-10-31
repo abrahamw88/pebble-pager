@@ -17,6 +17,7 @@ volatile bool stallAllowed = false; // a long job (a firmware download) is runni
 RTC_DATA_ATTR unsigned long statChecks = 0, statCheckMs = 0, statMaxCheckMs = 0;   // timer wakes: how many, total and longest time awake
 RTC_DATA_ATTR unsigned long statButtonWakes = 0, statStalls = 0;
 RTC_DATA_ATTR bool powerIsOff = false;   // switched off from button 2: only a long hold of button 2 turns it on
+bool powerWasOff = false;                // this wake is the hold that turned it on
 RTC_DATA_ATTR unsigned long statStartMs = 0, statJoinMs = 0, statPollMs = 0;   // totals over timer wakes: start-up, fast join, inbox read
 RTC_DATA_ATTR unsigned long statFrameGapMs = 0, statFrameGapAt = 0;   // the ring's longest wait between frames, and when in its wake (ms)
 
@@ -32,7 +33,7 @@ static void stallGuard(void*) {
 void powerBegin() {
   esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
   wakeReason = cause == ESP_SLEEP_WAKEUP_TIMER ? WAKE_TIMER : cause == ESP_SLEEP_WAKEUP_GPIO ? WAKE_BUTTON : WAKE_COLD;
-  if (wakeReason == WAKE_BUTTON) statButtonWakes++;
+  if (wakeReason == WAKE_BUTTON) { statButtonWakes++; powerWasOff = powerIsOff; }
   else powerIsOff = false;   // power-on, a restart or a timer: not the button wake of a device that was off
   if (wakeReason == WAKE_COLD) awakeUntil = COLD_AWAKE_MS;   // after power-on or a restart, give the user time to press something
   loopAt = millis();

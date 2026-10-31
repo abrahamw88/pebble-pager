@@ -163,7 +163,7 @@ bool messagesAnnounce() {
 
 
 // Something is queued and worth trying to post right now (not just after a failed attempt).
-bool messagesWaiting() { return messagesCanSend() && listCount(OUTBOX) > 0 && (long)(millis() - sendRetryAt) >= 0; }
+bool messagesWaiting() { return messagesCanSend() && listCount(OUTBOX) > 0 && (long)(millis() - sendRetryAt) >= 0 && !ntfyBackedOff(); }
 
 // Call every loop() while online: post what is queued, and give up on receipts that never came.
 void messagesTick() {

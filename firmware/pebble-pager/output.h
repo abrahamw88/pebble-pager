@@ -87,6 +87,42 @@ void outputFollow() {
   outPressShown = down;
 }
 
+// A tap of button 2 shows the battery gauge from the task too, the moment it is released, so it answers even while
+// loop() waits on a network request. loop() still sees the tap (and shows it itself when the task cannot: a tap over
+// before the chip was running, or a simulated one); whichever comes first shows it, and the other leaves it be.
+const unsigned long TAP_SAME_MS = 1000;   // a gauge started this recently is this tap's
+volatile unsigned long outTapAt = 0;      // when a tap's battery gauge was last started (0 = never)
+bool outTapRecent() { return outTapAt && millis() - outTapAt < TAP_SAME_MS; }
+int batteryPercent();
+bool batteryFitted();
+
+void ringBattery() {   // 1 to 12 pixels: green, red under 20%, one amber pixel if there is no battery. Hold the lock.
+  int percent = batteryPercent(), lit = (percent * RING_PIXELS + 99) / 100;
+  ringConnectStop();   // every button 2 action cancels the connecting fill
+  if (!batteryFitted()) ringGauge(RGB_LOW, 1);
+  else ringGauge(percent < BATT_LOW_PERCENT ? RGB_BAD : RGB_BATTERY, lit < 1 ? 1 : lit > RING_PIXELS ? RING_PIXELS : lit);
+  outTapAt = millis() | 1;
+}
+
+void outputFollowTap() {   // the pin must read the same twice running, as for button 1
+  static bool started = false, last = false, steady = false, spent = false;
+  static unsigned long downAt = 0;
+  bool raw = pinsDown(1);
+  if (!started) {   // already down when the task began: the press that woke the device, or the hold that turns it on
+    started = true;
+    last = steady = raw;
+    downAt = millis() - WAKE_LEAD_MS;
+    spent = powerIsOff || powerWasOff;
+    return;
+  }
+  bool was = steady;
+  if (raw == last) steady = raw;
+  last = raw;
+  if (steady == was) return;
+  if (steady) { downAt = millis(); spent = false; return; }
+  if (!spent && millis() - downAt < SETUP_HOLD_MS && !outTapRecent()) ringBattery();
+}
+
 void outputTask(void*) {
   static uint8_t frame[RING_PIXELS][4];
   int64_t shownAt = 0;   // when the last frame went out, while the ring stays lit
@@ -94,6 +130,7 @@ void outputTask(void*) {
     xSemaphoreTake(outLock, portMAX_DELAY);
     ringAdvance(outputNow());
     outputFollow();
+    outputFollowTap();
     bool lit = ringActive();
     int comet = motorComet();   // with every press, played or recorded
     motorRun(buzzing() ? max(comet, MOTOR_STRENGTH) : comet);
@@ -206,13 +243,7 @@ void showReceived() {   // one green pixel at the bottom, with a short buzz; a c
 void showFailed() { { RingTurn turn; ringConnectStop(); ringFail(); } buzz(BUZZ_SHORT_MS); }   // red, with a short buzz
 void showWaiting(uint32_t rgb) { RingTurn turn; ringBlip(rgb, 0); }                 // a message is waiting: its sender's color, at the top
 void showLow() { RingTurn turn; ringBlip(RGB_LOW, RING_PIXELS / 2); }               // battery low: amber, at the bottom
-void showBattery(bool fitted, int percent) {   // 1 to 12 pixels: green, red under 20%, one amber pixel if there is no battery
-  int lit = (percent * RING_PIXELS + 99) / 100;
-  RingTurn turn;
-  ringConnectStop();   // every button 2 action cancels the connecting fill
-  if (!fitted) ringGauge(RGB_LOW, 1);
-  else ringGauge(percent < BATT_LOW_PERCENT ? RGB_BAD : RGB_BATTERY, lit < 1 ? 1 : lit > RING_PIXELS ? RING_PIXELS : lit);
-}
+void showBattery() { RingTurn turn; if (!outTapRecent() || ring.gaugeMs < 0) ringBattery(); }   // unless the task's gauge for this tap is on
 void showWifi(bool online, int rssi) {   // 1 to 12 blue pixels by signal strength; a few red ones if not connected
   RingTurn turn;
   ringConnectStop();

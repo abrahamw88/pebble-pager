@@ -94,7 +94,7 @@ void onMessage(const NtfyMessage& m) {
   if (lower.startsWith("received ")) { messageReceipt(text.substring(9)); return; }
 #ifdef WIFI_TEST   // simulate trouble, to test the Wi-Fi manager from the phone
   if (lower == "drop") WiFi.disconnect();                                              // connection lost
-  if (lower == "nointernet") wIoFails = WIFI_IO_FAIL_LIMIT;                            // joined but no internet
+  if (lower == "nointernet") { wIoFails = WIFI_IO_FAIL_LIMIT; wTestNoInternet = true; } // joined but no internet
   if (lower == "hide") { wTestHideUntil = clockSeconds() + 120; wLast.valid = false; WiFi.disconnect(); } // out of range for 2 min
   if (lower == "refuse") { wTestRefuseUntil = clockSeconds() + 150; wLast.valid = false; WiFi.disconnect(); } // joins refused for 2.5 min
   if (lower == "roam") { wTestRoam = true; wRssiAt = millis() - WIFI_RSSI_CHECK_MS; }  // weak signal, better one nearby
@@ -113,7 +113,7 @@ unsigned long tapAt = 0;
 void batteryTap() {
   batteryRead();
   sayf("%s\n", batteryText().c_str());
-  showBattery(batteryFitted(), batteryPercent());
+  showBattery();
   tapWifiPending = true;
   tapAt = millis();
 }

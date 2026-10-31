@@ -56,6 +56,17 @@ void inputBegin() {
     if (digitalRead(s.pin) == LOW) button[s.button] = {true, millis() - WAKE_LEAD_MS};
   }
   if (button[0].down) recState = R_PRESSED;
+  // A quick tap of button 2 can be over before the chip is running, leaving no edge: the wake pin still says it
+  // happened, so take it as a tap that has just been released.
+  if (wakeReason == WAKE_BUTTON && !powerWasOff && !button[1].down && (esp_sleep_get_gpio_wakeup_status() & (1ULL << BTN2))) {
+    button[1] = {true, millis() - WAKE_LEAD_MS};
+    noInterrupts();
+    edgeQueue[edgeHead].button = 1;
+    edgeQueue[edgeHead].down = false;
+    edgeQueue[edgeHead].at = millis();
+    edgeHead = (edgeHead + 1) % EDGE_QUEUE;
+    interrupts();
+  }
 }
 
 void inputBootButton(int button) { sources[2].button = button; }   // 0 = act as button 1, 1 = act as button 2

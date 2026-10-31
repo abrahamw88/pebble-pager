@@ -59,6 +59,10 @@ void ntfyNote(int code) {   // call with every response's status
     ntfyBackoffMs = ntfyBackoffMs ? min(ntfyBackoffMs * 2, 24000UL) : 6000UL;
     ntfyBackoffUntil = millis() + ntfyBackoffMs;
     sayf("ntfy is rate limiting: pausing %lu s\n", ntfyBackoffMs / 1000);
+  } else if (code <= 0) {   // no answer at all (the server may be down): hold off the same way, so queued posts and
+    ntfyBackoffMs = ntfyBackoffMs ? min(ntfyBackoffMs * 2, 24000UL) : 6000UL;   // reports retrying every few seconds,
+    ntfyBackoffUntil = millis() + ntfyBackoffMs;                                 // each waiting 5 s, don't keep it awake
+    sayf("ntfy is not answering: pausing %lu s\n", ntfyBackoffMs / 1000);
   } else if (code == 200) ntfyBackoffMs = 0;
 }
 String topicUrl(const String& who) { return String(NTFY_SERVER) + topicBase + "-" + slug(who); }
@@ -219,7 +223,7 @@ void ntfySay(const String& text) {
   if (!sent) listPush(NOTES, line);
 }
 
-bool notesWaiting() { return listCount(NOTES) > 0 && (long)(millis() - notesRetryAt) >= 0; }   // something to post, and worth trying now
+bool notesWaiting() { return listCount(NOTES) > 0 && (long)(millis() - notesRetryAt) >= 0 && !ntfyBackedOff(); }   // something to post, and worth trying now
 
 void ntfyFlush() {   // call every loop(): post one waiting report when online
   if (!wifiOnline() || listCount(NOTES) == 0 || (long)(millis() - notesRetryAt) < 0) return;
