@@ -19,10 +19,6 @@
 #define OTA_STR_(x) #x
 #define OTA_STR(x) OTA_STR_(x)
 #define OTA_BASE "http://" OTA_STR(OTA_LOCAL_IP) ":8000/"
-#elif defined(OTA_TAG)   // -DOTA_TAG=ota-test : test against one release (a pre-release), not the latest
-#define OTA_STR_(x) #x
-#define OTA_STR(x) OTA_STR_(x)
-#define OTA_BASE "https://github.com/abrahamw88/pebble-pager/releases/download/" OTA_STR(OTA_TAG) "/"
 #else
 #define OTA_BASE "https://github.com/abrahamw88/pebble-pager/releases/latest/download/"
 #endif

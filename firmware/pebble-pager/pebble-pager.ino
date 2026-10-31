@@ -34,7 +34,6 @@
 //                        "online" report to the phone after every full join
 //   -DFW_CRASH           an image that crashes at startup, to test update rollback
 //   -DOTA_LOCAL_IP=a.b.c.d   take updates from a local web server on port 8000 instead of GitHub
-//   -DOTA_TAG=name       take updates from that one GitHub release (a pre-release, for testing) instead of the latest
 //   -DDAILY_CHECK_S=n    shorter update check interval, for testing
 //   -DQUEUE_MAX_AGE_S=n  shorter age limit for queued messages, for testing
 
