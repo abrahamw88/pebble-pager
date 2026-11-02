@@ -41,6 +41,10 @@ for V, pf in (('F', pxF), ('B', pxB)):
             want = 'lead' if ((V == 'B') == (side == 'B')) else 'joint'
             if hits[0][2] != want: errs.append('%s view: lead %s is a %s, expected a %s' % (V, h, hits[0][2], want))
     if len(got) != len(lead_holes): errs.append('%s view: %d lead markers for %d leads' % (V, len(got), len(lead_holes)))
+for V, pf in (('F', pxF), ('B', pxB)):                # the motor's and capacitor's leads, fed in from the back
+    for h in OFF_LEADS:
+        if not any(t == 'circle' and "r='4.5'" in a and near(pf(h), (num(a, 'cx'), num(a, 'cy'))) for t, a in els):
+            errs.append('%s view: off-board lead at %s not marked' % (V, h))
 # 3. wires: every route is drawn in each view at the mirrored place, solid on the near side, dotted on the far side
 paths = []
 for t, a in els:

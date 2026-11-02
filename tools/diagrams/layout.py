@@ -16,6 +16,7 @@ SKIRT_IN = 9.88                            # button 1's cap: a skirt from here o
 BATTERY_BOTTOM = -14.4 + BOARD_DY
 SCREW_HOLES = [(1, 1), (14, 1), (1, 13), (14, 13)]   # drilled out to 2.5 mm for M2.3 screws into posts in the case front
 SCREW_HOLE_R, POST_R = 1.25, 2.1          # mm; each post ends on the board's front face
+SCREW_HEAD_R = 2.0                         # mm, about: the low-profile heads on the back
 SUPPORTS = [(17.0, -30.0 + BOARD_DY, 1.5), (-20.5, -30.0 + BOARD_DY, 1.5)]   # mm, x, y, radius: case-front supports resting on the board's front
 MAX_ON_LEAD = 3                            # wires lapped onto one lead, at most
 
@@ -58,7 +59,6 @@ WIRES = [
     ('W6', 'D10', [('F', [(11, 17), (10, 17)])]),
     ('W7', '3V3', [('F', [(11, 18), (12, 18)])]),
     ('W8', 'BASE1', [('F', [(9, 15), (9.25, 14.45), (3.7, 14.45), (3.7, 13.0), (3, 13)])]),
-    ('W9', 'BASE1', [('F', [(3, 13), (2.0, 13.5), (1.6, 14.5), (1, 15)])]),
     ('W10', 'BASE2', [('F', [(9, 16), (9.3, 15.55), (12.6, 15.55), (13, 16)])]),
     ('W11', 'BASE2', [('F', [(13, 16), (14, 15)])]),
     ('W12', 'MOT-', [('F', [(14, 14), (12, 15)])]),
@@ -70,23 +70,31 @@ WIRES = [
     ('B', 'GND', [('B', [(3, 16), (4.0, 15.2), (4.0, 7.0), (6, 6)])]),
     ('C', 'GND', [('B', [(13, 19), (12.45, 18.45), (12.45, 13.176), (9.6, 10.326), (9.6, 5.3), (6.6, 5.3), (6, 6)])]),
     ('D', 'GND', [('B', [(3, 16), (2.0, 16.9), (0.65, 17.4), (0.65, 18.6), (1, 19)])]),
+    ('E', 'BASE1', [('B', [(1, 15), (2.0, 14.8), (2.25, 13.95), (2.3, 13.35), (3, 13)])]),
+    ('F', '3V3', [('B', [(3, 1), (3.5, 0.45), (12.5, 0.45), (13, 1)])]),
+    ('G', '3V3', [('B', [(13, 1), (12.85, 1.6), (12.85, 15.0), (12.62, 15.3), (12.62, 17.6), (12, 18)])]),
+    ('H', 'MOT-', [('B', [(12, 1), (12.62, 1.6), (12.62, 14.6), (12, 15)])]),
+    ('I', 'GND', [('B', [(2, 1), (2.5, 1.6), (2.5, 12.2), (3.45, 12.6), (3.45, 15.45), (1.75, 15.95), (1, 16)])]),
 ]
 WIRE_USE = {'W1': 'D5 to R1', 'W2': 'D4 to R3', 'W3': 'D3 to button 2', 'W4': 'D1 to R6', 'W5': 'D1 to R7', 'W6': 'D10 to R5',
-            'W7': '3V3 to the diode', 'W8': 'R1 to R2 (Q1 base)', 'W9': 'R2 to Q1 base', 'W10': 'R3 to R4 (Q2 base)',
+            'W7': '3V3 to the diode', 'W8': 'R1 to R2 (Q1 base)', 'W10': 'R3 to R4 (Q2 base)',
             'W11': 'R4 to Q2 base', 'W12': 'Q2 collector to the diode', 'W13': 'ground to R4', 'W14': 'R4 to Q2 emitter',
             'W15': 'R2 to Q1 emitter', 'W17': 'R7 to button 2',
-            'A': 'D2 to button 1, on the back', 'B': 'ground from R2 to button 1, on the back', 'C': 'ground from R4 to button 1, on the back', 'D': 'ground from R2 to R7, on the back'}
+            'A': 'D2 to button 1, on the back', 'B': 'ground from R2 to button 1, on the back', 'C': 'ground from R4 to button 1, on the back', 'D': 'ground from R2 to R7, on the back',
+            'E': 'R2 to Q1 base, on the back', 'F': 'the capacitor\'s + to the motor\'s red lead, on the back',
+            'G': 'the motor\'s red lead to the diode, on the back', 'H': 'the motor\'s blue lead to the diode, on the back',
+            'I': 'the capacitor\'s − to Q1\'s emitter, on the back'}
 
 # off the board: (number, what, net, the lead it is lapped onto, where its number is drawn)
 OFFBOARD = [
     (1, 'Ring GND pad', 'RGND', (1, 14), (0.05, 13.55)),
     (2, 'Ring PWR pad', '3V3', (11, 18), (10.45, 18.5)),
     (3, 'Ring DIN pad', 'RIN', (7, 17), (6.5, 17.5)),
-    (4, 'Motor red (+)', '3V3', (12, 18), (12.0, 18.62)),
-    (5, 'Motor blue (−)', 'MOT-', (12, 15), (11.5, 14.5)),
-    (6, 'Capacitor − (striped)', 'GND', (1, 16), (0.05, 16.45)),
 ]
-OFF_NOTE = {2: 'the capacitor\'s + lead solders onto this ring pad too'}
+# the capacitor's and the motor's leads: fed into these holes from the back (only as far as the board) and soldered on the
+# back; wires on the back carry them on. Several lie under the ring's edge, so the front pads must stay flat.
+OFF_LEADS = {(2, 1): ('GND', 'Capacitor − (striped)'), (3, 1): ('3V3', 'Capacitor +'),
+             (12, 1): ('MOT-', 'Motor blue (−)'), (13, 1): ('3V3', 'Motor red (+)')}
 # the BAT+ sense wire: from the XIAO's BAT+ pad, under the XIAO and round the board's bottom edge (row 20.5), onto R6;
 # its insulation is too thick to pass up through a hole
 SENSE_BACK, SENSE_FRONT = [(8.5, 18), (8.5, 20.5)], [(8.5, 20.5), (9, 20), (9, 19)]
@@ -105,6 +113,8 @@ def leads():
         out[h] = (p[0], p[2] + (' ' + p[1] if p[1] else ''))
     for (n, v, a, b, na, nb) in PARTS:
         out[a] = (na, n); out[b] = (nb, n)
+    for h, (net, what) in OFF_LEADS.items():
+        out[h] = (net, what)
     return out
 def ends(w):
     return w[2][0][1][0], w[2][-1][1][-1]
@@ -186,7 +196,7 @@ def check():
             if len(nets) > 1: errs.append('short%s: %s' % (stage, sorted(nets)))
         for a, b in INTERNAL: parent[find(a)] = find(b)
     # front: nothing bare under the ring or the cap skirt; no wire across the skirt, over a joint, a resistor, or another wire
-    front_joints = {h: L[h][1] for h in L} | {p: 'hole for ' + n for p, n in used.items()}
+    front_joints = {h: L[h][1] for h in L if h not in OFF_LEADS} | {p: 'hole for ' + n for p, n in used.items()}
     for h, what in front_joints.items():
         r = r_of(h)
         if RING_IN - 0.5 <= r <= RING_OUT + 0.5 or SKIRT_IN - 0.5 <= r < RING_IN - 0.5:
@@ -226,24 +236,39 @@ def check():
                 p = (a[0] + (b[0] - a[0]) * k / 20, a[1] + (b[1] - a[1]) * k / 20)
                 for nm, (c0, c1, r0, r1) in list(BACK_BODIES.items()) + [('header', hd) for hd in HEADERS]:
                     if nm == 'XIAO': continue                     # under the XIAO is the header gap
+                    if nm in [PINS[e][2] for e in ends(w) if e in PINS]: continue   # leaving the part it is lapped onto
                     if c0 <= p[0] <= c1 and r0 <= p[1] <= r1:
                         errs.append('%s runs into %s on the back' % (w[0], nm)); break
         for side, pts in w[2]:
             for e in (pts[0], pts[-1]):
-                if side == 'B' and e in L and e in PINS and PINS[e][3] == 'B':
+                if side == 'B' and e in PINS and PINS[e][2] == 'XIAO':
                     errs.append('%s is lapped on the back onto %s, which a part on the back covers' % (w[0], L[e][1]))
+        for a, b in segs(w, 'B'):
+            for h in SCREW_HOLES:
+                if seg_dist(h, a, b) * PITCH < SCREW_HEAD_R + 0.3:
+                    errs.append('%s runs under the screw head at %s on the back' % (w[0], h)); break
     for nm in ('Button 2', 'Q1', 'Q2'):
         c0, c1, r0, r1 = BACK_BODIES[nm]
         if (7 - r0) * PITCH + BOARD_DY > BATTERY_BOTTOM - 0.3: errs.append('%s reaches the battery' % nm)
     return sorted(set(errs)), count
 
-def warnings():                            # joints a post or support comes close to (a joint is about 1 mm across)
+def warnings():                            # joints a post, support or screw head comes close to (a joint is about 1 mm across)
     out = []
     for h, (net, what) in leads().items():
         hx_, hy_ = xy(h)
         for (kx, ky, kr) in keepouts():
+            if h in OFF_LEADS: continue                   # soldered on the back only
             gap = math.hypot(hx_ - kx, hy_ - ky) - kr - 0.9
             if gap < 0.3: out.append('%s at %s: %.2f mm from the post or support at (%.1f, %.1f)' % (what, h, gap, kx, ky))
+        for s in SCREW_HOLES:
+            gap = math.hypot(h[0] - s[0], h[1] - s[1]) * PITCH - SCREW_HEAD_R - 0.9
+            if gap < 0.3: out.append('%s at %s: %.2f mm from the screw head at %s, on the back' % (what, h, gap, s))
+    for h, (net, what) in OFF_LEADS.items():
+        if r_of(h) <= RING_OUT + 0.5: out.append('%s at %s is under the ring: keep its front pad flat' % (what, h))
+    back = [(w[0], a, b) for w in WIRES for a, b in segs(w, 'B')]
+    for i, (n1, a, b) in enumerate(back):
+        for (n2, c, d) in back[i + 1:]:
+            if n1 != n2 and crosses(a, b, c, d): out.append('wires %s and %s cross on the back' % (n1, n2))
     return out
 
 if __name__ == '__main__':

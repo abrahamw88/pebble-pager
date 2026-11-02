@@ -17,6 +17,9 @@ def lead_(h):
         if h in (a, b):
             if n == 'D1': return 'diode, %s end (%s)' % ('plain' if h == a else 'striped', hs(h))
             return '%s (%s)' % (n, hs(h))
+    if h in OFF_LEADS:
+        what = OFF_LEADS[h][1].replace(' (striped)', '')
+        return '%s\'s %s lead (%s)' % (what.split()[0].lower(), ' '.join(what.split()[1:]), hs(h))
 def lead(h):
     s = lead_(h); return s[0].upper() + s[1:]
 NET = {'GND': 'Ground', '3V3': '3V3', 'D1': 'D1', 'D2': 'D2', 'D3': 'D3', 'D4': 'D4', 'D5': 'D5', 'D10': 'D10', 'BASE1': 'Q1 base', 'BASE2': 'Q2 base', 'MOT-': 'Motor −'}
@@ -36,7 +39,7 @@ out.append('')
 out.append('| Wire | From | To |\n|---|---|---|')
 for w in WIRES:
     a, b = ends(w)
-    if w[0] in ('A', 'B', 'C', 'D'):
+    if any(side == 'B' for side, pts in w[2]):
         ps = passes(w)
         via = ', up through %s to the XIAO pin' % hs(ps[0]) if ps else ''
         out.append('| %s, wire %s (back%s) | %s | %s |' % (NET[w[1]], w[0], via, lead(a), lead(b)))
@@ -45,8 +48,9 @@ for w in WIRES:
 out.append('')
 out.append('| Off the board | Lapped onto |\n|---|---|')
 for (k, what, net, h, at) in OFFBOARD:
-    note = '; the capacitor\'s + lead also solders onto this ring pad' if k == 2 else ''
-    out.append('| %d. %s | %s%s |' % (k, what, lead(h), note))
+    out.append('| %d. %s | %s |' % (k, what, lead(h)))
+for h, (net, what) in sorted(OFF_LEADS.items()):
+    out.append('| %s | Into %s from the back, soldered on the back |' % (what, hs(h)))
 out.append('| BAT+ sense wire, from the XIAO\'s BAT+ pad, under the XIAO and round the bottom edge | R6 (9, 19) |')
 out.append('| Battery + and − | The XIAO\'s BAT+ and BAT− pads, underneath |')
 print('\n'.join(out))

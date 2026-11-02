@@ -34,7 +34,7 @@ def take():                                  # what has been drawn since the las
     return out
 text(1124, 32, 'The same board, back view: flipped left to right, as you see it turning the board over', 16, 600)
 text(1124, 54, 'Column 14 is on the left and column 1 on the right; rows are unchanged. The side facing you is solid and the far side dashed or dotted, as in the front view.', 11.5, fill=MUTE)
-text(1124, 72, 'The key below covers both views. Here the back parts and wires A to D are solid, and the front parts and wires are the dashed ones.', 11.5, fill=MUTE)
+text(1124, 72, 'The key below covers both views. Here the back parts and wires A to I are solid, and the front parts and wires are the dashed ones.', 11.5, fill=MUTE)
 BACK_TITLE = take()
 text(24, 32, 'Perfboard layout, front view (the ring side)', 16, 600)
 text(24, 54, 'A stock 40 × 60 mm board with 14 × 20 holes, its bottom border cut off, drawn to scale. Every line is one insulated wire, lap-soldered onto the', 11.5, fill=MUTE)
@@ -146,19 +146,19 @@ def view(M, offx):
         mcx, mcy = X(8.0), Y(30.5 + BOARD_DY)
         A("<circle cx='%.1f' cy='%.1f' r='%.1f' fill='%s' fill-opacity='0.06' stroke='%s' stroke-width='1.6' stroke-dasharray='6 3'/>" % (mcx, mcy, 5 * S, OFF, OFF))
         text(mcx, mcy + 3, 'motor', 10, 600, OFF, 'middle', True)
-        for xx, k, lab in ((6.4, 4, 'red'), (9.6, 5, 'blue')):
+        # its leads and the capacitor's go round the board's top edge into holes from the back (dashed from the front)
+        lead_style = "stroke-width='2'" + ('' if M else " stroke-dasharray='4 3'")
+        for xx, h, lab in ((6.4, (12, 1), 'blue'), (9.6, (13, 1), 'red')):
             yb = 30.5 + BOARD_DY - math.sqrt(25 - (xx - 8) ** 2)
-            A("<line x1='%.1f' y1='%.1f' x2='%.1f' y2='%.1f' stroke='%s' stroke-width='2'/>" % (X(xx), Y(yb), X(xx), Y(23.6 + BOARD_DY), OFF))
-            badge(k, X(xx), Y(23.6 + BOARD_DY) + 7.5)
-            text(X(xx) + SG * (-11 if k == 4 else 11), Y(23.6 + BOARD_DY) + 11, lab, 8.5, 700, OFF, anc('end' if k == 4 else 'start'), True)
+            A("<path d='M%.1f %.1f L%.1f %.1f L%.1f %.1f' fill='none' stroke='%s' %s/>" % (X(xx), Y(yb), X(xx), Y(y1) - 6, hx(h), hy(h), OFF, lead_style))
+            text(X(xx) + SG * (-5 if lab == 'blue' else 5), Y(yb) + 14, lab, 8.5, 700, OFF, anc('end' if lab == 'blue' else 'start'), True)
         ccx0, ccx1, ccy = X(-17.6), X(-6.1), Y(28.2 + BOARD_DY)
         A("<rect x='%.1f' y='%.1f' width='%.1f' height='%.1f' rx='10' fill='%s' fill-opacity='0.06' stroke='%s' stroke-width='1.6' stroke-dasharray='6 3'/>" % (min(ccx0, ccx1), ccy - 4 * S, abs(ccx1 - ccx0), 8 * S, OFF, OFF))
         A("<rect x='%.1f' y='%.1f' width='8' height='%.1f' fill='%s' fill-opacity='0.5'/>" % (ccx0 + (6 if SG > 0 else -14), ccy - 4 * S, 8 * S, OFF))
         text((ccx0 + ccx1) / 2, ccy + 3, '1000 µF capacitor', 10, 600, OFF, 'middle', True)
-        for xx, k, lab in ((-15.6, 6, '−'), (-8.0, 2, '+')):
-            A("<line x1='%.1f' y1='%.1f' x2='%.1f' y2='%.1f' stroke='%s' stroke-width='2'/>" % (X(xx), Y(24.2 + BOARD_DY), X(xx), Y(23.6 + BOARD_DY), OFF))
-            badge(k, X(xx), Y(23.6 + BOARD_DY) + 7.5)
-            text(X(xx) + SG * 11, Y(23.6 + BOARD_DY) + 11, lab, 10, 700, OFF, anc('start'), True)
+        for xx, h, lab in ((-15.6, (2, 1), '−'), (-8.0, (3, 1), '+')):
+            A("<path d='M%.1f %.1f L%.1f %.1f L%.1f %.1f' fill='none' stroke='%s' %s/>" % (X(xx), Y(24.2 + BOARD_DY), X(xx), Y(y1) - 6, hx(h), hy(h), OFF, lead_style))
+            text(X(xx) + SG * 5, Y(24.2 + BOARD_DY) + 14, lab, 10, 700, OFF, anc('start'), True)
         ufl = P((7.0, 13.45))
         A("<circle cx='%.1f' cy='%.1f' r='5' fill='#FFFFFF' stroke='%s' stroke-width='1.6'/><circle cx='%.1f' cy='%.1f' r='1.6' fill='%s'/>" % (ufl[0], ufl[1], OFF, ufl[0], ufl[1], OFF))
         text(ufl[0] - SG * 9, ufl[1] + 3.5, 'antenna (U.FL)', 8.5, 700, OFF, anc('end'), True)
@@ -198,7 +198,7 @@ def view(M, offx):
     for h in SCREW_HOLES:
         A("<circle cx='%.1f' cy='%.1f' r='%.1f' fill='%s' stroke='%s' stroke-width='1.8'/><path d='M%.1f %.1f h%.1f M%.1f %.1f v%.1f' stroke='%s' stroke-width='1'/>" % (
             hx(h), hy(h), SCREW_HOLE_R * S, '#C9CBD0' if M else '#FFFFFF', INK, hx(h) - 6, hy(h), 12, hx(h), hy(h) - 6, 12, INK))
-    text(hx((14, 1)) - SG * 22, hy((14, 1)) + 4, 'M2.3, drill 3/32 in (2.5 mm)', 8.5, 700, INK, anc('end'), True)
+    text(hx((14, 1)) + SG * 50, hy((14, 1)) + 4, 'M2.3, drill 3/32 in (2.5 mm)', 8.5, 700, INK, anc('start'), True)
     # battery pads, on the XIAO's underside (hidden under the XIAO from the back)
     for sgn, (px_, py_) in batp.items():
         A("<rect x='%.1f' y='%.1f' width='13' height='10' rx='2' fill='#FFFFFF' stroke='%s' stroke-width='1.4'%s/><text x='%.1f' y='%.1f' font-size='9' font-weight='700' fill='%s' text-anchor='middle'>%s</text>" % (
@@ -237,6 +237,11 @@ def view(M, offx):
         for h in (a, b):
             isfar = far('B' if n in BACK_PARTS else 'F')
             (joint if isfar else lead)(hx(h), hy(h))
+    for h in OFF_LEADS:
+        if M:
+            A("<circle cx='%.1f' cy='%.1f' r='4.5' fill='#E6DCF5' stroke='%s' stroke-width='1.6'/>" % (hx(h), hy(h), OFF))
+        else:
+            A("<circle cx='%.1f' cy='%.1f' r='4.5' fill='none' stroke='%s' stroke-width='1.4' stroke-dasharray='2 2'/>" % (hx(h), hy(h), OFF))
     # holes a back wire passes through
     for w in WIRES:
         for p in passes(w):
@@ -245,7 +250,8 @@ def view(M, offx):
     for (k, what, net, h, at) in OFFBOARD:
         badge(k, *P(at), to=(hx(h), hy(h)))
     # names of the wires on the back
-    for nm, at, an in (('A', (5.85, 11.6), 'start'), ('B', (3.75, 10.6), 'end'), ('C', (11.176, 11.6), 'start'), ('D', (2.55, 17.55), 'start')):
+    for nm, at, an in (('A', (5.85, 11.6), 'start'), ('B', (4.15, 9.6), 'start'), ('C', (9.85, 7.5), 'start'), ('D', (2.55, 17.55), 'start'),
+                       ('E', (2.35, 12.15), 'end'), ('F', (5.0, 0.12), 'start'), ('G', (13.05, 4.5), 'start'), ('H', (12.45, 9.0), 'end'), ('I', (2.35, 4.0), 'end')):
         w = [w for w in WIRES if w[0] == nm][0]
         text(*P(at), 'Wire %s, back' % nm, 8.5, 700, NETC[w[1]] if w[1] != 'GND' else '#3A3B3F', anc(an), True)
     bx_, by_ = X(-1.27), Y(BOARD_DY)
@@ -275,20 +281,19 @@ SG, OFFX = 1, 0
 ky = Y(y0) + 84
 text(24, ky, 'Parts off the board', 12, 600)
 offs = [(k, what, h) for (k, what, net, h, at) in OFFBOARD]
-desc = {1: 'Q1\'s collector, 1, 14 (the ring\'s switched ground)', 2: 'the XIAO\'s 3V3 pin, 11, 18', 3: 'R5\'s end at 7, 17',
-        4: 'the diode\'s striped end, 12, 18', 5: 'the diode\'s plain end, 12, 15', 6: 'Q1\'s emitter, 1, 16'}
+desc = {1: 'Q1\'s collector, 1, 14 (the ring\'s switched ground)', 2: 'the XIAO\'s 3V3 pin, 11, 18', 3: 'R5\'s end at 7, 17'}
 for i, (k, what, h) in enumerate(offs):
     y = ky + 22 + (i // 2) * 20; x = 24 + (i % 2) * 470
     badge(k, x + 8, y - 4)
     text(x + 22, y, '%s → %s' % (what, desc[k]), 11)
-y = ky + 22 + 3 * 20
-text(24 + 30, y, 'The capacitor\'s + lead (2) solders onto the ring\'s PWR pad, with the ring\'s own PWR wire.', 11)
+y = ky + 22 + (len(offs) + 1) // 2 * 20
+text(24 + 30, y, 'The capacitor\'s leads go into 2, 1 (−) and 3, 1 (+), and the motor\'s into 12, 1 (blue, −) and 13, 1 (red, +), from the back; wires F to I carry them on.', 11)
 text(24 + 30, y + 20, 'The battery\'s leads solder to the XIAO\'s BAT+ and BAT− pads (purple + and −, underneath); a sense wire runs from BAT+ down under the XIAO, round the board\'s bottom edge, onto R6.', 11)
 ly = y + 50
 text(24, ly, 'Lines and marks', 12, 600)
 items = [
     ("<line x1='0' y1='0' x2='26' y2='0' stroke='#E08A2E' stroke-width='3.6' stroke-linecap='round'/>", 'Wire on the side facing you, lapped onto the leads at its ends'),
-    ("<line x1='0' y1='0' x2='26' y2='0' stroke='#E08A2E' stroke-width='3.2' stroke-linecap='round' stroke-dasharray='0.1 6'/>", 'Wire on the far side (A to D are the ones on the back)'),
+    ("<line x1='0' y1='0' x2='26' y2='0' stroke='#E08A2E' stroke-width='3.2' stroke-linecap='round' stroke-dasharray='0.1 6'/>", 'Wire on the far side (A to I are the ones on the back)'),
     ("<circle cx='13' cy='0' r='5.6' fill='#FFFFFF' stroke='#E08A2E' stroke-width='2.2'/>", 'Hole a wire passes up through to a XIAO pin (nothing soldered in it)'),
     ("<rect x='1' y='-6.5' width='24' height='13' rx='3' fill='#D9B45A' stroke='#1F2124'/><text x='13' y='2.7' font-size='7.5' font-weight='700' text-anchor='middle'>D5</text>", 'Pin or leg of a part on the far side, soldered on this side'),
     ("<circle cx='13' cy='0' r='4.4' fill='#D0D2D6' stroke='#1F2124'/>", 'Lead of a part on this side, going through to the far side'),
