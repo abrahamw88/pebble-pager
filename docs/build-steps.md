@@ -146,7 +146,7 @@ Now the ring and motor under the firmware. The device sleeps between checks, so 
 | `show waiting` | One pixel at the top breathes once, in the device's color |
 | `show low` | One pixel at the bottom breathes once, amber |
 | `battery` | One amber pixel for 2 s, as no battery is fitted yet (step 8 makes this the real level), then blue pixels for the Wi-Fi signal |
-| `press 1 700 300 200` | A comet in the device's color: a long press, a gap, a short press. The ring stays dark while it posts, then (if the other device has not just answered) a dim green fill goes round the ring over up to 23 s while it connects, and finishes in a second with the green flash if the other device answers, or two red pulses after 45 s if not |
+| `press 1 700 300 200` | A comet in the device's color: a long press, a gap, a short press. The ring stays dark while it posts, then (if the other device has not just answered) a dim green fill goes round the ring over up to 23 s while it connects, and finishes in a second with the green flash if the other device answers, or two red pulses after 23 s if not |
 | Post `pink 400 300 400` to this device's inbox from the ntfy web app | Within 15 s one pixel at the top breathes pink, and again at each check. `play` plays it: a pink comet with a buzz for each press |
 | `press 2 3000` | The ring fills purple a little over halfway, then shows the battery level and the Wi-Fi signal |
 | `press 2 5300` | Fills purple to full; the setup page opens and the ring stays dim purple. The same again closes it |

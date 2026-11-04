@@ -30,7 +30,7 @@
 //   -DNO_SLEEP           never sleep (for development)
 //   -DNTFY_NO_BLOCK      keep posting through ntfy's 429s and quota pause (to time requests while the quota is used up)
 //   -DDEBUG_SERIAL       print what the firmware is doing over USB serial (off in the real firmware)
-//   -DWIFI_TEST          adds inbox commands that simulate Wi-Fi trouble (drop, nointernet, hide, refuse, roam) and an
+//   -DWIFI_TEST          adds inbox commands that simulate Wi-Fi trouble (drop, nointernet, hide, refuse, failfast, roam) and an
 //                        "online" report to the phone after every full join
 //   -DFW_CRASH           an image that crashes at startup, to test update rollback
 //   -DOTA_LOCAL_IP=a.b.c.d   take updates from a local web server on port 8000 instead of GitHub
@@ -96,6 +96,9 @@ void onMessage(const NtfyMessage& m) {
   if (lower == "drop") WiFi.disconnect();                                              // connection lost
   if (lower == "nointernet") { wIoFails = WIFI_IO_FAIL_LIMIT; wTestNoInternet = true; } // joined but no internet
   if (lower == "hide") { wTestHideUntil = clockSeconds() + 120; wLast.valid = false; WiFi.disconnect(); } // out of range for 2 min
+  if (lower == "failfast") {   // as after a wake: a fast join aimed at a wrong access point fails, then the full scan and join follow; a message is recorded meanwhile
+    wTestFastFail = true; WiFi.disconnect(); wifiBegin(); messageQueue("purple 300 200 300");
+  }
   if (lower == "refuse") { wTestRefuseUntil = clockSeconds() + 150; wLast.valid = false; WiFi.disconnect(); } // joins refused for 2.5 min
   if (lower == "roam") { wTestRoam = true; wRssiAt = millis() - WIFI_RSSI_CHECK_MS; }  // weak signal, better one nearby
 #endif

@@ -39,7 +39,8 @@ struct RingTuning {
   float peak = 1.4f;         // brightness; above 1 the head is already at full, so more of the comet reaches full
   float budgetMa = 180.0f;   // the ring may draw at most this; a frame over it is dimmed as a whole
   float meter = 0.6f;        // brightness of the meter, which can light the whole ring, next to the comet
-  float connect = 0.3f;      // brightness of the connecting fill: dim, because it can stay lit for up to 45 s
+  float connect = 0.3f;      // brightness of the connecting fill: dim, because it can stay lit for a while
+  float connectFade = 0.12f; // seconds each pixel of the connecting fill takes to come on: short, like the gauges' pixels
   float fail = 0.55f;        // brightness of the red "not received" pulses: the same low-to-medium level as the other status lights
 };
 RingTuning ringTune;
@@ -68,6 +69,7 @@ struct RingState {
   float connectFinishT = -1;     // seconds into the quick finish of the fill (the partner answered), or -1
   float connectFrom = 0;         // how full the fill was (0 to 1) when it began to finish
   float connectFill = 0;         // how full it is now, 0 to 1 (kept, so it can fade out where it stood)
+  float connectPx[RING_PIXELS] = {};   // each pixel's own brightness, 0 to 1: it rises quickly once the fill reaches the pixel
   float connectLevel = 0;        // its brightness, 0 to 1: it gives way to anything else that is showing, and comes back after
   float connectColor[4] = {0, 0, 0, 0};
   const uint16_t* play = nullptr;   // a message being played back: press, gap, press... in ms
@@ -128,6 +130,7 @@ void ringConnect(uint32_t rgb, float seconds) {
   if (ring.connectAt >= 0) return;   // one at a time: the first message of a series
   ringSplit(rgb, ring.connectColor);
   ring.connectSecs = seconds; ring.connectAt = 0; ring.connectFinishT = -1; ring.connectFill = 0;
+  for (float& p : ring.connectPx) p = 0;
 }
 void ringConnectFinish() {
   if (ring.connectAt < 0 || ring.connectFinishT >= 0) return;
@@ -211,6 +214,9 @@ void ringStep() {   // advance the simulation by RING_STEP_S
     if (ring.connectAt >= 0)
       ring.connectFill = ring.connectFinishT >= 0 ? ring.connectFrom + (1.0f - ring.connectFrom) * ringSmooth(0.0f, 1.0f, ring.connectFinishT)
                                                   : fminf(1.0f, ring.connectAt / ring.connectSecs);
+    if (ring.connectAt >= 0)   // a pixel comes on, in connectFade seconds, when the fill reaches it
+      for (int i = 0; i < RING_PIXELS; i++)
+        if (ring.connectFill * RING_PIXELS > i) ring.connectPx[i] = fminf(1.0f, ring.connectPx[i] + dt / ringTune.connectFade);
   }
   bool taken = ring.down || ring.level > 0.02f || ring.play || ring.meterTarget > 0 || ring.meterLevel > 0.01f;
   ring.connectLevel += ((ring.connectAt >= 0 && !taken ? 1.0f : 0.0f) - ring.connectLevel) * 8.0f * dt;
@@ -275,9 +281,7 @@ float ringRender(uint8_t out[RING_PIXELS][4]) {
   }
   if (ring.connectLevel > 0) {   // the connecting fill: pixels lit from the top, clockwise, in proportion to the wait
     for (int i = 0; i < RING_PIXELS; i++) {
-      float lit = ring.connectFill * RING_PIXELS - i;
-      lit = lit < 0 ? 0 : lit > 1 ? 1 : lit;
-      for (int c = 0; c < 4; c++) px[i][c] += ring.connectColor[c] * lit * ring.connectLevel * ringTune.connect;
+      for (int c = 0; c < 4; c++) px[i][c] += ring.connectColor[c] * ring.connectPx[i] * ring.connectLevel * ringTune.connect;
     }
   }
   if (ring.meterLevel > 0) {   // pixels lit from the top, clockwise; the last one partly, so the fill glides

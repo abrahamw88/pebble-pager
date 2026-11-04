@@ -34,6 +34,7 @@ const int WIFI_ROAM_GAIN_DB = 10;                            // move only if the
 
 enum { W_IDLE, W_SCAN, W_JOIN, W_ONLINE };
 int wState = W_IDLE, wCur = -1, wCandN = 0, wCandI = 0, wScanFails = 0;
+bool wLookSoon = false;   // a scan is about to start after a short pause (the radio settling, or a scan that failed): not "nothing in range"
 bool wRoam = false, wNewConn = false, wFast = false, wWasFast = false;   // wWasFast: the current connection came from a fast join
 unsigned long wAt = 0, wNextScan = 0, wLostAt = 0, wRssiAt = 0;
 int wCand[MAX_NETWORKS], wCandRssi[MAX_NETWORKS], wCandCh[MAX_NETWORKS];   // saved networks in range, strongest first
@@ -57,6 +58,7 @@ RTC_DATA_ATTR int wDropReason = 0;                           // the driver's rea
 #ifdef WIFI_TEST   // test hooks, driven by ntfy commands (see the main tab)
 RTC_DATA_ATTR unsigned long wTestHideUntil = 0;   // pretend no network is in range until this clockSeconds() (0 = off)
 RTC_DATA_ATTR unsigned long wTestRefuseUntil = 0; // join with a wrong password until this clockSeconds(), so joins are refused
+RTC_DATA_ATTR bool wTestFastFail = false;         // the next fast join (at the next wake) is aimed at a wrong access point, so it fails
 bool wTestRoam = false;             // pretend the signal is weak and any other access point is better
 bool wTestNoInternet = false;       // the next check of another server fails too
 #endif
@@ -102,7 +104,11 @@ void wifiBegin() {
     return;
   }
   WiFi.config(IPAddress(wLast.ip), IPAddress(wLast.gateway), IPAddress(wLast.mask), IPAddress(wLast.dns));
-  WiFi.begin(savedSsid(wLast.network).c_str(), savedPass(wLast.network).c_str(), wLast.channel, wLast.bssid);
+  uint8_t bssid[6]; memcpy(bssid, wLast.bssid, 6);
+#ifdef WIFI_TEST
+  if (wTestFastFail) { wTestFastFail = false; bssid[5] ^= 0x55; }
+#endif
+  WiFi.begin(savedSsid(wLast.network).c_str(), savedPass(wLast.network).c_str(), wLast.channel, bssid);
   wFast = true;
   wState = W_JOIN;
   wAt = millis();
@@ -112,10 +118,11 @@ bool wifiOnline() { return wState == W_ONLINE && WiFi.status() == WL_CONNECTED; 
 bool wifiJustConnected() { bool b = wNewConn; wNewConn = false; return b; }   // true once per new connection
 void wifiIoResult(bool ok) { wIoFails = ok ? 0 : wIoFails + 1; }              // call after every internet request
 // Nothing is in progress and nothing is about to start: online with no pending verdict on this network, or offline
-// and waiting for the next look. (Too many failed requests must be acted on by wifiTick() before any sleep.)
+// and waiting for the next look. (A rescan after a failed fast join or a lost connection starts after a short pause; that
+// pause is not settled: a message queued then must wait for the scan, not be reported as unsendable.) (Too many failed requests must be acted on by wifiTick() before any sleep.)
 bool wifiSettled() {
-  if (wState == W_ONLINE) return wIoFails < WIFI_IO_FAIL_LIMIT;
-  return wState == W_IDLE && (savedCount() == 0 || !wifiDue(wNextScan));
+  if (wState == W_ONLINE) return wIoFails < WIFI_IO_FAIL_LIMIT && WiFi.status() == WL_CONNECTED;   // a dropout is given time to heal first
+  return wState == W_IDLE && (savedCount() == 0 || (!wLookSoon && !wifiDue(wNextScan)));
 }
 unsigned long wifiRetryMs() {   // how long to wait before looking again (wRetry already holds the wait after that one)
   long left = (long)(wNextScan - millis());
@@ -155,11 +162,12 @@ void wifiRetryLater(bool inRange) {   // inRange: a saved network was there but 
   wNextScan = millis() + wRetry;
   wRetry = min(wRetry * 2, inRange ? WIFI_REFUSED_MAX_MS : WIFI_RETRY_MAX_MS);
 }
-void wifiRescanNow() { WiFi.disconnect(); wState = W_IDLE; wNextScan = millis() + WIFI_SETTLE_MS; }
+void wifiRescanNow() { WiFi.disconnect(); wState = W_IDLE; wNextScan = millis() + WIFI_SETTLE_MS; wLookSoon = true; }
 void wifiStartScan(bool roam) {
   wRoam = roam;
   WiFi.scanDelete();
   WiFi.scanNetworks(true);   // true = in the background
+  wLookSoon = false;
   wState = W_SCAN;
   wAt = millis();
 }
@@ -212,6 +220,7 @@ void wifiTick() {   // call every loop(); returns within a few milliseconds
         if (wRoam && WiFi.status() == WL_CONNECTED) { wState = W_ONLINE; break; }
         wState = W_IDLE;
         wNextScan = millis() + 1000;
+        wLookSoon = true;
         break;
       }
       wScanFails = 0;

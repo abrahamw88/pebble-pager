@@ -6,7 +6,7 @@ const RING_STEP_S = RING_STEP_MS / 1000;
 
 const ringTune = {
   speed: 0.9, accel: 0.2, maxSpeed: 1.9, tail: 5.5, tailPower: 1.0, attackHz: 2.6, releaseHz: 1.5,
-  leap: 1.2, recoil: 1.0, bounceHz: 3.0, bounceDamp: 0.35, stretch: 1.0, pastel: 0.2, whiteGain: 1.0, peak: 1.4, budgetMa: 180.0, meter: 0.6, connect: 0.3, fail: 0.55
+  leap: 1.2, recoil: 1.0, bounceHz: 3.0, bounceDamp: 0.35, stretch: 1.0, pastel: 0.2, whiteGain: 1.0, peak: 1.4, budgetMa: 180.0, meter: 0.6, connect: 0.3, connectFade: 0.12, fail: 0.55
 };
 
 const ring = {
@@ -14,7 +14,7 @@ const ring = {
   failT: -1, blipT: -1, blipColor: [0, 0, 0, 0], blipAt: 0,
   busy: false, busyLevel: 0, busyAngle: 0, busyColor: [0, 0, 0, 0],
   meterFill: 0, meterTarget: 0, meterLevel: 0, meterColor: [0, 0, 0, 0], gaugeMs: -1, gaugePixels: 0,
-  connectAt: -1, connectSecs: 0, connectFinishT: -1, connectFrom: 0, connectFill: 0, connectLevel: 0, connectColor: [0, 0, 0, 0],
+  connectAt: -1, connectSecs: 0, connectFinishT: -1, connectFrom: 0, connectFill: 0, connectPx: new Array(RING_PIXELS).fill(0), connectLevel: 0, connectColor: [0, 0, 0, 0],
   play: null, playCount: 0, playIndex: 0, playLeftMs: 0, clock: 0
 };
 
@@ -61,6 +61,7 @@ function ringConnect(rgb, seconds) {
   if (ring.connectAt >= 0) return;
   ringSplit(rgb, ring.connectColor);
   ring.connectSecs = seconds; ring.connectAt = 0; ring.connectFinishT = -1; ring.connectFill = 0;
+  ring.connectPx.fill(0);
 }
 function ringConnectFinish() {
   if (ring.connectAt < 0 || ring.connectFinishT >= 0) return;
@@ -138,6 +139,9 @@ function ringStep() {
     if (ring.connectAt >= 0)
       ring.connectFill = ring.connectFinishT >= 0 ? ring.connectFrom + (1.0 - ring.connectFrom) * ringSmooth(0.0, 1.0, ring.connectFinishT)
                                                   : Math.min(1.0, ring.connectAt / ring.connectSecs);
+    if (ring.connectAt >= 0)
+      for (let i = 0; i < RING_PIXELS; i++)
+        if (ring.connectFill * RING_PIXELS > i) ring.connectPx[i] = Math.min(1.0, ring.connectPx[i] + dt / ringTune.connectFade);
   }
   const taken = ring.down || ring.level > 0.02 || ring.play !== null || ring.meterTarget > 0 || ring.meterLevel > 0.01;
   ring.connectLevel += ((ring.connectAt >= 0 && !taken ? 1.0 : 0.0) - ring.connectLevel) * 8.0 * dt;
@@ -200,9 +204,7 @@ function ringRender(out) {
   }
   if (ring.connectLevel > 0) {
     for (let i = 0; i < RING_PIXELS; i++) {
-      let lit = ring.connectFill * RING_PIXELS - i;
-      lit = lit < 0 ? 0 : lit > 1 ? 1 : lit;
-      for (let c = 0; c < 4; c++) px[i][c] += ring.connectColor[c] * lit * ring.connectLevel * ringTune.connect;
+      for (let c = 0; c < 4; c++) px[i][c] += ring.connectColor[c] * ring.connectPx[i] * ring.connectLevel * ringTune.connect;
     }
   }
   if (ring.meterLevel > 0) {
