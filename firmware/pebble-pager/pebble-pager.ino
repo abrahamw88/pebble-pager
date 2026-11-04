@@ -299,6 +299,7 @@ void loop() {
     if (inboxMoved) { inboxMoved = false; ntfyStreamClose(); streamRetryAt = 0; }   // a changed name or topic base
     if (!wifiOnline() || !messagesConversing()) ntfyStreamClose();   // the stream belongs to a conversation
     if (wifiOnline()) {
+      if (messagesWaiting()) messagesTick();   // a recorded message goes first: it is not kept waiting for the inbox read
       // In a conversation the inbox is held open as a stream: a reply, or a receipt, is here the moment it is posted.
       // (not while a message is waiting to go: it is posted first, and the stream opens on the next pass)
       if (messagesConversing() && !ntfyStreamIsOpen() && listCount(OUTBOX) == 0 && (long)(millis() - streamRetryAt) >= 0 && ntfyStreamOpen()) {

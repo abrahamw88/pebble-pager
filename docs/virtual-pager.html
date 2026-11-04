@@ -91,7 +91,7 @@ details summary { cursor: pointer; font-family: var(--display); font-weight: 600
       <table class="ref">
         <tr><td>Power on</td><td>Press and hold the small button for 5 seconds. A <span class="sw" style="background:#50E080"></span>green light fills the ring.</td></tr>
         <tr><td>Power off</td><td>Hold the small button for 10 seconds. The ring fills <span class="sw" style="background:#9060F0"></span>purple, then <span class="sw" style="background:#F03030"></span>red counts down; let go when it is dark.</td></tr>
-        <tr><td>Send a message</td><td>Press the big button (a tap is enough) and keep going with a pattern of long and short presses. Each press lights a comet in your color. The ring is dark while it sends. If the partner was not already in a conversation with you, a dim <span class="sw" style="background:#50E080"></span>green fill goes once round the ring while it waits for them (up to 23 s) and finishes in a second when they answer. It ends with one <span class="sw" style="background:#50E080"></span>green flash at the bottom: received.</td></tr>
+        <tr><td>Send a message</td><td>Press the big button (a tap is enough) and keep going with a pattern of long and short presses. Each press lights a comet in your color. The ring is dark while it sends. If the partner was not already in a conversation with you, a dim <span class="sw" style="background:#50E080"></span>green fill goes once round the ring while it waits for them (up to 27 s) and finishes in a second when they answer. It ends with one <span class="sw" style="background:#50E080"></span>green flash at the bottom: received.</td></tr>
         <tr><td>Play a message</td><td>One pixel breathing at the top, in the sender's color, means a message is waiting. Press the big button and every waiting message plays at once, each in its sender's color. During a conversation they play by themselves. A new press while they play cuts them short and starts your reply.</td></tr>
         <tr><td>Check the battery</td><td>Tap the small button. The ring fills <span class="sw" style="background:#50E080"></span>green to the battery level (<span class="sw" style="background:#F03030"></span>red under 20%), then <span class="sw" style="background:#3070FF"></span>blue to the Wi-Fi strength, or two <span class="sw" style="background:#F03030"></span>red pixels if not connected. A page has no battery or signal strength, so each shows full.</td></tr>
         <tr><td>Wi-Fi setup</td><td>Hold the small button for 5 seconds and let go when the ring is full <span class="sw" style="background:#9060F0"></span>purple. Do it again to close.</td></tr>
@@ -123,7 +123,7 @@ details summary { cursor: pointer; font-family: var(--display); font-weight: 600
 
 // ---- Values from config.h ----
 const SETUP_HOLD_MS = 5000, OFF_HOLD_MS = 10000, RECORD_HOLD_MS = 500, MIN_PRESS_MS = 0, SEND_PAUSE_MS = 500, CUTOFF_QUIET_MS = 2000;   // (no bump filter on a page: a click is deliberate, and many are under 75 ms)
-const CHECK_INTERVAL_MS = 15000, RECEIPT_POLL_MS = 5000, RECEIPT_WAIT_MS = CHECK_INTERVAL_MS + 8000, SEND_RETRY_MS = 4000;
+const CHECK_INTERVAL_MS = 15000, RECEIPT_POLL_MS = 5000, RECEIPT_WAIT_MS = CHECK_INTERVAL_MS + 8000, SEND_LEAD_MS = 4000, CONNECT_FILL_MS = SEND_LEAD_MS + RECEIPT_WAIT_MS, SEND_RETRY_MS = 4000;
 const MAX_PRESSES = 12, MAX_RECORD_MS = 15000, OUTBOX_MAX = 5, UNREAD_MAX = 6, NOTES_MAX = 5, NTFY_BATCH = 8;
 const QUEUE_MAX_AGE_MS = 24 * 60 * 60 * 1000, PULSE_MIN_MS = 20, PULSE_MAX_MS = 5000, PULSE_MAX_TIMES = 2 * MAX_PRESSES - 1;
 const NAME_MAX_LEN = 20, BASE_MAX_LEN = 40, NTFY_SERVER = "https://ntfy.sh/";
@@ -255,6 +255,7 @@ function queueMessage(text) {   // returns null if accepted, otherwise a short r
   sendRetryAt = Date.now();
   sendShown = true;
   save();
+  if (online && !partnerLive()) ringShow(() => ringConnect(RGB_RECEIVED, CONNECT_FILL_MS / 1000));   // the fill starts at the recording; red replaces it if the send fails
   return null;
 }
 
@@ -270,7 +271,7 @@ async function sendNext() {
   if (!outbox.length) sendShown = false;
   talkedAt = Date.now();
   save();
-  if (!partnerLive()) ringShow(() => ringConnect(RGB_RECEIVED, RECEIPT_WAIT_MS / 1000));   // the first message of a series: a fill while their device wakes and answers
+  if (!partnerLive()) ringShow(() => ringConnect(RGB_RECEIVED, CONNECT_FILL_MS / 1000));   // the first message of a series: a fill while their device wakes and answers
   awaited.push({ id, at: Date.now() });
   if (awaited.length > OUTBOX_MAX) awaited.shift();
   show("Sent <b>" + text + "</b>. Waiting for it to be received.");

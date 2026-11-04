@@ -54,6 +54,9 @@ const char* messageQueue(const String& text) {
   // Recording a message starts the conversation at once, not when it is posted: the inbox is read in between, and
   // a reply that arrives then must play, not wait for a tap. (Offline there is nothing to hold open.)
   if (wifiOnline()) talkedAt = talkedNow();
+  // The fill says "on its way", so it starts now, not when the post is done: the Wi-Fi join and the inbox read can come
+  // first. If anything fails, the red pulses replace it. Not when there is plainly no network: that is red at once.
+  if (!partnerLive() && !(wifiSettled() && !wifiOnline())) { sayln("Connecting: fill started"); showConnecting(CONNECT_FILL_MS / 1000.0f); }
   return nullptr;
 }
 
@@ -69,7 +72,7 @@ void messageSendNext() {
   listPop(OUTBOX);
   if (listCount(OUTBOX) == 0) sendShown = false;
   talkedAt = talkedNow();   // sending starts a conversation, or carries one on
-  if (!partnerLive()) { sayln("Connecting: fill started"); showConnecting(RECEIPT_WAIT_MS / 1000.0f); }   // the first message of a series: a fill while their device wakes and answers
+  if (!partnerLive() && !connectRunning()) { sayln("Connecting: fill started"); showConnecting(CONNECT_FILL_MS / 1000.0f); }   // the first message of a series: a fill while their device wakes and answers (it started at the recording, unless this one waited in the outbox)
   int slot = 0;   // remember the id until its receipt comes; if all slots are busy, reuse the oldest
   for (int i = 0; i < OUTBOX_MAX; i++) {
     if (awaited[i].id.length() == 0) { slot = i; break; }
