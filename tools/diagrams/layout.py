@@ -71,10 +71,10 @@ WIRES = [
     ('C', 'GND', [('B', [(13, 19), (12.45, 18.45), (12.45, 13.176), (9.6, 10.326), (9.6, 5.3), (6.6, 5.3), (6, 6)])]),
     ('D', 'GND', [('B', [(3, 16), (2.0, 16.9), (0.65, 17.4), (0.65, 18.6), (1, 19)])]),
     ('E', 'BASE1', [('B', [(1, 15), (2.0, 14.8), (2.25, 13.95), (2.3, 13.35), (3, 13)])]),
-    ('F', '3V3', [('B', [(3, 1), (3.5, 0.45), (12.5, 0.45), (13, 1)])]),
-    ('G', '3V3', [('B', [(13, 1), (12.85, 1.6), (12.85, 15.0), (12.62, 15.3), (12.62, 17.6), (12, 18)])]),
+    ('F', '3V3', [('B', [(4, 1), (4.5, 0.45), (10.5, 0.45), (11, 1)])]),
+    ('G', '3V3', [('B', [(11, 1), (11.5, 0.5), (12.45, 0.5), (12.85, 1.1), (12.85, 15.0), (12.62, 15.3), (12.62, 17.6), (12, 18)])]),
     ('H', 'MOT-', [('B', [(12, 1), (12.62, 1.6), (12.62, 14.6), (12, 15)])]),
-    ('I', 'GND', [('B', [(2, 1), (2.5, 1.6), (2.5, 12.2), (3.45, 12.6), (3.45, 15.45), (1.75, 15.95), (1, 16)])]),
+    ('I', 'GND', [('B', [(3, 1), (2.5, 1.6), (2.5, 12.2), (3.45, 12.6), (3.45, 15.45), (1.75, 15.95), (1, 16)])]),
 ]
 WIRE_USE = {'W1': 'D5 to R1', 'W2': 'D4 to R3', 'W3': 'D3 to button 2', 'W4': 'D1 to R6', 'W5': 'D1 to R7', 'W6': 'D10 to R5',
             'W7': '3V3 to the diode', 'W8': 'R1 to R2 (Q1 base)', 'W10': 'R3 to R4 (Q2 base)',
@@ -93,8 +93,8 @@ OFFBOARD = [
 ]
 # the capacitor's and the motor's leads: fed into these holes from the back (only as far as the board) and soldered on the
 # back; wires on the back carry them on. Several lie under the ring's edge, so the front pads must stay flat.
-OFF_LEADS = {(2, 1): ('GND', 'Capacitor − (striped)'), (3, 1): ('3V3', 'Capacitor +'),
-             (12, 1): ('MOT-', 'Motor blue (−)'), (13, 1): ('3V3', 'Motor red (+)')}
+OFF_LEADS = {(3, 1): ('GND', 'Capacitor − (striped)'), (4, 1): ('3V3', 'Capacitor +'),
+             (11, 1): ('3V3', 'Motor red (+)'), (12, 1): ('MOT-', 'Motor blue (−)')}
 # the BAT+ sense wire: from the XIAO's BAT+ pad, under the XIAO and round the board's bottom edge (row 20.5), onto R6;
 # its insulation is too thick to pass up through a hole
 SENSE_BACK, SENSE_FRONT = [(8.5, 18), (8.5, 20.5)], [(8.5, 20.5), (9, 20), (9, 19)]

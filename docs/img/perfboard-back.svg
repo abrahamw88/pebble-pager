@@ -19,12 +19,12 @@
 <rect x='1764.8' y='624.0' width='12' height='12' rx='2' fill='#FFFFFF' stroke='#7A4FC0' stroke-width='1.6'/>
 <rect x='1564.0' y='824.8' width='12' height='12' rx='2' fill='#FFFFFF' stroke='#7A4FC0' stroke-width='1.6'/>
 <circle cx='1462.9' cy='241.8' r='66.9' fill='#7A4FC0' fill-opacity='0.06' stroke='#7A4FC0' stroke-width='1.6' stroke-dasharray='6 3'/>
-<path d='M1484.3 305.2 L1484.3 361.5 L1434.0 446.1' fill='none' stroke='#7A4FC0' stroke-width='2'/>
-<path d='M1441.5 305.2 L1441.5 361.5 L1400.0 446.1' fill='none' stroke='#7A4FC0' stroke-width='2'/>
+<path d='M1484.3 305.2 L1484.3 361.5 L1468.0 446.1' fill='none' stroke='#7A4FC0' stroke-width='2'/>
+<path d='M1441.5 305.2 L1441.5 361.5 L1434.0 446.1' fill='none' stroke='#7A4FC0' stroke-width='2'/>
 <rect x='1651.7' y='219.1' width='153.9' height='107.1' rx='10' fill='#7A4FC0' fill-opacity='0.06' stroke='#7A4FC0' stroke-width='1.6' stroke-dasharray='6 3'/>
 <rect x='1791.6' y='219.1' width='8' height='107.1' fill='#7A4FC0' fill-opacity='0.5'/>
-<path d='M1778.8 326.1 L1778.8 361.5 L1774.0 446.1' fill='none' stroke='#7A4FC0' stroke-width='2'/>
-<path d='M1677.1 326.1 L1677.1 361.5 L1740.0 446.1' fill='none' stroke='#7A4FC0' stroke-width='2'/>
+<path d='M1778.8 326.1 L1778.8 361.5 L1740.0 446.1' fill='none' stroke='#7A4FC0' stroke-width='2'/>
+<path d='M1677.1 326.1 L1677.1 361.5 L1706.0 446.1' fill='none' stroke='#7A4FC0' stroke-width='2'/>
 <circle cx='1604.0' cy='869.4' r='5' fill='#FFFFFF' stroke='#7A4FC0' stroke-width='1.6'/><circle cx='1604.0' cy='869.4' r='1.6' fill='#7A4FC0'/>
 <circle cx='1808.0' cy='480.1' r='3' fill='#FFFFFF' stroke='#C4C6CB' stroke-width='1'/>
 <circle cx='1808.0' cy='514.1' r='3' fill='#FFFFFF' stroke='#C4C6CB' stroke-width='1'/>
@@ -336,10 +336,10 @@
 <path d='M1400.0 1058.1 L1418.7 1039.4 L1418.7 860.1 L1515.6 763.2 L1515.6 592.3 L1617.6 592.3 L1638.0 616.1' fill='none' stroke='#FFFFFF' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/><path d='M1400.0 1058.1 L1418.7 1039.4 L1418.7 860.1 L1515.6 763.2 L1515.6 592.3 L1617.6 592.3 L1638.0 616.1' fill='none' stroke='#1F2124' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/>
 <path d='M1740.0 956.1 L1774.0 986.7 L1819.9 1003.7 L1819.9 1044.5 L1808.0 1058.1' fill='none' stroke='#FFFFFF' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/><path d='M1740.0 956.1 L1774.0 986.7 L1819.9 1003.7 L1819.9 1044.5 L1808.0 1058.1' fill='none' stroke='#1F2124' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/>
 <path d='M1808.0 922.1 L1774.0 915.3 L1765.5 886.4 L1763.8 866.0 L1740.0 854.1' fill='none' stroke='#FFFFFF' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/><path d='M1808.0 922.1 L1774.0 915.3 L1765.5 886.4 L1763.8 866.0 L1740.0 854.1' fill='none' stroke='#74A9EC' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/>
-<path d='M1740.0 446.1 L1723.0 427.4 L1417.0 427.4 L1400.0 446.1' fill='none' stroke='#FFFFFF' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/><path d='M1740.0 446.1 L1723.0 427.4 L1417.0 427.4 L1400.0 446.1' fill='none' stroke='#D64545' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/>
-<path d='M1400.0 446.1 L1405.1 466.5 L1405.1 922.1 L1412.9 932.3 L1412.9 1010.5 L1434.0 1024.1' fill='none' stroke='#FFFFFF' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/><path d='M1400.0 446.1 L1405.1 466.5 L1405.1 922.1 L1412.9 932.3 L1412.9 1010.5 L1434.0 1024.1' fill='none' stroke='#D64545' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/>
+<path d='M1706.0 446.1 L1689.0 427.4 L1485.0 427.4 L1468.0 446.1' fill='none' stroke='#FFFFFF' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/><path d='M1706.0 446.1 L1689.0 427.4 L1485.0 427.4 L1468.0 446.1' fill='none' stroke='#D64545' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/>
+<path d='M1468.0 446.1 L1451.0 429.1 L1418.7 429.1 L1405.1 449.5 L1405.1 922.1 L1412.9 932.3 L1412.9 1010.5 L1434.0 1024.1' fill='none' stroke='#FFFFFF' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/><path d='M1468.0 446.1 L1451.0 429.1 L1418.7 429.1 L1405.1 449.5 L1405.1 922.1 L1412.9 932.3 L1412.9 1010.5 L1434.0 1024.1' fill='none' stroke='#D64545' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/>
 <path d='M1434.0 446.1 L1412.9 466.5 L1412.9 908.5 L1434.0 922.1' fill='none' stroke='#FFFFFF' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/><path d='M1434.0 446.1 L1412.9 466.5 L1412.9 908.5 L1434.0 922.1' fill='none' stroke='#A0673A' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/>
-<path d='M1774.0 446.1 L1757.0 466.5 L1757.0 826.9 L1724.7 840.5 L1724.7 937.4 L1782.5 954.4 L1808.0 956.1' fill='none' stroke='#FFFFFF' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/><path d='M1774.0 446.1 L1757.0 466.5 L1757.0 826.9 L1724.7 840.5 L1724.7 937.4 L1782.5 954.4 L1808.0 956.1' fill='none' stroke='#1F2124' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/>
+<path d='M1740.0 446.1 L1757.0 466.5 L1757.0 826.9 L1724.7 840.5 L1724.7 937.4 L1782.5 954.4 L1808.0 956.1' fill='none' stroke='#FFFFFF' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/><path d='M1740.0 446.1 L1757.0 466.5 L1757.0 826.9 L1724.7 840.5 L1724.7 937.4 L1782.5 954.4 L1808.0 956.1' fill='none' stroke='#1F2124' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/>
 <path d='M1553.0 1024.1 L1553.0 1109.1' fill='none' stroke='#FFFFFF' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/><path d='M1553.0 1024.1 L1553.0 1109.1' fill='none' stroke='#D64545' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/>
 <circle cx='1808.0' cy='446.1' r='28.1' fill='#E39B2D' fill-opacity='0.22' stroke='#D08A1E' stroke-width='1.2' stroke-dasharray='3 3'/>
 <circle cx='1366.0' cy='446.1' r='28.1' fill='#E39B2D' fill-opacity='0.22' stroke='#D08A1E' stroke-width='1.2' stroke-dasharray='3 3'/>
@@ -397,10 +397,10 @@
 <rect x='1802.0' y='1052.1' width='12' height='12' rx='2' fill='#D9B45A' stroke='#1F2124' stroke-width='1'/>
 <circle cx='1434.0' cy='922.1' r='4.4' fill='#D0D2D6' stroke='#1F2124' stroke-width='1'/>
 <circle cx='1434.0' cy='1024.1' r='4.4' fill='#D0D2D6' stroke='#1F2124' stroke-width='1'/>
-<circle cx='1774.0' cy='446.1' r='4.5' fill='#E6DCF5' stroke='#7A4FC0' stroke-width='1.6'/>
 <circle cx='1740.0' cy='446.1' r='4.5' fill='#E6DCF5' stroke='#7A4FC0' stroke-width='1.6'/>
+<circle cx='1706.0' cy='446.1' r='4.5' fill='#E6DCF5' stroke='#7A4FC0' stroke-width='1.6'/>
+<circle cx='1468.0' cy='446.1' r='4.5' fill='#E6DCF5' stroke='#7A4FC0' stroke-width='1.6'/>
 <circle cx='1434.0' cy='446.1' r='4.5' fill='#E6DCF5' stroke='#7A4FC0' stroke-width='1.6'/>
-<circle cx='1400.0' cy='446.1' r='4.5' fill='#E6DCF5' stroke='#7A4FC0' stroke-width='1.6'/>
 <circle cx='1638.0' cy='1024.1' r='5.6' fill='#FFFFFF' stroke='#E08A2E' stroke-width='2.2'/>
 <path d='M1617.0 630.1 L1888.7 544.1' fill='none' stroke='#B9BBC0' stroke-width='1'/><circle cx='1617.0' cy='630.1' r='2.2' fill='#9A9CA1'/>
 <path d='M1821.6 908.5 L1888.7 782.1' fill='none' stroke='#B9BBC0' stroke-width='1'/><circle cx='1821.6' cy='908.5' r='2.2' fill='#9A9CA1'/>
@@ -466,8 +466,8 @@
 <text x='1560.0' y='834.3' font-size='8.5' font-weight='700' text-anchor='end' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#7A4FC0'>DOUT, unused</text>
 <text x='1570.0' y='465.4' font-size='9' font-weight='600' text-anchor='middle' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#7A4FC0'>LED ring pads, on its back: about every 90°, order to check</text>
 <text x='1462.9' y='244.8' font-size='10' font-weight='600' text-anchor='middle' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#7A4FC0'>motor</text>
-<text x='1489.3' y='319.2' font-size='8.5' font-weight='700' text-anchor='start' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#7A4FC0'>blue</text>
-<text x='1436.5' y='319.2' font-size='8.5' font-weight='700' text-anchor='end' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#7A4FC0'>red</text>
+<text x='1489.3' y='319.2' font-size='8.5' font-weight='700' text-anchor='start' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#7A4FC0'>red</text>
+<text x='1436.5' y='319.2' font-size='8.5' font-weight='700' text-anchor='end' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#7A4FC0'>blue</text>
 <text x='1728.6' y='275.6' font-size='10' font-weight='600' text-anchor='middle' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#7A4FC0'>1000 µF capacitor</text>
 <text x='1773.8' y='340.1' font-size='10' font-weight='700' text-anchor='end' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#7A4FC0'>−</text>
 <text x='1672.1' y='340.1' font-size='10' font-weight='700' text-anchor='end' stroke='#FFFFFF' stroke-width='3.5' stroke-linejoin='round' paint-order='stroke' fill='#7A4FC0'>+</text>
@@ -552,7 +552,7 @@
 <text x='516.0' y='1215.1' font-size='11' fill='#1F2124'>Ring PWR pad → the XIAO's 3V3 pin, 11, 18</text>
 <circle cx='32.0' cy='1231.1' r='7.5' fill='#7A4FC0' stroke='#FFFFFF' stroke-width='1.5'/><text x='32.0' y='1234.5' font-size='9.5' font-weight='700' fill='#FFFFFF' text-anchor='middle'>3</text>
 <text x='46.0' y='1235.1' font-size='11' fill='#1F2124'>Ring DIN pad → R5's end at 7, 17</text>
-<text x='54.0' y='1255.1' font-size='11' fill='#1F2124'>The capacitor's leads go into 2, 1 (−) and 3, 1 (+), and the motor's into 12, 1 (blue, −) and 13, 1 (red, +), from the back; wires F to I carry them on.</text>
+<text x='54.0' y='1255.1' font-size='11' fill='#1F2124'>The capacitor's leads go into 3, 1 (−) and 4, 1 (+), and the motor's into 11, 1 (red, +) and 12, 1 (blue, −), from the back; wires F to I carry them on.</text>
 <text x='54.0' y='1275.1' font-size='11' fill='#1F2124'>The battery's leads solder to the XIAO's BAT+ and BAT− pads (purple + and −, underneath); a sense wire runs from BAT+ down under the XIAO, round the board's bottom edge, onto R6.</text>
 <text x='24.0' y='1305.1' font-size='12' font-weight='600' fill='#1F2124'>Lines and marks</text>
 <text x='60.0' y='1327.1' font-size='11' fill='#1F2124'>Wire on the side facing you, lapped onto the leads at its ends</text>

@@ -148,15 +148,15 @@ def view(M, offx):
         text(mcx, mcy + 3, 'motor', 10, 600, OFF, 'middle', True)
         # its leads and the capacitor's go round the board's top edge into holes from the back (dashed from the front)
         lead_style = "stroke-width='2'" + ('' if M else " stroke-dasharray='4 3'")
-        for xx, h, lab in ((6.4, (12, 1), 'blue'), (9.6, (13, 1), 'red')):
+        for xx, h, lab in ((6.4, (11, 1), 'red'), (9.6, (12, 1), 'blue')):
             yb = 30.5 + BOARD_DY - math.sqrt(25 - (xx - 8) ** 2)
             A("<path d='M%.1f %.1f L%.1f %.1f L%.1f %.1f' fill='none' stroke='%s' %s/>" % (X(xx), Y(yb), X(xx), Y(y1) - 6, hx(h), hy(h), OFF, lead_style))
-            text(X(xx) + SG * (-5 if lab == 'blue' else 5), Y(yb) + 14, lab, 8.5, 700, OFF, anc('end' if lab == 'blue' else 'start'), True)
+            text(X(xx) + SG * (-5 if lab == 'red' else 5), Y(yb) + 14, lab, 8.5, 700, OFF, anc('end' if lab == 'red' else 'start'), True)
         ccx0, ccx1, ccy = X(-17.6), X(-6.1), Y(28.2 + BOARD_DY)
         A("<rect x='%.1f' y='%.1f' width='%.1f' height='%.1f' rx='10' fill='%s' fill-opacity='0.06' stroke='%s' stroke-width='1.6' stroke-dasharray='6 3'/>" % (min(ccx0, ccx1), ccy - 4 * S, abs(ccx1 - ccx0), 8 * S, OFF, OFF))
         A("<rect x='%.1f' y='%.1f' width='8' height='%.1f' fill='%s' fill-opacity='0.5'/>" % (ccx0 + (6 if SG > 0 else -14), ccy - 4 * S, 8 * S, OFF))
         text((ccx0 + ccx1) / 2, ccy + 3, '1000 µF capacitor', 10, 600, OFF, 'middle', True)
-        for xx, h, lab in ((-15.6, (2, 1), '−'), (-8.0, (3, 1), '+')):
+        for xx, h, lab in ((-15.6, (3, 1), '−'), (-8.0, (4, 1), '+')):
             A("<path d='M%.1f %.1f L%.1f %.1f L%.1f %.1f' fill='none' stroke='%s' %s/>" % (X(xx), Y(24.2 + BOARD_DY), X(xx), Y(y1) - 6, hx(h), hy(h), OFF, lead_style))
             text(X(xx) + SG * 5, Y(24.2 + BOARD_DY) + 14, lab, 10, 700, OFF, anc('start'), True)
         ufl = P((7.0, 13.45))
@@ -287,7 +287,7 @@ for i, (k, what, h) in enumerate(offs):
     badge(k, x + 8, y - 4)
     text(x + 22, y, '%s → %s' % (what, desc[k]), 11)
 y = ky + 22 + (len(offs) + 1) // 2 * 20
-text(24 + 30, y, 'The capacitor\'s leads go into 2, 1 (−) and 3, 1 (+), and the motor\'s into 12, 1 (blue, −) and 13, 1 (red, +), from the back; wires F to I carry them on.', 11)
+text(24 + 30, y, 'The capacitor\'s leads go into 3, 1 (−) and 4, 1 (+), and the motor\'s into 11, 1 (red, +) and 12, 1 (blue, −), from the back; wires F to I carry them on.', 11)
 text(24 + 30, y + 20, 'The battery\'s leads solder to the XIAO\'s BAT+ and BAT− pads (purple + and −, underneath); a sense wire runs from BAT+ down under the XIAO, round the board\'s bottom edge, onto R6.', 11)
 ly = y + 50
 text(24, ly, 'Lines and marks', 12, 600)
