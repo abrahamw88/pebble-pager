@@ -55,8 +55,8 @@ const float COMET_SETTLED = 0.25f;               // the next message starts when
 const unsigned long HOLD_SHOW_MS = 400;          // button 2 held this long: the ring starts to show the hold (a tap shows nothing)
 const unsigned long SETUP_SHOWN_MS = 800;        // at 5 s the ring stays full purple this long before the red count-down to "off" begins
 const float SETUP_GLOW = 0.4f;                   // brightness of the purple ring while the setup page is open
-const int MOTOR_COMET = 60;                      // of 255: how hard the motor runs with the comet. Low on purpose; too low and it will not start turning
-const int MOTOR_SWAY = 24;                       // with the comet, it sways up to this much stronger, once each lap
+const int MOTOR_COMET = 72;                      // of 255: how hard the motor runs with the comet. Low on purpose; too low and it will not start turning
+const int MOTOR_SWAY = 29;                       // with the comet, it sways up to this much stronger, once each lap
 const unsigned long MOTOR_FADE_MS = 500;         // and fades out over this long when the press ends
 const int MOTOR_BUZZ = MOTOR_COMET + MOTOR_SWAY; // the short buzz runs at the comet's peak...
 const unsigned long BUZZ_SHORT_MS = 250;         // ...for this long, with the green flash and the red pulses
@@ -102,11 +102,11 @@ const uint32_t RGB_WHITE = 0xFFFFFF;     // white: the white balance check on th
 // gains take away, the pixel is scaled back.
 struct WhiteBalance { float r, g, b, w, wRed, wBlue; };
 const WhiteBalance WHITE_BALANCE[] = {
-  {1.00f, 0.88f, 0.70f, 0.95f, 0.10f, 0.00f},   // 1: the warmest
-  {1.00f, 0.94f, 0.85f, 1.00f, 0.05f, 0.00f},   // 2
+  {1.00f, 0.75f, 0.40f, 0.85f, 0.25f, 0.00f},   // 1: the warmest
+  {1.00f, 0.88f, 0.70f, 0.95f, 0.12f, 0.00f},   // 2
   {1.00f, 1.00f, 1.00f, 1.00f, 0.00f, 0.00f},   // 3: as the LEDs make it
-  {0.85f, 0.95f, 1.00f, 1.00f, 0.00f, 0.06f},   // 4
-  {0.70f, 0.90f, 1.00f, 0.95f, 0.00f, 0.13f},   // 5: the coolest
+  {0.70f, 0.90f, 1.00f, 0.95f, 0.00f, 0.15f},   // 4
+  {0.40f, 0.78f, 1.00f, 0.85f, 0.00f, 0.30f},   // 5: the coolest
 };
 const int WHITE_BALANCE_DEFAULT = 2;             // index: setting 3, as the LEDs make it
 const int WHITE_BALANCE_COUNT = sizeof(WHITE_BALANCE) / sizeof(WHITE_BALANCE[0]);
