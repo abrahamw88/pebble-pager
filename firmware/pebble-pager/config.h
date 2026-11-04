@@ -54,7 +54,8 @@ const unsigned long PLAY_GAP_MS = 100;           // pause after a message has pl
 const float COMET_SETTLED = 0.25f;               // the next message starts when the last one has faded to this brightness, not to black
 const unsigned long HOLD_SHOW_MS = 400;          // button 2 held this long: the ring starts to show the hold (a tap shows nothing)
 const unsigned long SETUP_SHOWN_MS = 800;        // at 5 s the ring stays full purple this long before the red count-down to "off" begins
-const float SETUP_GLOW = 0.4f;                   // brightness of the purple ring while the setup page is open
+const float SETUP_LEVEL = 1.6f;                  // brightness of the purple ring, holding for setup and while the page is open. Blue looks dimmer
+                                                 // than the other colors at the same power, so the purple is lit higher than the other meters (1) to match them
 const int MOTOR_COMET = 72;                      // of 255: how hard the motor runs with the comet. Low on purpose; too low and it will not start turning
 const int MOTOR_SWAY = 29;                       // with the comet, it sways up to this much stronger, once each lap
 const unsigned long MOTOR_FADE_MS = 500;         // and fades out over this long when the press ends
@@ -96,17 +97,18 @@ const uint32_t RGB_ON = 0x50E080;        // green: holding to turn on a device t
 const uint32_t RGB_WHITE = 0xFFFFFF;     // white: the white balance check on the setup page
 
 // White balance. The case's lens tints the light, so every frame passes through one of these on its way to the
-// ring, chosen on the setup page: 3 is the LEDs as they are, 1 and 2 warmer, 4 and 5 cooler. Gains for red, green,
+// ring, chosen on the setup page: 3 is the LEDs as they are, 1 and 2 warmer, 4 and 5 cooler. The lens does not mix
+// the three colored LEDs and the white one well, so the white LED is turned well down as the tint moves, or it outshines them. Gains for red, green,
 // blue and the white LED, and a share of the white LED's value that is added to red or to blue (a mask alone cannot
 // change the white LED's own tint). A pixel never draws more than it was given: if what it gains outweighs what the
 // gains take away, the pixel is scaled back.
 struct WhiteBalance { float r, g, b, w, wRed, wBlue; };
 const WhiteBalance WHITE_BALANCE[] = {
-  {1.00f, 0.75f, 0.40f, 0.85f, 0.25f, 0.00f},   // 1: the warmest
-  {1.00f, 0.88f, 0.70f, 0.95f, 0.12f, 0.00f},   // 2
+  {1.00f, 0.75f, 0.40f, 0.45f, 0.35f, 0.00f},   // 1: the warmest
+  {1.00f, 0.88f, 0.70f, 0.70f, 0.18f, 0.00f},   // 2
   {1.00f, 1.00f, 1.00f, 1.00f, 0.00f, 0.00f},   // 3: as the LEDs make it
-  {0.70f, 0.90f, 1.00f, 0.95f, 0.00f, 0.15f},   // 4
-  {0.40f, 0.78f, 1.00f, 0.85f, 0.00f, 0.30f},   // 5: the coolest
+  {0.70f, 0.90f, 1.00f, 0.70f, 0.00f, 0.20f},   // 4
+  {0.40f, 0.78f, 1.00f, 0.45f, 0.00f, 0.35f},   // 5: the coolest
 };
 const int WHITE_BALANCE_DEFAULT = 2;             // index: setting 3, as the LEDs make it
 const int WHITE_BALANCE_COUNT = sizeof(WHITE_BALANCE) / sizeof(WHITE_BALANCE[0]);

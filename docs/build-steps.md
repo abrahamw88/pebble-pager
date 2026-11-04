@@ -149,7 +149,7 @@ Now the ring and motor under the firmware. The device sleeps between checks, so 
 | `press 1 700 300 200` | A comet in the device's color: a long press, a gap, a short press. Right after the recording ends (if the other device has not just answered) a dim green fill goes round the ring over up to 27 s while the message goes out and it connects, and finishes in a second with the green flash if the other device answers, or two red pulses after 23 s if not |
 | Post `pink 400 300 400` to this device's inbox from the ntfy web app | Within 15 s one pixel at the top breathes pink, and again at each check. `play` plays it: a pink comet with a buzz for each press |
 | `press 2 3000` | The ring fills purple a little over halfway, then shows the battery level and the Wi-Fi signal |
-| `press 2 5300` | Fills purple to full; the setup page opens and the ring stays dim purple. The same again closes it |
+| `press 2 5300` | Fills purple to full; the setup page opens and the ring stays purple. The same again closes it |
 | `white` | The whole ring white for 2.5 s, through the next white balance setting (the setup page has the same button); repeat until it looks white through the lens |
 
 Then the real buttons: hold button 1 and the comet should start at once and stop when you let go.
@@ -195,7 +195,7 @@ Then work through this list with both boards running the firmware. Each line com
 - With a message waiting on B, hold button 1 on B: the message plays first, then a fresh recording starts.
 - With nothing waiting, a single short tap on button 1 sends a one-press message, and a tap with a message waiting only plays it.
 - Tap button 2: the ring shows the battery level for 2 s, then the Wi-Fi signal in blue.
-- Hold button 2 for 5 s and release: the ring fills purple, the `pebble-pager` network appears, the ring stays dim purple while the setup page is open, and a new network can be added from the phone.
+- Hold button 2 for 5 s and release: the ring fills purple, the `pebble-pager` network appears, the ring stays purple while the setup page is open, and a new network can be added from the phone.
 - Hold button 2 for 10 s: after full purple the ring turns red and counts down to dark. Release and the device turns off. Press button 1: nothing happens. Tap button 2: nothing visible, and the device goes back to sleep. Hold button 2: the ring fills green, and at 5 s the device turns on.
 - Turn off A's Wi-Fi and record a message: A shows two red pulses with a short buzz. Turn the Wi-Fi back on: the queued message goes out.
 - Switch B off (button 2, 10 s) and send from A: A's dim green fill goes round for 27 s from the end of the recording, and the two red pulses come 23 s after the post (a little before the fill ends) with a short buzz, because no receipt came.

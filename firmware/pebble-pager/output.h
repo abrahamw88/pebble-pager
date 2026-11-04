@@ -236,10 +236,10 @@ void outputTick(bool working) {
   bool white = outWhiteUntil != 0;
   if (held >= OFF_HOLD_MS) ringMeterStop();
   else if (held >= redFrom) ringMeter(RGB_OFF, RING_PIXELS * (float)(OFF_HOLD_MS - held) / (OFF_HOLD_MS - redFrom), 1);
-  else if (held >= SETUP_HOLD_MS) ringMeter(RGB_SETUP, RING_PIXELS, 1);
-  else if (held >= HOLD_SHOW_MS) ringMeter(RGB_SETUP, RING_PIXELS * (float)held / SETUP_HOLD_MS, 1);
+  else if (held >= SETUP_HOLD_MS) ringMeter(RGB_SETUP, RING_PIXELS, SETUP_LEVEL);
+  else if (held >= HOLD_SHOW_MS) ringMeter(RGB_SETUP, RING_PIXELS * (float)held / SETUP_HOLD_MS, SETUP_LEVEL);
   else if (white && !gauge) ringMeter(RGB_WHITE, RING_PIXELS, 1);
-  else if (portalOn && !gauge) ringMeter(RGB_SETUP, RING_PIXELS, SETUP_GLOW);
+  else if (portalOn && !gauge) ringMeter(RGB_SETUP, RING_PIXELS, SETUP_LEVEL);
   else if (outHoldShown && !gauge) ringMeterStop();
   outHoldShown = held >= HOLD_SHOW_MS || portalOn || white;
 }
@@ -274,7 +274,7 @@ void showWhite() {   // the whole ring white for a moment, through the white bal
 void showSetup(bool on) {   // the setup page is opening (it takes a few seconds to appear) or closing
   RingTurn turn;
   ringConnectStop();
-  if (on) ringMeter(RGB_SETUP, RING_PIXELS, SETUP_GLOW);
+  if (on) ringMeter(RGB_SETUP, RING_PIXELS, SETUP_LEVEL);
   else ringMeterStop();
 }
 
