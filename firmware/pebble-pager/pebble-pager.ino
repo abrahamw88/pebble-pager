@@ -20,7 +20,7 @@
 // The real firmware prints nothing to serial (the hardware checks do); -DDEBUG_SERIAL turns the output back on.
 // The serial console and the inbox help with testing:
 //   console: show, set name|color|partner|base <value>, send <message>, play, press <1|2> <times>, boot <1|2>,
-//            battery, show received|failed|waiting|low, awake, sleep
+//            battery, show received|failed|waiting|low, white (next white balance, shown), awake, sleep
 //   inbox:   update, status (wake counts, time awake and battery, to the phone), battery, battery on|off (report
 //            every hour), awake (stay awake 10 minutes), sleep
 //
@@ -150,6 +150,9 @@ void onConsole(const String& line) {
     else if (what == "waiting") showWaiting(outOwnRgb);
     else if (what == "low") showLow();
     else sayln("show received|failed|waiting|low");
+  } else if (line == "white") {   // the setup page's white balance button
+    sayf("White balance %d of %d\n", nextWhiteBalance() + 1, WHITE_BALANCE_COUNT);
+    showWhite();
   } else if (line == "awake") {
     powerHold(AWAKE_COMMAND_MS);
   } else if (line == "sleep") {

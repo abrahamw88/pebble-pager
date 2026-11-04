@@ -1,11 +1,13 @@
-// Setup page: a Wi-Fi hotspot with one web page for the device's name, color, partner, topic base and
-// Wi-Fi networks. It opens only from the button (5 s hold), and closes after a join or after 5 minutes.
+// Setup page: a Wi-Fi hotspot with one web page for the device's name, color, partner, topic base, white balance
+// and Wi-Fi networks. It opens only from the button (5 s hold), and closes after a join or after 5 minutes.
 #ifndef PEBBLE_PORTAL_H
 #define PEBBLE_PORTAL_H
 #include <WiFi.h>
 #include <WebServer.h>
 #include <DNSServer.h>
 #include "config.h"
+
+void showWhite();   // output.h
 
 const char* SETUP_SSID = "pebble-pager";
 const char* SETUP_PASS = "pebble-pager";   // placeholder; should become a per-device value
@@ -108,7 +110,11 @@ void handleRoot() {
           "<p><label>Partner's name<br><input name=partner value=\"") + esc(partnerName) + "\" maxlength=" + String(NAME_MAX_LEN) + FIELD + "></label></p>"
           "<p><label>Topic base, the same on both devices and the phone<br><input name=base maxlength=" + String(BASE_MAX_LEN) +
           " placeholder='" + (topicBase.length() ? "saved; leave empty to keep" : "e.g. pebble-xxxxxxx") + "'" + FIELD + "></label></p>" +
-          BUTTON + "Save device</button></p></form>" + topicHelp() +
+          BUTTON + "Save device</button></p></form>"
+          "<form method=post action=/white><h3>White balance</h3>"
+          "<p>Each tap shows white on the ring with the next setting: 1 is the warmest, " + String(WHITE_BALANCE_DEFAULT + 1) + " the LEDs as they are, " +
+          String(WHITE_BALANCE_COUNT) + " the coolest, then round again. Stop when it looks white through the lens.</p>" +
+          BUTTON + "White balance " + String(whiteBalance + 1) + " of " + String(WHITE_BALANCE_COUNT) + "</button></p></form>" + topicHelp() +
           "<form method=post action=/save><h3>Wi-Fi</h3>"
           "<p><label>Network<br><select name=ssid" + FIELD + ">" + scanHtml + "</select></label></p>"
           "<p><label>Password<br><input name=pass type=password" + FIELD + "></label></p>" +
@@ -156,6 +162,7 @@ void startPortal() {
   server.on("/", handleRoot);
   server.on("/device", HTTP_POST, handleDevice);
   server.on("/save", HTTP_POST, handleSave);
+  server.on("/white", HTTP_POST, []() { nextWhiteBalance(); showWhite(); redirectHome(); });
   server.on("/delete", HTTP_POST, []() { deleteNetwork(server.arg("i").toInt()); redirectHome(); });
   server.on("/rescan", []() { refreshScan(); redirectHome(); });
   server.onNotFound(redirectHome);       // a phone's own "is there a setup page" check lands here

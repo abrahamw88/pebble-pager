@@ -55,10 +55,11 @@ const float COMET_SETTLED = 0.25f;               // the next message starts when
 const unsigned long HOLD_SHOW_MS = 400;          // button 2 held this long: the ring starts to show the hold (a tap shows nothing)
 const unsigned long SETUP_SHOWN_MS = 800;        // at 5 s the ring stays full purple this long before the red count-down to "off" begins
 const float SETUP_GLOW = 0.4f;                   // brightness of the purple ring while the setup page is open
-const unsigned long BUZZ_SHORT_MS = 120;         // with the green flash and the red pulses
-const int MOTOR_STRENGTH = 100;                  // of 255: how hard the motor runs. Low on purpose; too low and it will not start turning
-const int MOTOR_SWAY = 40;                       // with the comet, it sways up to this much stronger, once each lap
+const int MOTOR_COMET = 60;                      // of 255: how hard the motor runs with the comet. Low on purpose; too low and it will not start turning
+const int MOTOR_SWAY = 24;                       // with the comet, it sways up to this much stronger, once each lap
 const unsigned long MOTOR_FADE_MS = 500;         // and fades out over this long when the press ends
+const int MOTOR_BUZZ = MOTOR_COMET + MOTOR_SWAY; // the short buzz runs at the comet's peak...
+const unsigned long BUZZ_SHORT_MS = 250;         // ...for this long, with the green flash and the red pulses
 const int MOTOR_PWM_HZ = 20000;                  // above hearing, so the motor does not whine
 const unsigned long FRAME_MS = 16;               // the ring is redrawn this often while it is lit
 const unsigned long RING_POWER_MS = 3;           // after switching the ring's power on, wait this long before sending data
@@ -72,7 +73,7 @@ const int NAME_MAX_LEN = 20;
 const int BASE_MAX_LEN = 40;
 
 // ---- Settings, saved under "pebble" ----
-// name, color, partner, base, n + s0..s9 + p0..p9 (Wi-Fi), plus markers owned by the ntfy and update tabs.
+// name, color, partner, base, wb (white balance), n + s0..s9 + p0..p9 (Wi-Fi), plus markers owned by the ntfy and update tabs.
 // Nothing secret is compiled in: the firmware file is public, so topics and networks live only on the device.
 const char* DEFAULT_NAME = "Eliana";
 const char* DEFAULT_COLOR = "Pink";
@@ -92,12 +93,31 @@ const int WIFI_GAUGE_OFFLINE_PIXELS = 2;                              // a few p
 const uint32_t RGB_SETUP = 0x9060F0;     // purple: holding for setup, setup page open
 const uint32_t RGB_OFF = 0xF03030;       // red: holding on towards "off"
 const uint32_t RGB_ON = 0x50E080;        // green: holding to turn on a device that is off
+const uint32_t RGB_WHITE = 0xFFFFFF;     // white: the white balance check on the setup page
+
+// White balance. The case's lens tints the light, so every frame passes through one of these on its way to the
+// ring, chosen on the setup page: 3 is the LEDs as they are, 1 and 2 warmer, 4 and 5 cooler. Gains for red, green,
+// blue and the white LED, and a share of the white LED's value that is added to red or to blue (a mask alone cannot
+// change the white LED's own tint). A pixel never draws more than it was given: if what it gains outweighs what the
+// gains take away, the pixel is scaled back.
+struct WhiteBalance { float r, g, b, w, wRed, wBlue; };
+const WhiteBalance WHITE_BALANCE[] = {
+  {1.00f, 0.88f, 0.70f, 0.95f, 0.10f, 0.00f},   // 1: the warmest
+  {1.00f, 0.94f, 0.85f, 1.00f, 0.05f, 0.00f},   // 2
+  {1.00f, 1.00f, 1.00f, 1.00f, 0.00f, 0.00f},   // 3: as the LEDs make it
+  {0.85f, 0.95f, 1.00f, 1.00f, 0.00f, 0.06f},   // 4
+  {0.70f, 0.90f, 1.00f, 0.95f, 0.00f, 0.13f},   // 5: the coolest
+};
+const int WHITE_BALANCE_DEFAULT = 2;             // index: setting 3, as the LEDs make it
+const int WHITE_BALANCE_COUNT = sizeof(WHITE_BALANCE) / sizeof(WHITE_BALANCE[0]);
+const unsigned long WHITE_SHOW_MS = 2500;        // the setup page's white balance button shows white this long
 
 Preferences prefs;
 String deviceName = DEFAULT_NAME;   // also this device's inbox: <base>-<name>
 String deviceColor = DEFAULT_COLOR;
 String partnerName;                 // the other device's name: its inbox is <base>-<partner>
 String topicBase;                   // shared by both devices and the phone, e.g. pebble-xxxxxxx
+int whiteBalance = WHITE_BALANCE_DEFAULT;   // which of WHITE_BALANCE the ring uses
 bool portalOn = false;              // true while the setup page is open
 
 int colorIndex(const String& name) {
@@ -139,6 +159,14 @@ void loadSettings() {
   partnerName = cleanText(prefs.getString("partner", ""), " -_.", NAME_MAX_LEN);
   if (slug(partnerName) == slug(deviceName) || slug(partnerName) == "phone") partnerName = "";   // must be someone else
   topicBase = cleanText(prefs.getString("base", ""), "-_", BASE_MAX_LEN);
+  whiteBalance = prefs.getInt("wb", WHITE_BALANCE_DEFAULT);
+  if (whiteBalance < 0 || whiteBalance >= WHITE_BALANCE_COUNT) whiteBalance = WHITE_BALANCE_DEFAULT;
+}
+
+int nextWhiteBalance() {   // the setup page's button: the next setting, round again after the last; saved
+  whiteBalance = (whiteBalance + 1) % WHITE_BALANCE_COUNT;
+  prefs.putInt("wb", whiteBalance);
+  return whiteBalance;
 }
 
 // Save the four identity settings. A changed name or base means a different inbox, so its read markers are reset.
@@ -272,8 +300,8 @@ void consoleSettings(const String& line) {
     else if (key == "base") saveIdentity(deviceName, deviceColor, partnerName, value);
     else sayln("set name|color|partner|base <value>");
   }
-  sayf("v%d color=%s partner=%s base=%s networks=%d\n", FW_VERSION, deviceColor.c_str(),
-       partnerName.length() ? partnerName.c_str() : "(none)", topicBase.length() ? "(set)" : "(none)", savedCount());
+  sayf("v%d color=%s partner=%s base=%s networks=%d white=%d\n", FW_VERSION, deviceColor.c_str(),
+       partnerName.length() ? partnerName.c_str() : "(none)", topicBase.length() ? "(set)" : "(none)", savedCount(), whiteBalance + 1);
 }
 
 void consoleTick() {   // settings commands only (the hardware checks use this)

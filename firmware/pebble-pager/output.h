@@ -24,7 +24,8 @@ volatile unsigned long buzzUntil = 0;   // the motor runs until this millis()
 int motorNow = 0;                       // how hard the motor is running, 0 to 255
 uint32_t outOwnRgb = COLOR_RGB[0];      // this device's color
 bool outPressShown = false;             // the comet is lit for a press of button 1
-bool outHoldShown = false;              // the meter is showing a hold of button 2, or the setup page
+bool outHoldShown = false;              // the meter is showing a hold of button 2, the setup page, or white
+unsigned long outWhiteUntil = 0;        // the white balance check is showing until this millis() (0 = not showing)
 Pulse outPulse;                         // the message being played
 
 double outputNow() { return esp_timer_get_time() / 1e6; }
@@ -48,13 +49,23 @@ int motorComet() {
   static int from = 0;               // strength when the key was let go
   static unsigned long upAt = 0;     // ...and when
   if (ring.down) {
-    from = MOTOR_STRENGTH + (int)(MOTOR_SWAY * (0.5f - 0.5f * cosf(6.2831853f * ring.angle)));
+    from = MOTOR_COMET + (int)(MOTOR_SWAY * (0.5f - 0.5f * cosf(6.2831853f * ring.angle)));
     upAt = millis();
     return from;
   }
   unsigned long t = millis() - upAt;
   if (t >= MOTOR_FADE_MS) from = 0;
   return from ? from * (int)(MOTOR_FADE_MS - t) / (int)MOTOR_FADE_MS : 0;
+}
+
+// The white balance (config.h) on one pixel, as it goes out. Never more current than the frame was given.
+void whiteBalanceApply(uint8_t px[4]) {
+  const WhiteBalance& m = WHITE_BALANCE[whiteBalance];
+  float in = px[0] + px[1] + px[2] + px[3];
+  float v[4] = {px[0] * m.r + px[3] * m.wRed, px[1] * m.g, px[2] * m.b + px[3] * m.wBlue, px[3] * m.w};
+  float out = v[0] + v[1] + v[2] + v[3];
+  float scale = out > in ? in / out : 1.0f;
+  for (int c = 0; c < 4; c++) { float x = v[c] * scale + 0.5f; px[c] = x > 255 ? 255 : (uint8_t)x; }
 }
 
 void ringPower(bool on) {
@@ -133,10 +144,11 @@ void outputTask(void*) {
     outputFollowTap();
     bool lit = ringActive();
     int comet = motorComet();   // with every press, played or recorded
-    motorRun(buzzing() ? max(comet, MOTOR_STRENGTH) : comet);
+    motorRun(buzzing() ? max(comet, MOTOR_BUZZ) : comet);
     ringPower(lit);
     if (lit) {
       ringRender(frame);
+      for (int i = 0; i < RING_PIXELS; i++) whiteBalanceApply(frame[i]);
       for (int i = 0; i < RING_PIXELS; i++) pixels->setPixelColor(i, frame[i][0], frame[i][1], frame[i][2], frame[i][3]);
       pixels->show();
       int64_t at = esp_timer_get_time();   // a long gap between frames is a visible stutter: kept for "status"
@@ -220,13 +232,16 @@ void outputTick(bool working) {
   if (button[1].down) ringConnectStop();   // holding button 2 cancels the connecting fill too
   unsigned long redFrom = SETUP_HOLD_MS + SETUP_SHOWN_MS;
   bool gauge = ring.gaugeMs >= 0;   // the battery level is showing: leave it be
+  if (outWhiteUntil && (long)(outWhiteUntil - millis()) <= 0) outWhiteUntil = 0;
+  bool white = outWhiteUntil != 0;
   if (held >= OFF_HOLD_MS) ringMeterStop();
   else if (held >= redFrom) ringMeter(RGB_OFF, RING_PIXELS * (float)(OFF_HOLD_MS - held) / (OFF_HOLD_MS - redFrom), 1);
   else if (held >= SETUP_HOLD_MS) ringMeter(RGB_SETUP, RING_PIXELS, 1);
   else if (held >= HOLD_SHOW_MS) ringMeter(RGB_SETUP, RING_PIXELS * (float)held / SETUP_HOLD_MS, 1);
+  else if (white && !gauge) ringMeter(RGB_WHITE, RING_PIXELS, 1);
   else if (portalOn && !gauge) ringMeter(RGB_SETUP, RING_PIXELS, SETUP_GLOW);
   else if (outHoldShown && !gauge) ringMeterStop();
-  outHoldShown = held >= HOLD_SHOW_MS || portalOn;
+  outHoldShown = held >= HOLD_SHOW_MS || portalOn || white;
 }
 
 // ---- What the device shows. Each returns at once, except showPlay(). ----
@@ -252,6 +267,10 @@ void showWifi(bool online, int rssi) {   // 1 to 12 blue pixels by signal streng
   ringGauge(RGB_WIFI, lit < 1 ? 1 : lit > RING_PIXELS ? RING_PIXELS : lit);
 }
 bool gaugeShowing() { RingTurn turn; return ring.gaugeMs >= 0; }   // a battery or Wi-Fi gauge is still filling or holding
+void showWhite() {   // the whole ring white for a moment, through the white balance just chosen
+  { RingTurn turn; ringConnectStop(); }
+  outWhiteUntil = (millis() + WHITE_SHOW_MS) | 1;
+}
 void showSetup(bool on) {   // the setup page is opening (it takes a few seconds to appear) or closing
   RingTurn turn;
   ringConnectStop();

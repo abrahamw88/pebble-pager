@@ -150,6 +150,7 @@ Now the ring and motor under the firmware. The device sleeps between checks, so 
 | Post `pink 400 300 400` to this device's inbox from the ntfy web app | Within 15 s one pixel at the top breathes pink, and again at each check. `play` plays it: a pink comet with a buzz for each press |
 | `press 2 3000` | The ring fills purple a little over halfway, then shows the battery level and the Wi-Fi signal |
 | `press 2 5300` | Fills purple to full; the setup page opens and the ring stays dim purple. The same again closes it |
+| `white` | The whole ring white for 2.5 s, through the next white balance setting (the setup page has the same button); repeat until it looks white through the lens |
 
 Then the real buttons: hold button 1 and the comet should start at once and stop when you let go.
 
@@ -159,7 +160,7 @@ If something's off:
 - **The comet runs anticlockwise:** the ring is face down or mirrored; it should run clockwise seen from the front.
 - **Colors look washed out, or the ring dims and flickers when a lot is lit:** note which display, and whether USB or battery power. The firmware limits the ring to 180 mA; that limit and the brightness of each display are settings to tune (`ringTune` in `ring.h`, and the virtual pager shows the same animation in a browser).
 - **The ring flashes or a pixel stays lit after a display ends:** note it. The firmware cuts the ring's power and releases its data pin when it goes dark, and this is the first time that has run on real pixels.
-- **The motor does not turn, or the buzz is too weak or too strong:** it runs at part power on purpose. Raise or lower `MOTOR_STRENGTH` in `config.h` (100 of 255 to start; a coin motor may need more to start turning). `BUZZ_SHORT_MS` sets how long the short buzz lasts.
+- **The motor does not turn, or the buzz is too weak or too strong:** it runs at part power on purpose. Raise or lower `MOTOR_COMET` in `config.h` (60 of 255 to start; a coin motor may need more to start turning). The short buzz runs at the comet's peak, `MOTOR_COMET` + `MOTOR_SWAY`, for `BUZZ_SHORT_MS`.
 
 ## Step 8 (optional): Add the battery and battery sensor
 
